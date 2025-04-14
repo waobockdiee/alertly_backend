@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: API REST para la App
+
+Resources:
+  MyAPIFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: .          # Cambiado de "app" a "."
+      Runtime: go1.x
+      CodeUri: cmd/app    # Ruta relativa desde la raíz del módulo (/backend)
+      Environment:
+        Variables:
+          DB_USER: !Ref DB_USER
+          DB_PASS: !Ref DB_PASS
+          DB_HOST: !Ref DB_HOST
+          DB_PORT: !Ref DB_PORT
+          DB_NAME: !Ref DB_NAME
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /notifications
+            Method: post
+
+Parameters:
+  DB_USER:
+    Type: String
+  DB_PASS:
+    Type: String
+  DB_HOST:
+    Type: String
+  DB_PORT:
+    Type: String
+  DB_NAME:
+    Type: String

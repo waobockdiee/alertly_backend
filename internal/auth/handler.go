@@ -46,3 +46,7 @@ func SignIn(c *gin.Context) {
 
 	response.Send(c, http.StatusOK, false, "Success", tokenResp)
 }
+
+func ValidateSession(c *gin.Context) {
+	response.Send(c, http.StatusOK, false, "Token válido", nil)
+}

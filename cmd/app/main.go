@@ -5,9 +5,11 @@ import (
 	"alertly/internal/auth"
 	"alertly/internal/comments"
 	"alertly/internal/database"
+	"alertly/internal/editprofile"
 	"alertly/internal/getcategories"
 	"alertly/internal/getclusterby"
 	"alertly/internal/getclustersbylocation"
+	"alertly/internal/getincidentsasreels"
 	"alertly/internal/getsubcategoriesbycategoryid"
 	"alertly/internal/middleware"
 	"alertly/internal/myplaces"
@@ -66,11 +68,16 @@ func main() {
 
 	api := router.Group("/api")
 	api.Use(middleware.TokenAuthMiddleware())
+	api.GET("/account/validate", auth.ValidateSession)
 	router.GET("/category/get_all", getcategories.GetCategories)
 	router.GET("/category/getsubcategoriesbycategoryid/:id", getsubcategoriesbycategoryid.GetSubcategoriesByCategoryId)
-	router.POST("/incident/create", newincident.Create)
+	api.POST("/incident/create", newincident.Create)
 	api.GET("/cluster/getbyid/:incl_id", getclusterby.View)
 	router.GET("/cluster/getbylocation/:min_latitude/:max_latitude/:min_longitude/:max_longitude/:from_date/:to_date/:insu_id", getclustersbylocation.Get)
+	api.GET("/cluster/getasreel/:min_latitude/:max_latitude/:min_longitude/:max_longitude", getincidentsasreels.GetReel)
+
+	api.GET("/account/get_my_profile", editprofile.GetMyProfile)
+	api.POST("/account/edit_fullname", editprofile.UpdateFullName)
 	router.GET("/account/myplaces/get/:account_id", myplaces.Get)
 	api.POST("/account/myplaces/add", myplaces.Add)
 	api.GET("/account/myplaces/get", myplaces.GetByAccountId)
@@ -82,6 +89,8 @@ func main() {
 	api.GET("/account/cluster/toggle_save/:incl_id", saveclusteraccount.ToggleSaveClusterAccount)
 	api.POST("/cluster/send_comment", comments.SaveClusterComment)
 	api.GET("/saved/get_my_list", saveclusteraccount.GetMyList)
+	api.GET("/saved/delete/:acs_id", saveclusteraccount.DeleteFollowIncident)
+	api.POST("/account/report/:account_id", profile.ReportAccount)
 
 	log.Printf("Servidor iniciado en :%s", serverPort)
 

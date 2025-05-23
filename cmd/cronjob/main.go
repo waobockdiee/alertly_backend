@@ -1,8 +1,8 @@
 package main
 
 import (
+	"alertly/internal/cronjobs/cjcluster"
 	"alertly/internal/cronjobs/cjdatabase"
-	"alertly/internal/cronjobs/notifications"
 	"fmt"
 	"log"
 	"os"
@@ -24,27 +24,28 @@ func main() {
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
 	dbName := os.Getenv("DB_NAME")
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", dbUser, dbPass, dbHost, dbPort, dbName)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true", dbUser, dbPass, dbHost, dbPort, dbName)
 	cjdatabase.InitDB(dsn)
 	defer cjdatabase.DB.Close()
 
 	// Crear una instancia del scheduler de cron (opción WithSeconds para mayor precisión)
 	c := cron.New(cron.WithSeconds())
 
-	// Procesamiento de notificaciones cada 1 minuto
+	//SetClusterToInactiveAndSetAccountScore
+	// actualiza el cluster cuando ya han pasado mas de 48horas de creado.
+	// actualiza la credibilidad del account
 	_, err := c.AddFunc("@every 1m", func() {
-		repo := notifications.NewRepository(cjdatabase.DB)
-		service := notifications.NewService(repo)
-		log.Println("Ejecutando procesamiento de notificaciones:", time.Now())
-		service.ProcessNotifications()
+		repo := cjcluster.NewRepository(cjdatabase.DB)
+		service := cjcluster.NewService(repo)
+		log.Println("running SetClusterToInactiveAndSetAccountScore:", time.Now())
+		service.SetClusterToInactiveAndSetAccountScore()
 	})
 	if err != nil {
-		log.Fatalf("Error programando el procesamiento de notificaciones: %v", err)
+		log.Fatalf("Error SetClusterToInactiveAndSetAccountScore: %v", err)
 	}
-
 	// Iniciar el scheduler
 	c.Start()
-	log.Println("Cron scheduler iniciado. Esperando tareas...")
+	log.Println("Cron scheduler started. Waiting tasks...")
 
 	// Bloquear el proceso para mantener el cronjob activo
 	select {}

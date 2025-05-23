@@ -77,3 +77,37 @@ func GetMyList(c *gin.Context) {
 	}
 	response.Send(c, http.StatusOK, false, "success", list)
 }
+
+func DeleteFollowIncident(c *gin.Context) {
+	var accountID int64
+	var acsID int64
+	var err error
+
+	accountID, err = auth.GetUserFromContext(c)
+
+	if err != nil {
+		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		return
+	}
+
+	unformattedAcsID := c.Param("acs_id")
+	acsID, err = strconv.ParseInt(unformattedAcsID, 10, 64)
+
+	if err != nil {
+		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		return
+	}
+
+	repo := NewRepository(database.DB)
+	service := NewService(repo)
+
+	err = service.DeleteFollowIncident(acsID, accountID)
+
+	if err != nil {
+		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		return
+	}
+
+	response.Send(c, http.StatusOK, false, "success", err.Error())
+
+}

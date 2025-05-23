@@ -3,6 +3,7 @@ package saveclusteraccount
 type Service interface {
 	ToggleSaveClusterAccount(accountID, inclID int64) error
 	GetMyList(accountID int64) ([]MyList, error)
+	DeleteFollowIncident(acsID, accountID int64) error
 }
 
 type service struct {
@@ -26,4 +27,9 @@ func (s *service) GetMyList(accountID int64) ([]MyList, error) {
 
 	myList, err = s.repo.GetMyList(accountID)
 	return myList, err
+}
+
+func (s *service) DeleteFollowIncident(acsID, accountID int64) error {
+	err := s.repo.DeleteFollowIncident(acsID, accountID)
+	return err
 }

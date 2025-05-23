@@ -6,8 +6,15 @@ import (
 	"fmt"
 )
 
+// func SaveNotification(tx *sql.Tx, nType string, accountID int64, referenceID int64) error {
+// 	return nil
+// }
+
+/*
+Comentado porque aun no esta definida la logica final y esta me esta dando un error obvio por cambiar cosas en la tabla notifications
+*/
 func SaveNotification(tx *sql.Tx, nType string, accountID int64, referenceID int64) error {
-	query := `INSERT INTO account_notifications(acno_id, account_id, title, message, type, link, must_send_as_notification_push, must_send_as_notification, must_be_processed, error_message, reference_id) 
+	query := `INSERT INTO notifications(noti_id, owner_account_id, title, message, type, link, must_send_as_notification_push, must_send_as_notification, must_be_processed, error_message, reference_id)
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	n := HandleNotification(nType, accountID, referenceID)
 	_, err := tx.Exec(query, n.AcnoID, n.AccountID, n.Title, n.Message, n.Type, n.Link, n.MustSendPush, n.MustSendInApp, n.MustBeProcessed, n.ErrorMessage, n.ReferenceID)

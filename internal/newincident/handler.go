@@ -1,10 +1,10 @@
 package newincident
 
 import (
+	"alertly/internal/auth"
 	"alertly/internal/database"
 	"alertly/internal/media"
 	"alertly/internal/response"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -19,6 +19,15 @@ var validate = validator.New()
 
 func Create(c *gin.Context) {
 	// Parse multipart form (límite 10 MB)
+	// var accountID int64
+	accountID, err := auth.GetUserFromContext(c)
+
+	if err != nil {
+		log.Printf("error getting accountID: %v", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		return
+	}
+
 	if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
 		log.Printf("Error parsing multipart form: %v", err)
 		response.Send(c, http.StatusBadRequest, true, "Error parsing form", err.Error())
@@ -27,6 +36,7 @@ func Create(c *gin.Context) {
 
 	// Vincular campos del formulario al struct IncidentReport
 	var incident IncidentReport
+	log.Printf("New Incident bind: %+v", incident)
 	if err := c.ShouldBind(&incident); err != nil {
 		log.Printf("Error al bindear formulario: %v", err)
 		response.Send(c, http.StatusBadRequest, true, "Wrong data in", err.Error())
@@ -39,9 +49,6 @@ func Create(c *gin.Context) {
 		response.Send(c, http.StatusBadRequest, true, "Bad request", err.Error())
 		return
 	}
-
-	fmt.Println("DEBUGING!!!", incident)
-
 	// Procesar el archivo enviado (campo "file")
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
@@ -87,6 +94,7 @@ func Create(c *gin.Context) {
 	// Continuar con la lógica original de guardado en la base de datos
 	repo := NewRepository(database.DB)
 	service := NewService(repo)
+	incident.AccountId = accountID
 
 	result, err := service.Save(incident)
 	if err != nil {
@@ -95,5 +103,6 @@ func Create(c *gin.Context) {
 		return
 	}
 
-	response.Send(c, http.StatusOK, false, "File uploaded successfully", result)
+	log.Printf("success: %v", result)
+	response.Send(c, http.StatusOK, false, "Thank you for your report! We’ve received your incident and will review it shortly.", result)
 }

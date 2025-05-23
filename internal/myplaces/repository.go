@@ -26,7 +26,7 @@ func NewRepository(db *sql.DB) Repository {
 func (r *mysqlRepository) Get(accountId int) ([]MyPlaces, error) {
 
 	query := `
-	SELECT afl_id, account_id, title, latitude, longitude, city, province, postal_code, status FROM account_favorite_locations WHERE account_id = ? ORDER BY afl_id DESC;
+	SELECT afl_id, account_id, title, latitude, longitude, city, province, postal_code, status, radius FROM account_favorite_locations WHERE account_id = ? ORDER BY afl_id DESC;
 	`
 	var myPlaces []MyPlaces
 
@@ -38,7 +38,7 @@ func (r *mysqlRepository) Get(accountId int) ([]MyPlaces, error) {
 
 	for rows.Next() {
 		var place MyPlaces
-		if err := rows.Scan(&place.AflId, &place.Title, &place.Latitude, &place.Longitude, &place.City, &place.Province, &place.PostalCode, &place.Status); err != nil {
+		if err := rows.Scan(&place.AflId, &place.AccountId, &place.Title, &place.Latitude, &place.Longitude, &place.City, &place.Province, &place.PostalCode, &place.Status, &place.Radius); err != nil {
 			return myPlaces, err
 		}
 		myPlaces = append(myPlaces, place)
@@ -47,6 +47,8 @@ func (r *mysqlRepository) Get(accountId int) ([]MyPlaces, error) {
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("%v", myPlaces)
 
 	return myPlaces, nil
 }
@@ -174,7 +176,7 @@ func (r *mysqlRepository) GetById(accountId, aflId int64) (MyPlaces, error) {
 }
 
 func (r *mysqlRepository) GetByAccountId(accountId int64) ([]MyPlaces, error) {
-	query := `SELECT afl_id, account_id, title, status, city FROM account_favorite_locations WHERE account_id = ? ORDER BY afl_id DESC`
+	query := `SELECT afl_id, account_id, title, status, city, latitude, longitude, radius FROM account_favorite_locations WHERE account_id = ? ORDER BY afl_id DESC`
 	rows, err := r.db.Query(query, accountId)
 	if err != nil {
 		return nil, err
@@ -190,6 +192,9 @@ func (r *mysqlRepository) GetByAccountId(accountId int64) ([]MyPlaces, error) {
 			&c.Title,
 			&c.Status,
 			&c.City,
+			&c.Latitude,
+			&c.Longitude,
+			&c.Radius,
 		); err != nil {
 			return nil, err
 		}

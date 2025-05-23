@@ -48,6 +48,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 
 		if claims, ok := token.Claims.(*Claims); ok && token.Valid {
 			c.Set("AccountId", claims.AccountID) // claims.AccountID debe ser int64
+			// c.Set("account_id", claims.AccountID)
 			c.Next()
 		} else {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})

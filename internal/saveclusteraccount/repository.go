@@ -1,10 +1,13 @@
 package saveclusteraccount
 
-import "database/sql"
+import (
+	"database/sql"
+)
 
 type Repository interface {
 	ToggleSaveClusterAccount(accountID, inclID int64) error
 	GetMyList(accountID int64) ([]MyList, error)
+	DeleteFollowIncident(acsID, accountID int64) error
 }
 
 type mysqlRepository struct {
@@ -55,7 +58,7 @@ func (r *mysqlRepository) GetMyList(accountID int64) ([]MyList, error) {
 	var list []MyList
 
 	query := `SELECT 
-	t1.acs_id, t1.account_id, t1.incl_id, t2.media_url
+	t1.acs_id, t1.account_id, t1.incl_id, t2.media_url, t2.credibility
 	FROM account_cluster_saved t1 INNER JOIN incident_clusters t2 ON t1.incl_id = t2.incl_id
 	WHERE t1.account_id = ?`
 
@@ -70,7 +73,7 @@ func (r *mysqlRepository) GetMyList(accountID int64) ([]MyList, error) {
 	for rows.Next() {
 		var myList MyList
 
-		if err := rows.Scan(&myList.AcsID, &myList.AccountID, &myList.InclID, &myList.MediaUrl); err != nil {
+		if err := rows.Scan(&myList.AcsID, &myList.AccountID, &myList.InclID, &myList.MediaUrl, &myList.Credibility); err != nil {
 			return list, err
 		}
 
@@ -82,4 +85,10 @@ func (r *mysqlRepository) GetMyList(accountID int64) ([]MyList, error) {
 	}
 
 	return list, nil
+}
+
+func (r *mysqlRepository) DeleteFollowIncident(acsID, accountID int64) error {
+	query := `DELETE FROM account_cluster_saved WHERE acs_id = ? AND account_id = ?`
+	_, err := r.db.Exec(query, acsID, accountID)
+	return err
 }

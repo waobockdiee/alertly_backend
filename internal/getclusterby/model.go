@@ -38,6 +38,7 @@ type Cluster struct {
 	CredibilityPercent     float64            `json:"credibility_percent"`
 	GetAccountAlreadyVoted bool               `json:"get_account_already_voted"`
 	GetAccountAlreadySaved bool               `json:"get_account_already_saved"`
+	Credibility            float64            `json:"credibility"`
 }
 
 type Comment struct {

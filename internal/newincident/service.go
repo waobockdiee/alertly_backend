@@ -5,9 +5,12 @@ import (
 	"alertly/internal/database"
 	"alertly/internal/profile"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
+)
+
+const (
+	CLUSTER_EXPIRES_IN = 48 // in hours
 )
 
 type Service interface {
@@ -22,34 +25,43 @@ func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
-var cluster Cluster
-var clusterId int64
+// service.go (paquete newincident)
+
+// service.go
 
 func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
-	address, city, province, postalCode, errGeo := common.ReverseGeocode(incident.Latitude, incident.Longitude)
-
-	if errGeo != nil {
-		return IncidentReport{}, errGeo
+	// 1) Geocoding (lo necesitas siempre para el report)
+	addr, city, prov, postal, err := common.ReverseGeocode(incident.Latitude, incident.Longitude)
+	if err != nil {
+		return IncidentReport{}, err
 	}
 
-	var err error
+	// 2) **Si viene incl_id Y NO viene vote, es solo un update de posición**
+	if incident.InclId != 0 && incident.Vote == nil {
+		// actualizamos únicamente la ubicación del cluster
+		if _, err := s.repo.UpdateClusterLocation(
+			incident.InclId,
+			incident.Latitude,
+			incident.Longitude,
+		); err != nil {
+			return IncidentReport{}, fmt.Errorf("updating cluster location: %w", err)
+		}
+		// después seguimos a grabar el report
+	} else {
+		// 3) Lógica habitual de NUEVO CLUSTER o VOTO bayesiano
+		cluster, err := s.repo.CheckAndGetIfClusterExist(incident)
+		if err != nil && err != sql.ErrNoRows {
+			return IncidentReport{}, err
+		}
 
-	cluster, err = s.repo.CheckAndGetIfClusterExist(incident)
-	if err != nil {
-
-		// return incident, err
 		if err == sql.ErrNoRows {
-			// No existe un cluster: se debe crear uno nuevo
-			// Ejemplo: cluster, err = s.repo.CreateCluster(incident)
+			// crear cluster nuevo…
 			now := time.Now().UTC()
-			endTime := time.Now().Add(24 * time.Hour)
-
-			fmt.Println("SUBCATEGORY", incident.SubcategoryCode)
-			fmt.Println("CATEGORY", incident.CategoryCode)
+			end := now.Add(CLUSTER_EXPIRES_IN * time.Hour)
 			cluster = Cluster{
 				CreatedAt:       &now,
 				StartTime:       &now,
-				EndTime:         &endTime,
+				EndTime:         &end,
 				MediaUrl:        incident.Media.Uri,
 				CenterLatitude:  incident.Latitude,
 				CenterLongitude: incident.Longitude,
@@ -57,67 +69,65 @@ func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
 				MediaType:       incident.MediaType,
 				EventType:       incident.EventType,
 				Description:     incident.Description,
-				Address:         address,
+				Address:         addr,
 				City:            city,
-				Province:        province,
-				PostalCode:      postalCode,
+				Province:        prov,
+				PostalCode:      postal,
 				SubcategoryName: incident.SubCategoryName,
 				SubcategoryCode: incident.SubcategoryCode,
 				CategoryCode:    incident.CategoryCode,
 			}
 			cluster.InclId, err = s.repo.SaveCluster(cluster, incident.AccountId)
-			clusterId = cluster.InclId
-
 			if err != nil {
 				return IncidentReport{}, err
 			}
-
 		} else {
-			// Ocurrió otro error en la consulta
-			return IncidentReport{}, err
+			// existe → aplicamos voto si viene y no ha votado ya
+			voted, _, err := s.repo.HasAccountVoted(cluster.InclId, incident.AccountId)
+			if err != nil {
+				return IncidentReport{}, fmt.Errorf("checking vote history: %w", err)
+			}
+			if !voted && incident.Vote != nil {
+				if *incident.Vote {
+					_, err = s.repo.UpdateClusterAsTrue(
+						cluster.InclId,
+						incident.AccountId,
+						incident.Latitude,
+						incident.Longitude,
+					)
+				} else {
+					_, err = s.repo.UpdateClusterAsFalse(
+						cluster.InclId,
+						incident.AccountId,
+						incident.Latitude,
+						incident.Longitude,
+					)
+				}
+				if err != nil {
+					return IncidentReport{}, fmt.Errorf("update cluster vote: %w", err)
+				}
+			}
 		}
-
-	} else {
-		// EXISTE y actualiza el cluster
-		clusterId = cluster.InclId
-		result, err := s.repo.UpdateCluster(cluster.InclId, incident)
-		if err != nil {
-			return IncidentReport{}, errors.New("error updating cluster. try later")
-		}
-
-		rowsAffected, err := result.RowsAffected()
-		if err != nil || rowsAffected == 0 {
-			return IncidentReport{}, fmt.Errorf("no rows affected or error getting rows affected: %w", err)
-		}
-
+		// nos aseguramos de fijar el clusterId para el report
+		incident.InclId = cluster.InclId
 	}
 
-	// path := incident.Media.Uri
-	// if _, err := os.Stat(path); err != nil {
-	// 	fmt.Printf("Error: file does not exist or cannot be accessed: %v\n", err)
-	// 	return IncidentReport{}, err
-	// }
-
+	// 4) Ahora grabamos siempre el incident_report
 	incident.MediaUrl = incident.Media.Uri
-	incident.InclId = clusterId
-	incident.Address = address
+	incident.Address = addr
 	incident.City = city
-	incident.Province = province
-	incident.PostalCode = postalCode
+	incident.Province = prov
+	incident.PostalCode = postal
 
-	resultt, err := s.repo.Save(incident)
+	inreId, err := s.repo.Save(incident)
 	if err != nil {
 		return IncidentReport{}, err
 	}
+	incident.InreId = inreId
 
-	repo := profile.NewRepository(database.DB)
-	cs := profile.NewService(repo)
-	err = cs.UpdateTotalIncidents(incident.AccountId)
+	// 5) Actualizamos contador de perfil
+	profSvc := profile.NewService(profile.NewRepository(database.DB))
+	_ = profSvc.UpdateTotalIncidents(incident.AccountId)
 
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	incident.InreId = resultt
 	return incident, nil
 }

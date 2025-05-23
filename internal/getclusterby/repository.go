@@ -49,6 +49,7 @@ func (r *mysqlRepository) GetIncidentBy(inclId int64) (Cluster, error) {
   c.subcategory_name,
   c.category_code,
   c.subcategory_code,
+  c.credibility,
   IFNULL(
     (
       SELECT JSON_ARRAYAGG(
@@ -81,7 +82,7 @@ WHERE c.incl_id = ?;
 	var cluster Cluster
 	var rawIncidents string
 
-	err := r.db.QueryRow(query, inclId).Scan(&cluster.InclId, &cluster.Address, &cluster.CenterLatitude, &cluster.CenterLongitude, &cluster.City, &cluster.CounterTotalComments, &cluster.CounterTotalFlags, &cluster.CounterTotalViews, &cluster.CounterTotalVotes, &cluster.CounterTotalVotesTrue, &cluster.CounterTotalVotesFalse, &cluster.CreatedAt, &cluster.Description, &cluster.EndTime, &cluster.EventType, &cluster.IncidentCount, &cluster.IsActive, &cluster.InsuId, &cluster.MediaType, &cluster.MediaUrl, &cluster.PostalCode, &cluster.Province, &cluster.StartTime, &cluster.SubcategoryName, &cluster.CategoryCode, &cluster.SubcategoryCode, &rawIncidents)
+	err := r.db.QueryRow(query, inclId).Scan(&cluster.InclId, &cluster.Address, &cluster.CenterLatitude, &cluster.CenterLongitude, &cluster.City, &cluster.CounterTotalComments, &cluster.CounterTotalFlags, &cluster.CounterTotalViews, &cluster.CounterTotalVotes, &cluster.CounterTotalVotesTrue, &cluster.CounterTotalVotesFalse, &cluster.CreatedAt, &cluster.Description, &cluster.EndTime, &cluster.EventType, &cluster.IncidentCount, &cluster.IsActive, &cluster.InsuId, &cluster.MediaType, &cluster.MediaUrl, &cluster.PostalCode, &cluster.Province, &cluster.StartTime, &cluster.SubcategoryName, &cluster.CategoryCode, &cluster.SubcategoryCode, &cluster.Credibility, &rawIncidents)
 
 	if err != nil {
 		return cluster, fmt.Errorf("error scanning row: %w", err)

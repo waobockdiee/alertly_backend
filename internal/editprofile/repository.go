@@ -3,6 +3,7 @@ package editprofile
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 )
 
@@ -30,12 +31,12 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *mysqlRepository) GetAccountByID(accountID int64) (Account, error) {
-	query := `SELECT account_id, email, first_name, last_name, password FROM account WHERE account_id = ?`
+	query := `SELECT account_id, email, first_name, last_name, password, can_update_nickname, can_update_fullname, can_update_birthdate FROM account WHERE account_id = ?`
 	row := r.db.QueryRow(query, accountID)
 
 	var account Account
 
-	err := row.Scan(&account.AccountID, &account.Email, &account.FirstName, &account.LastName, &account.Password)
+	err := row.Scan(&account.AccountID, &account.Email, &account.FirstName, &account.LastName, &account.Password, &account.CanUpdateNickname, &account.CanUpdateFullName, &account.CanUpdateBirthDate)
 	return account, err
 }
 
@@ -79,7 +80,7 @@ func (r *mysqlRepository) UpdateEmail(accountID int64, email string) error {
 	}
 
 	if n == 0 {
-		err := errors.New("wrong code.")
+		err := errors.New("wrong code")
 		return err
 	}
 
@@ -109,7 +110,7 @@ func (r *mysqlRepository) UpdatePassword(accountID int64, password string) error
 }
 
 func (r *mysqlRepository) UpdateNickname(accountID int64, nickname string) error {
-	query := `UPDATE account SET nickname = ?, can_change_nickname = 0 WHERE account_id = ? AND can_change_nickname = 1`
+	query := `UPDATE account SET nickname = ?, can_update_nickname = 0 WHERE account_id = ? AND can_update_nickname = 1`
 	_, err := r.db.Exec(query, nickname, accountID)
 
 	if err != nil {
@@ -131,7 +132,10 @@ func (r *mysqlRepository) UpdatePhoneNumber(accountID int64, phoneNumber string)
 }
 
 func (r *mysqlRepository) UpdateFullName(accountID int64, firstName, lastName string) error {
-	query := `UPDATE account SET first_name = ?, last_name = ?, can_change_fullname = 0 WHERE account_id = ? AND can_change_fullname = 1`
+	fmt.Println("account_id", accountID)
+	fmt.Println("first_name", firstName)
+	fmt.Println("first_name", lastName)
+	query := `UPDATE account SET first_name = ?, last_name = ?, can_update_fullname = 0 WHERE account_id = ? AND can_update_fullname = 1`
 	_, err := r.db.Exec(query, firstName, lastName, accountID)
 
 	if err != nil {
@@ -164,7 +168,7 @@ func (r *mysqlRepository) UpdateIsPremium(accountID int64, isPremium bool) error
 }
 
 func (r *mysqlRepository) UpdateBirthDate(accountID int64, year, month, day string) error {
-	query := `UPDATE account SET birth_year = ?, birth_month = ?, birth_day = ?, can_change_birthdate = 0 WHERE account_id = ? AND can_change_birthdate = 1`
+	query := `UPDATE account SET birth_year = ?, birth_month = ?, birth_day = ?, can_update_birthdate = 0 WHERE account_id = ? AND can_update_birthdate = 1`
 	_, err := r.db.Exec(query, year, month, day, accountID)
 
 	if err != nil {

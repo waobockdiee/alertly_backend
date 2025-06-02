@@ -94,7 +94,7 @@ func main() {
 
 	log.Printf("Servidor iniciado en :%s", serverPort)
 
-	// router.Run(IpServer + ":" + serverPort)
+	router.Run(IpServer + ":" + serverPort)
 	addr := IpServer + ":" + serverPort
 	log.Printf("Servidor iniciado en %s", addr)
 

@@ -3,6 +3,7 @@ package editprofile
 import (
 	"alertly/internal/common"
 	"alertly/internal/emails"
+	"errors"
 	"log"
 
 	"golang.org/x/crypto/bcrypt"
@@ -13,13 +14,14 @@ type Service interface {
 	GenerateCodeUpdateEmail(accountID int64) error
 	ValidateUpdateEmailCode(accountID int64, code string) (bool, error)
 	UpdateEmail(accountID int64, email string) error
-	UpdatePassword(accountID int64, oldPassword, newPassowrd string) error
+	UpdatePassword(accountID int64, newPassword string) error
 	UpdateNickname(accountID int64, nickname string) error
 	UpdatePhoneNumber(accountID int64, phoneNumber string) error
 	UpdateFullName(accountID int64, firstName, lastName string) error
 	UpdateIsPrivateProfile(accountID int64, isPrivateProfile bool) error
 	UpdateIsPremium(accountID int64, isPremium bool) error
 	UpdateBirthDate(accountID int64, year, month, day string) error
+	CheckPasswordMatch(password, newPassword string, accountID int64) error
 	// UpdateThumbnail(accountID int64) error
 }
 
@@ -85,26 +87,6 @@ func (s *service) UpdateEmail(accountID int64, email string) error {
 	return s.repo.UpdateEmail(accountID, email)
 }
 
-func (s *service) UpdatePassword(accountID int64, oldPassword, newPassword string) error {
-
-	var account Account
-	var err error
-
-	account, err = s.repo.GetAccountByID(accountID)
-
-	if err != nil {
-		log.Printf("Error in editprofile/service.go UpdatePassword: %v", err)
-		return err
-	}
-
-	if err = bcrypt.CompareHashAndPassword([]byte(oldPassword), []byte(account.Password)); err != nil {
-		log.Printf("Error in editprofile/service.go CompareHashAndPassword: %v", err)
-		return err
-	}
-
-	return s.repo.UpdatePassword(accountID, newPassword)
-}
-
 func (s *service) UpdateNickname(accountID int64, nickname string) error {
 	return s.repo.UpdateNickname(accountID, nickname)
 }
@@ -127,6 +109,37 @@ func (s *service) UpdateIsPremium(accountID int64, isPremium bool) error {
 
 func (s *service) UpdateBirthDate(accountID int64, year, month, day string) error {
 	return s.repo.UpdateBirthDate(accountID, year, month, day)
+}
+
+func (s *service) CheckPasswordMatch(password, newPassword string, accountID int64) error {
+	var account Account
+	var err error
+
+	account, err = s.repo.GetAccountByID(accountID)
+
+	if err != nil {
+		log.Printf("Error in CheckPasswordMatch editprofile/service.go GetAccountByID: %v", err)
+		return err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(password)); err != nil {
+		return errors.New("wrong password")
+	}
+
+	return nil
+}
+
+func (s *service) UpdatePassword(accountID int64, newPassword string) error {
+
+	var password string
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	password = string(hashedPassword)
+
+	return s.repo.UpdatePassword(accountID, password)
 }
 
 // func (s *service) UpdateThumbnail(accountID int64) error {

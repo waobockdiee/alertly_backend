@@ -31,12 +31,12 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *mysqlRepository) GetAccountByID(accountID int64) (Account, error) {
-	query := `SELECT account_id, email, first_name, last_name, password, can_update_nickname, can_update_fullname, can_update_birthdate FROM account WHERE account_id = ?`
+	query := `SELECT account_id, email, first_name, last_name, nickname, password, can_update_nickname, can_update_fullname, can_update_birthdate, birth_year, birth_month, birth_day, can_update_email FROM account WHERE account_id = ?`
 	row := r.db.QueryRow(query, accountID)
 
 	var account Account
 
-	err := row.Scan(&account.AccountID, &account.Email, &account.FirstName, &account.LastName, &account.Password, &account.CanUpdateNickname, &account.CanUpdateFullName, &account.CanUpdateBirthDate)
+	err := row.Scan(&account.AccountID, &account.Email, &account.FirstName, &account.LastName, &account.NickName, &account.Password, &account.CanUpdateNickname, &account.CanUpdateFullName, &account.CanUpdateBirthDate, &account.BirthYear, &account.BirthMonth, &account.BirthDay, &account.CanUpdateEmail)
 	return account, err
 }
 
@@ -64,7 +64,10 @@ func (r *mysqlRepository) ValidateUpdateEmailCode(accountID int64, code string) 
 }
 
 func (r *mysqlRepository) UpdateEmail(accountID int64, email string) error {
-	query := `UPDATE account SET email = ? WHERE account_id = ?`
+
+	log.Printf("account_id: %v", accountID)
+	log.Printf("email: %v", email)
+	query := `UPDATE account SET email = ?, can_update_email = 0 WHERE account_id = ?`
 	res, err := r.db.Exec(query, email, accountID)
 
 	if err != nil {
@@ -73,6 +76,8 @@ func (r *mysqlRepository) UpdateEmail(accountID int64, email string) error {
 	}
 
 	n, err := res.RowsAffected()
+
+	log.Printf("n: %v", n)
 
 	if err != nil {
 		log.Printf("Error: %v", err)

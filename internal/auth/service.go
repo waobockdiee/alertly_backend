@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -11,6 +12,7 @@ import (
 type Service interface {
 	GenerateSessionToken(user User) (TokenResponse, error)
 	AuthenticateUser(email, password string) (User, error)
+	CheckPasswordMatch(password, email string, accountID int64) (PasswordMatch, error)
 }
 
 type service struct {
@@ -55,16 +57,19 @@ func (s *service) AuthenticateUser(email, password string) (User, error) {
 	return user, nil
 }
 
-// func AccountID(tokenString string) (int64, error) {
-// 	claims := &Claims{}
-// 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-// 		return jwtSecret, nil
-// 	})
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	if !token.Valid {
-// 		return 0, errors.New("token inválido")
-// 	}
-// 	return claims.AccountID, nil
-// }
+func (s *service) CheckPasswordMatch(password, email string, accountID int64) (PasswordMatch, error) {
+	var pm PasswordMatch
+	var err error
+	pm, err = s.repo.GetUserById(accountID)
+	fmt.Println("DEBUG:", pm)
+
+	if pm.Email == "" {
+		return pm, errors.New("wrong user")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(pm.Password), []byte(password)); err != nil {
+		return pm, errors.New("wrong password")
+	}
+
+	return pm, err
+}

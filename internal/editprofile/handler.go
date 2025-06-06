@@ -162,7 +162,15 @@ func UpdatePassword(c *gin.Context) {
 	repo := NewRepository(database.DB)
 	service := NewService(repo)
 
-	err = service.UpdatePassword(account.AccountID, account.Password, account.NewPassword)
+	err = service.CheckPasswordMatch(account.Password, account.NewPassword, account.AccountID)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "Wrong password. Please try again", nil)
+		return
+	}
+
+	err = service.UpdatePassword(account.AccountID, account.NewPassword)
 
 	if err != nil {
 		log.Printf("Error: %v", err)

@@ -2,10 +2,12 @@ package auth
 
 import (
 	"database/sql"
+	"fmt"
 )
 
 type Repository interface {
 	GetUserByEmail(email string) (User, error)
+	GetUserById(accountID int64) (PasswordMatch, error)
 }
 
 type mysqlRepository struct {
@@ -25,4 +27,15 @@ func (repo *mysqlRepository) GetUserByEmail(email string) (User, error) {
 	var user User
 	err := row.Scan(&user.AccountID, &user.Email, &user.Password, &user.PhoneNumber, &user.FirstName, &user.LastName, &user.Status, &user.IsPremium)
 	return user, err
+}
+
+func (r *mysqlRepository) GetUserById(accountID int64) (PasswordMatch, error) {
+	fmt.Println("ID:", accountID)
+	query := `SELECT email, password FROM account WHERE account_id = ?`
+	row := r.db.QueryRow(query, accountID)
+
+	var pm PasswordMatch
+	err := row.Scan(&pm.Email, &pm.Password)
+
+	return pm, err
 }

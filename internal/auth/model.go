@@ -35,3 +35,10 @@ type Claims struct {
 	Email     string `json:"email"`
 	jwt.RegisteredClaims
 }
+
+type PasswordMatch struct {
+	AccountID int64  `json:"account_id"`
+	Password  string `json:"password"`
+	Email     string `json:"email"`
+	Match     bool
+}

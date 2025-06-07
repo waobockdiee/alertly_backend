@@ -33,7 +33,7 @@ func RegisterUserHandler(c *gin.Context) {
 
 	registeredUser, err, code := service.RegisterUser(user)
 	if err != nil {
-		log.Printf("Error al registrar el usuario: %v", err)
+		log.Printf("Error creating account: %v", err)
 		response.Send(c, http.StatusInternalServerError, true, "We couldn’t register your account. Please try again later.", err.Error())
 		return
 	}

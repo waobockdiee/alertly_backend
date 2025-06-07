@@ -67,7 +67,7 @@ func CheckPasswordMatch(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("Error: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t verify your session. Please log in again.", err.Error())
 		return
 	}
 

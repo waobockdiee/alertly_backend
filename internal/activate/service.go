@@ -27,7 +27,7 @@ func (s *service) ActivateAccount(user ActivateAccountRequest) error {
 		return err
 	}
 	if rowsAffected == 0 {
-		return errors.New("no se encontró usuario, código incorrecto o ya has activado tu cuenta")
+		return errors.New("we couldn’t activate your account. Please make sure your email and code are correct, then try again")
 	}
 	return nil
 }

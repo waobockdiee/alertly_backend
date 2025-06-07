@@ -40,7 +40,7 @@ func (s *service) GenerateSessionToken(user User) (TokenResponse, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(jwtSecret)
 	if err != nil {
-		return TokenResponse{}, errors.New("error al generar token")
+		return TokenResponse{}, errors.New("we couldn’t start your session. Please try again shortly")
 	}
 
 	return TokenResponse{Token: tokenString}, nil

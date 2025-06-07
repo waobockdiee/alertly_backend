@@ -19,13 +19,13 @@ func ActivateAccount(c *gin.Context) {
 	var user ActivateAccountRequest
 	if err := c.ShouldBindJSON(&user); err != nil {
 		log.Printf("Error al decodificar JSON: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Datos de entrada inválidos", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Invalid inputs. Please check the information and try again.", err.Error())
 		return
 	}
 
 	if err := validate.Struct(user); err != nil {
 		log.Printf("Error de validación: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Datos de formulario no válidos", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Some fields are invalid. Please review the form and try again.", err.Error())
 		return
 	}
 
@@ -36,7 +36,7 @@ func ActivateAccount(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("Error al activar  el usuario: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "Error al registrar usuario", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "Something went wrong while creating your account. Please try again later.", err.Error())
 		return
 	}
 
@@ -47,14 +47,14 @@ func ActivateAccount(c *gin.Context) {
 	// fmt.Println("debug: ", userAuth)
 	if err != nil {
 		fmt.Println(err.Error())
-		response.Send(c, http.StatusInternalServerError, true, "Error al obtener usuario", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load your user data. Please try again in a moment.", err.Error())
 		return
 	}
 	tokenResp, err := authService.GenerateSessionToken(userAuth)
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "Error al generar token", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t start your session. Please try again shortly.", err.Error())
 		return
 	}
 
-	response.Send(c, http.StatusOK, false, "Usuario registrado exitosamente", tokenResp)
+	response.Send(c, http.StatusOK, false, "Your account has been created successfully. Welcome aboard!", tokenResp)
 }

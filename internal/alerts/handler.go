@@ -25,7 +25,7 @@ func GetNewAlertsCount(c *gin.Context) {
 
 	if err != nil {
 		fmt.Println("error1", err)
-		response.Send(c, http.StatusInternalServerError, true, "error", nil)
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t verify your session. Please log in again.", nil)
 		return
 	}
 
@@ -35,7 +35,7 @@ func GetNewAlertsCount(c *gin.Context) {
 
 	if err != nil {
 		fmt.Println("error2", err)
-		response.Send(c, http.StatusInternalServerError, true, "error", nil)
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load your alerts count. Please try again later.", nil)
 		return
 	}
 

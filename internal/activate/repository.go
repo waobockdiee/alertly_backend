@@ -21,7 +21,7 @@ func (r *mysqlRepository) ActivateAccount(user ActivateAccountRequest) (sql.Resu
 	query := `UPDATE account SET status = 'active' WHERE email = ? AND activation_code = ?`
 	result, err := r.db.Exec(query, user.Email, user.ActivationCode)
 	if err != nil {
-		return nil, fmt.Errorf("error activando cuenta: %w", err)
+		return nil, fmt.Errorf("we couldn’t activate your account. Please make sure your email and code are correct, then try again: %w", err)
 	}
 	return result, nil
 }

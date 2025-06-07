@@ -15,7 +15,7 @@ func GetReel(c *gin.Context) {
 	accountID, err := auth.GetUserFromContext(c)
 	if err != nil {
 		log.Printf("Error handler 1 reel: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t verify your session. Please log in again.", err.Error())
 		return
 	}
 
@@ -23,7 +23,7 @@ func GetReel(c *gin.Context) {
 
 	if err := c.ShouldBindUri(&inputs); err != nil {
 		log.Printf("Error binding URI: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Bad request", nil)
+		response.Send(c, http.StatusBadRequest, true, "Invalid URL data. Please check and try again.", nil)
 		return
 	}
 
@@ -33,8 +33,8 @@ func GetReel(c *gin.Context) {
 	data, err := service.GetReel(inputs, accountID)
 
 	if err != nil {
-		log.Printf("Error getting reel: %v", err)
-		response.Send(c, http.StatusOK, false, "error getting incidents", data)
+		log.Printf("We couldn’t load the incidents. Please try again later: %v", err)
+		response.Send(c, http.StatusOK, false, "We couldn’t load the incidents. Please try again later.", data)
 		return
 	}
 

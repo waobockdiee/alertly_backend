@@ -16,19 +16,19 @@ func Get(c *gin.Context) {
 	var inputs Inputs
 	if err := c.ShouldBindUri(&inputs); err != nil {
 		log.Printf("Error al bindear URI: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Datos incorrectos en la URL", nil)
+		response.Send(c, http.StatusBadRequest, true, "Invalid data in the URL. Please check and try again.", nil)
 		return
 	}
 
 	if err := validate.Struct(inputs); err != nil {
 		log.Printf("Error de validación: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Bad request", nil)
+		response.Send(c, http.StatusBadRequest, true, "Some fields are missing or incorrect. Please review and try again.", nil)
 		return
 	}
 
 	if err := c.ShouldBindQuery(&inputs); err != nil {
 		log.Printf("Error en query params: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Bad request", nil)
+		response.Send(c, http.StatusBadRequest, true, "Invalid query parameters. Please check and try again.", nil)
 		return
 	}
 
@@ -37,8 +37,8 @@ func Get(c *gin.Context) {
 
 	result, err := service.GetClustersByLocation(inputs)
 	if err != nil {
-		log.Printf("error al obtener las categorias. Por favor intentalo mas tarde: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "error al obtener las categorias. Por favor intentalo mas tarde", err.Error())
+		log.Printf("We couldn’t load the categories. Please try again later: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load the categories. Please try again later.", err.Error())
 		return
 	}
 	response.Send(c, http.StatusOK, false, "Success", result)

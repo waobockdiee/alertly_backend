@@ -79,7 +79,7 @@ func (r *mysqlRepository) Add(myPlace MyPlaces) (int64, error) {
 		myPlace.Radius,
 	)
 
-	fmt.Println("DEBUG", err)
+	// fmt.Println("DEBUG", err)
 
 	if err != nil {
 		return 0, err
@@ -90,7 +90,7 @@ func (r *mysqlRepository) Add(myPlace MyPlaces) (int64, error) {
 		return 0, err
 	}
 
-	fmt.Printf("Saved succesfully with ID: %d\n", id)
+	// fmt.Printf("Saved succesfully with ID: %d\n", id)
 	return id, nil
 }
 

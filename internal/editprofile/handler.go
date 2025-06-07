@@ -195,7 +195,7 @@ func UpdateBirthDate(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("Error: %v", err)
-		response.Send(c, http.StatusUnauthorized, true, "error", nil)
+		response.Send(c, http.StatusUnauthorized, true, "We couldn’t verify your session. Please log in again", nil)
 		return
 	}
 

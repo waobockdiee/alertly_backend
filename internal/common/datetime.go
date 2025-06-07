@@ -20,7 +20,7 @@ func (ct *CustomTime) UnmarshalJSON(b []byte) error {
 	// Parsear la fecha usando el layout definido en la zona local
 	t, err := time.ParseInLocation(customTimeLayout, s, time.Local)
 	if err != nil {
-		return fmt.Errorf("error al parsear la fecha %s: %w", s, err)
+		return fmt.Errorf("invalid date format. Please check the date and try again. %s: %w", s, err)
 	}
 	ct.Time = t
 	return nil

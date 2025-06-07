@@ -22,13 +22,13 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 		authHeader := c.GetHeader("Authorization")
 		fmt.Println("authHeader", authHeader)
 		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "No se proporcionó token"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization token is missing."})
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Formato de token inválido"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token format. Expected format: Bearer <token>."})
 			return
 		}
 
@@ -36,13 +36,13 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 		token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 			// Verifica el método de firma
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("método de firma inesperado: %v", token.Header["alg"])
+				return nil, fmt.Errorf("invalid token. Please log in again: %v", token.Header["alg"])
 			}
 			return jwtSecret, nil
 		})
 
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token inválido: " + err.Error()})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Your session is not valid. Please log in again.: " + err.Error()})
 			return
 		}
 
@@ -51,7 +51,7 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 			// c.Set("account_id", claims.AccountID)
 			c.Next()
 		} else {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token inválido"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Your session is not valid. Please log in again."})
 			return
 		}
 

@@ -123,7 +123,8 @@ func (s *service) CheckPasswordMatch(password, newPassword string, accountID int
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(password)); err != nil {
-		return errors.New("wrong password")
+		log.Printf("Error CompareHashAndPassword editprofile service.go: %v", err)
+		return errors.New("incorrect password. Please try again")
 	}
 
 	return nil

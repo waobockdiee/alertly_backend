@@ -22,20 +22,20 @@ func SaveClusterComment(c *gin.Context) {
 	accountID, err = auth.GetUserFromContext(c)
 	if err != nil {
 		fmt.Println("error1", err)
-		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t verify your session. Please log in again.", err.Error())
 		return
 	}
 
 	var comment InComment
 	if err = c.BindJSON(&comment); err != nil {
 		fmt.Println("error1", err)
-		response.Send(c, http.StatusBadRequest, true, "Wrong data in", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Invalid input format. Please check the data and try again.", err.Error())
 		return
 	}
 
 	if err = validate.Struct(comment); err != nil {
 		fmt.Println("error1", err)
-		response.Send(c, http.StatusBadRequest, true, "Bad request", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Some fields are missing or incorrect. Please review the form and try again.", err.Error())
 		return
 	}
 
@@ -48,7 +48,7 @@ func SaveClusterComment(c *gin.Context) {
 
 	if err != nil {
 		fmt.Println("error1", err)
-		response.Send(c, http.StatusInternalServerError, true, "error", 0)
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t save your comment. Please try again later.", 0)
 		return
 	}
 	var commentOut Comment
@@ -56,7 +56,7 @@ func SaveClusterComment(c *gin.Context) {
 
 	if err != nil {
 		fmt.Println("error1", err)
-		response.Send(c, http.StatusInternalServerError, true, "error", 0)
+		response.Send(c, http.StatusInternalServerError, true, "Comment was saved, but we couldn’t retrieve it. Please refresh or try again later.", 0)
 		return
 	}
 	response.Send(c, http.StatusOK, false, "Comment sent", commentOut)
@@ -71,7 +71,7 @@ func GetClusterComments(c *gin.Context) {
 	inclID, err = strconv.ParseInt(tmpInclID, 10, 64)
 
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "error parsing data", nil)
+		response.Send(c, http.StatusInternalServerError, true, "Invalid ID format. Please try again.", nil)
 		return
 	}
 
@@ -80,7 +80,7 @@ func GetClusterComments(c *gin.Context) {
 	result, err = service.GetClusterCommentsByID(inclID)
 
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "error fetching data", nil)
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load the comments. Please try again later.", nil)
 		return
 	}
 

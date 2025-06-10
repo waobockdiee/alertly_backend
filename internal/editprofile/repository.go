@@ -31,12 +31,12 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *mysqlRepository) GetAccountByID(accountID int64) (Account, error) {
-	query := `SELECT account_id, email, first_name, last_name, nickname, password, can_update_nickname, can_update_fullname, can_update_birthdate, birth_year, birth_month, birth_day, can_update_email FROM account WHERE account_id = ?`
+	query := `SELECT account_id, email, first_name, last_name, nickname, password, can_update_nickname, can_update_fullname, can_update_birthdate, birth_year, birth_month, birth_day, can_update_email, thumbnail_url FROM account WHERE account_id = ?`
 	row := r.db.QueryRow(query, accountID)
 
 	var account Account
 
-	err := row.Scan(&account.AccountID, &account.Email, &account.FirstName, &account.LastName, &account.NickName, &account.Password, &account.CanUpdateNickname, &account.CanUpdateFullName, &account.CanUpdateBirthDate, &account.BirthYear, &account.BirthMonth, &account.BirthDay, &account.CanUpdateEmail)
+	err := row.Scan(&account.AccountID, &account.Email, &account.FirstName, &account.LastName, &account.NickName, &account.Password, &account.CanUpdateNickname, &account.CanUpdateFullName, &account.CanUpdateBirthDate, &account.BirthYear, &account.BirthMonth, &account.BirthDay, &account.CanUpdateEmail, &account.ThumbnailURL)
 	return account, err
 }
 

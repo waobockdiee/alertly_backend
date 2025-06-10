@@ -19,6 +19,7 @@ type Account struct {
 	CanUpdateFullName  bool   `db:"can_update_fullname" json:"can_update_fullname"`
 	CanUpdateBirthDate bool   `db:"can_update_birthdate" json:"can_update_birthdate"`
 	CanUpdateEmail     bool   `db:"can_update_email" json:"can_update_email"`
+	ThumbnailURL       string `db:"thumbnail_url" json:"thumbnail_url"`
 }
 
 type Media struct {

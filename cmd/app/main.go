@@ -83,6 +83,7 @@ func main() {
 	api.POST("/account/edit/birthdate", editprofile.UpdateBirthDate)
 	api.POST("/account/edit/email", editprofile.UpdateEmail)
 	api.POST("/account/edit/password", editprofile.UpdatePassword)
+	api.POST("account/edit/picture", editprofile.UpdateThumbnail)
 	api.POST("/account/check_password", auth.CheckPasswordMatch)
 	api.POST("/account/myplaces/add", myplaces.Add)
 	api.GET("/account/myplaces/get", myplaces.GetByAccountId)

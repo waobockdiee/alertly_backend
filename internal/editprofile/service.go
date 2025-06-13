@@ -22,7 +22,7 @@ type Service interface {
 	UpdateIsPremium(accountID int64, isPremium bool) error
 	UpdateBirthDate(accountID int64, year, month, day string) error
 	CheckPasswordMatch(password, newPassword string, accountID int64) error
-	// UpdateThumbnail(accountID int64) error
+	UpdateThumbnail(accountID int64, mediaUrl string) error
 }
 
 type service struct {
@@ -143,6 +143,6 @@ func (s *service) UpdatePassword(accountID int64, newPassword string) error {
 	return s.repo.UpdatePassword(accountID, password)
 }
 
-// func (s *service) UpdateThumbnail(accountID int64) error {
-// 	return s.repo.UpdateThumbnail(accountID)
-// }
+func (s *service) UpdateThumbnail(accountID int64, mediaUrl string) error {
+	return s.repo.UpdateThumbnail(accountID, mediaUrl)
+}

@@ -11,7 +11,7 @@ type Repository interface {
 	GetAccountByID(accountID int64) (Account, error)
 	SaveCodeBeforeUpdateEmail(code string, accountID int64) error
 	ValidateUpdateEmailCode(accountID int64, code string) (bool, error)
-	UpdateThumbnail(accountID int64, media Media) error
+	UpdateThumbnail(accountID int64, mediaUrl string) error
 	UpdateEmail(accountID int64, email string) error
 	UpdatePassword(accountID int64, password string) error
 	UpdateNickname(accountID int64, nickname string) error
@@ -92,9 +92,9 @@ func (r *mysqlRepository) UpdateEmail(accountID int64, email string) error {
 	return nil
 }
 
-func (r *mysqlRepository) UpdateThumbnail(accountID int64, media Media) error {
+func (r *mysqlRepository) UpdateThumbnail(accountID int64, mediaUrl string) error {
 	query := `UPDATE account SET thumbnail_url = ? WHERE account_id = ?`
-	_, err := r.db.Exec(query, media.Uri, accountID)
+	_, err := r.db.Exec(query, mediaUrl, accountID)
 
 	if err != nil {
 		log.Printf("Error: %v", err)

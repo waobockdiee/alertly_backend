@@ -3,9 +3,13 @@ package editprofile
 import (
 	"alertly/internal/auth"
 	"alertly/internal/database"
+	"alertly/internal/media"
 	"alertly/internal/response"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 )
@@ -380,31 +384,69 @@ func UpdateNickname(c *gin.Context) {
 	response.Send(c, http.StatusOK, false, "success", nil)
 }
 
-// func UpdateThumbnail(c *gin.Context) {
-// 	var media Media
-// 	var accountID int64
-// 	var err error
-// 	var tmpFilePath string
-// 	var uploadDir string
+func UpdateThumbnail(c *gin.Context) {
+	// var media Media
+	var accountID int64
+	var err error
+	// var tmpFilePath string
+	// var uploadDir string
 
-// 	accountID, err = auth.GetUserFromContext(c)
+	accountID, err = auth.GetUserFromContext(c)
 
-// 	if err != nil {
-// 		return
-// 	}
+	if err != nil {
+		response.Send(c, http.StatusUnauthorized, true, "Unauthorized. You need login with your account", nil)
+		return
+	}
 
-// 	uploadDir = "uploads/profile"
-// 	file, header, err := c.Request.FormFile("file")
+	file, header, err := c.Request.FormFile("file")
 
-// 	if err != nil {
-// 		log.Printf("Error retrieving file: %v", err)
-// 		response.Send(c, http.StatusBadRequest, true, "Error fetching file", err.Error())
-// 		return
-// 	}
+	if err != nil {
+		log.Printf("Error retrieving file: %v", err)
+		response.Send(c, http.StatusBadRequest, true, "Error fetching file", err.Error())
+		return
+	}
 
-// 	defer file.Close()
+	defer file.Close()
 
-// 	ext := filepath.Ext(header.Filename)
-// 	tmpFile, err := os.CreateTemp("")
+	ext := filepath.Ext(header.Filename)
+	tmpFile, err := os.CreateTemp("", "orig_*"+ext)
 
-// }
+	if err != nil {
+		log.Printf("Error creating temp file on /account/edit/picture: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error creating folder", err.Error())
+		return
+	}
+
+	tmpFilePath := tmpFile.Name()
+
+	if _, err := io.Copy(tmpFile, file); err != nil {
+		log.Printf("Error saving temp file: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error saving tmpl file", err.Error())
+		return
+	}
+
+	tmpFile.Close()
+	defer os.Remove(tmpFilePath)
+
+	uploadDir := "uploads/profile"
+
+	processedFilePath, err := media.ProcessImage(tmpFilePath, uploadDir)
+
+	if err != nil {
+		log.Printf("Error processing image: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error processing file", err.Error())
+		return
+	}
+
+	repo := NewRepository(database.DB)
+	service := NewService(repo)
+
+	err = service.UpdateThumbnail(accountID, processedFilePath)
+
+	if err != nil {
+		log.Printf("error saving profile picture in handler: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "error saving incident. please try again", nil)
+		return
+	}
+
+}

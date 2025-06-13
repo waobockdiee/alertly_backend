@@ -22,6 +22,7 @@ type Account struct {
 	ThumbnailURL       string `db:"thumbnail_url" json:"thumbnail_url"`
 }
 
-type Media struct {
-	Uri string `json:"uri"`
+type Thumbnail struct {
+	AccountID int64  `json:"account_id"`
+	Uri       string `form:"media" json:"uri"`
 }

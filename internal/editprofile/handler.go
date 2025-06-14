@@ -449,4 +449,6 @@ func UpdateThumbnail(c *gin.Context) {
 		return
 	}
 
+	response.Send(c, http.StatusOK, false, "Success", nil)
+
 }

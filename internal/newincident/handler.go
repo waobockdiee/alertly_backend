@@ -46,14 +46,14 @@ func Create(c *gin.Context) {
 	// Validar el struct
 	if err := validate.Struct(incident); err != nil {
 		log.Printf("Error de validación: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Bad request", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Bad request", nil)
 		return
 	}
 	// Procesar el archivo enviado (campo "file")
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		log.Printf("Error retrieving file: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Error fetching file", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Error fetching file", nil)
 		return
 	}
 	defer file.Close()
@@ -63,14 +63,14 @@ func Create(c *gin.Context) {
 	tmpFile, err := os.CreateTemp("", "orig_*"+ext)
 	if err != nil {
 		log.Printf("Error creating temp file: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "Error creating folder", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "Error creating folder", nil)
 		return
 	}
 	tmpFilePath := tmpFile.Name()
 	// Copiar el contenido al archivo temporal
 	if _, err := io.Copy(tmpFile, file); err != nil {
 		log.Printf("Error saving temp file: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "Error saving tmpl file", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "Error saving tmpl file", nil)
 		return
 	}
 	// Cerrar y eliminar el archivo temporal posteriormente
@@ -84,7 +84,7 @@ func Create(c *gin.Context) {
 	processedFilePath, err := media.ProcessImage(tmpFilePath, uploadDir)
 	if err != nil {
 		log.Printf("Error processing image: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "Error processing file", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "Error processing file", nil)
 		return
 	}
 
@@ -99,7 +99,7 @@ func Create(c *gin.Context) {
 	result, err := service.Save(incident)
 	if err != nil {
 		log.Printf("error saving incident: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "error saving incident. please try again", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "error saving incident. please try again", nil)
 		return
 	}
 

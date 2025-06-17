@@ -22,7 +22,7 @@ func GetMyProfile(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("Error: %v", err)
-		response.Send(c, http.StatusUnauthorized, true, "Unauthorized", err.Error())
+		response.Send(c, http.StatusUnauthorized, true, "Unauthorized", nil)
 		return
 	}
 
@@ -46,7 +46,8 @@ func GenerateCodeUpdateEmail(c *gin.Context) {
 	var err error
 
 	if err = c.ShouldBindJSON(&account); err != nil {
-		response.Send(c, http.StatusBadRequest, true, "Invalid entry data", err.Error())
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusBadRequest, true, "Invalid entry data", nil)
 		return
 	}
 
@@ -54,7 +55,7 @@ func GenerateCodeUpdateEmail(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("Error editprofile/handler.go GenerateCodeUpdateEmail: %v", err)
-		response.Send(c, http.StatusUnauthorized, true, "Unauthorized", err.Error())
+		response.Send(c, http.StatusUnauthorized, true, "Unauthorized", nil)
 		return
 	}
 
@@ -65,7 +66,7 @@ func GenerateCodeUpdateEmail(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("Error editprofile/handler.go GenerateCodeUpdateEmail: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "Error saving code", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error saving code", nil)
 		return
 	}
 
@@ -80,7 +81,7 @@ func ValidateUpdateEmailCode(c *gin.Context) {
 
 	if err = c.ShouldBindJSON(&account); err != nil {
 		log.Printf("Error: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Invalid entry data", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Invalid entry data", nil)
 		return
 	}
 
@@ -118,7 +119,8 @@ func UpdateEmail(c *gin.Context) {
 	var err error
 
 	if err := c.ShouldBindJSON(&account); err != nil {
-		response.Send(c, http.StatusBadRequest, true, "Invalid entry data", err.Error())
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusBadRequest, true, "Invalid entry data", nil)
 		return
 	}
 
@@ -151,7 +153,7 @@ func UpdatePassword(c *gin.Context) {
 
 	if err = c.ShouldBindJSON(&account); err != nil {
 		log.Printf("Error: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Invalid entry data", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Invalid entry data", nil)
 		return
 	}
 
@@ -394,6 +396,7 @@ func UpdateThumbnail(c *gin.Context) {
 	accountID, err = auth.GetUserFromContext(c)
 
 	if err != nil {
+		log.Printf("Error: %v", err)
 		response.Send(c, http.StatusUnauthorized, true, "Unauthorized. You need login with your account", nil)
 		return
 	}
@@ -402,7 +405,7 @@ func UpdateThumbnail(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("Error retrieving file: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Error fetching file", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Error fetching file", nil)
 		return
 	}
 

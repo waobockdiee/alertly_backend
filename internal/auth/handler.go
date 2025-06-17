@@ -57,7 +57,7 @@ func CheckPasswordMatch(c *gin.Context) {
 
 	if err = c.ShouldBindJSON(&pM); err != nil {
 		log.Printf("Error: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Invalid input", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Invalid input", nil)
 		return
 	}
 
@@ -67,7 +67,7 @@ func CheckPasswordMatch(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("Error: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "We couldn’t verify your session. Please log in again.", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t verify your session. Please log in again.", nil)
 		return
 	}
 

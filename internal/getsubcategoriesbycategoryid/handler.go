@@ -17,7 +17,7 @@ func GetSubcategoriesByCategoryId(c *gin.Context) {
 	subcategoryID, err := strconv.Atoi(idStr)
 	if err != nil {
 		log.Printf("ID inválido: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "The provided category ID is not valid. Please check and try again.", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "The provided category ID is not valid. Please check and try again.", nil)
 		return
 	}
 
@@ -27,7 +27,7 @@ func GetSubcategoriesByCategoryId(c *gin.Context) {
 	result, err := service.GetSubcategoriesByCategoryId(subcategoryID)
 	if err != nil {
 		log.Printf("We couldn’t load the subcategories. Please try again later: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load the subcategories. Please try again later.", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load the subcategories. Please try again later.", nil)
 		return
 	}
 	response.Send(c, http.StatusOK, false, "Success", result)

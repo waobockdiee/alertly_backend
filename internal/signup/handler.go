@@ -18,13 +18,13 @@ func RegisterUserHandler(c *gin.Context) {
 	var user User
 	if err := c.ShouldBindJSON(&user); err != nil {
 		log.Printf("Error al decodificar JSON: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Invalid input. Please check the data and try again.", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Invalid input. Please check the data and try again.", nil)
 		return
 	}
 
 	if err := validate.Struct(user); err != nil {
 		log.Printf("Error de validación: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Some form fields are invalid. Please review and try again.", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Some form fields are invalid. Please review and try again.", nil)
 		return
 	}
 
@@ -34,7 +34,7 @@ func RegisterUserHandler(c *gin.Context) {
 	registeredUser, err, code := service.RegisterUser(user)
 	if err != nil {
 		log.Printf("Error creating account: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "We couldn’t register your account. Please try again later.", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t register your account. Please try again later.", nil)
 		return
 	}
 	emails.Send(user.Email, "Activation Code", code)

@@ -38,7 +38,7 @@ func Get(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("We couldn’t load the categories. Please try again later: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load the categories. Please try again later.", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load the categories. Please try again later.", nil)
 		return
 	}
 
@@ -50,20 +50,21 @@ func Add(c *gin.Context) {
 
 	accountID, err := auth.GetUserFromContext(c)
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "error", nil)
 		return
 	}
 
 	var myPlace MyPlaces
 	if err := c.BindJSON(&myPlace); err != nil {
 		log.Printf("JSON error: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Wrong data in", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Wrong data in", nil)
 		return
 	}
 
 	if err := validate.Struct(myPlace); err != nil {
 		log.Printf("Error de validación: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Bad request", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Bad request", nil)
 		return
 	}
 
@@ -74,6 +75,7 @@ func Add(c *gin.Context) {
 	result, err := service.Add(myPlace)
 
 	if err != nil {
+		log.Printf("Error: %v", err)
 		response.Send(c, http.StatusInternalServerError, true, "Error saving place. Please try later", nil)
 		return
 	}
@@ -86,13 +88,13 @@ func Update(c *gin.Context) {
 	var myPlace MyPlaces
 	if err := c.BindJSON(&myPlace); err != nil {
 		log.Printf("JSON error: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Wrong data in", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Wrong data in", nil)
 		return
 	}
 
 	if err := validate.Struct(myPlace); err != nil {
 		log.Printf("Error de validación: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Bad request", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Bad request", nil)
 		return
 	}
 
@@ -101,6 +103,7 @@ func Update(c *gin.Context) {
 
 	err := service.Update(myPlace)
 	if err != nil {
+		log.Printf("Error: %v", err)
 		response.Send(c, http.StatusBadRequest, true, "Bad request", "")
 		return
 	}
@@ -113,20 +116,21 @@ func FullUpdate(c *gin.Context) {
 	var err error
 	accountID, err := auth.GetUserFromContext(c)
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "error", nil)
 		return
 	}
 
 	var myPlace MyPlaces
 	if err := c.BindJSON(&myPlace); err != nil {
-		log.Printf("JSON error: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Wrong data in", err.Error())
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusBadRequest, true, "Wrong data in", nil)
 		return
 	}
 
 	if err := validate.Struct(myPlace); err != nil {
 		log.Printf("Error de validación: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Bad request", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Bad request", nil)
 		return
 	}
 
@@ -136,7 +140,8 @@ func FullUpdate(c *gin.Context) {
 	myPlace.AccountId = accountID
 	err = service.FullUpdate(myPlace)
 	if err != nil {
-		response.Send(c, http.StatusBadRequest, true, "Bad request", "")
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusBadRequest, true, "Bad request", nil)
 		return
 	}
 
@@ -148,7 +153,8 @@ func GetByAccountId(c *gin.Context) {
 	accountID, err := auth.GetUserFromContext(c)
 
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "error", nil)
 		return
 	}
 
@@ -158,7 +164,8 @@ func GetByAccountId(c *gin.Context) {
 	data, err := service.GetByAccountId(accountID)
 
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "Error fetching data", err.Error())
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error fetching data", nil)
 		return
 	}
 
@@ -170,13 +177,15 @@ func GetById(c *gin.Context) {
 	accountID, err := auth.GetUserFromContext(c)
 
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "error", nil)
 		return
 	}
 	aflId := c.Param("afl_id")
 	formattedAflId, err := strconv.ParseInt(aflId, 10, 64)
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "Error converting data", err)
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error converting data", nil)
 		return
 	}
 
@@ -186,7 +195,8 @@ func GetById(c *gin.Context) {
 	data, err := service.GetById(accountID, formattedAflId)
 
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "Error fetching data", err.Error())
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error fetching data", nil)
 		return
 	}
 
@@ -198,7 +208,8 @@ func Delete(c *gin.Context) {
 
 	fmt.Println("error getuserfromcontext", err)
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "error", nil)
 		return
 	}
 
@@ -206,7 +217,8 @@ func Delete(c *gin.Context) {
 	formattedAflID, err := strconv.ParseInt(aflId, 10, 64)
 	fmt.Println("error parseint", err)
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "Error converting data", err)
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error converting data", nil)
 		return
 	}
 
@@ -216,7 +228,8 @@ func Delete(c *gin.Context) {
 	err = service.Delete(accountID, formattedAflID)
 	fmt.Println("error deleting", err)
 	if err != nil {
-		response.Send(c, http.StatusBadRequest, true, "Bad request", "")
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusBadRequest, true, "Bad request", nil)
 		return
 	}
 

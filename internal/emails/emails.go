@@ -21,7 +21,6 @@ func Send(email, subject, body string) {
 
 	// Envía el correo.
 	if err := d.DialAndSend(m); err != nil {
-		log.Printf("Error sending emails/emails.go")
-		// log.Fatal(err)
+		log.Printf("Error sending emails/emails.go: %v", err)
 	}
 }

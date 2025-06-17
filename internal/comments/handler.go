@@ -5,6 +5,7 @@ import (
 	"alertly/internal/database"
 	"alertly/internal/response"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -71,6 +72,7 @@ func GetClusterComments(c *gin.Context) {
 	inclID, err = strconv.ParseInt(tmpInclID, 10, 64)
 
 	if err != nil {
+		log.Printf("Error: %v", err)
 		response.Send(c, http.StatusInternalServerError, true, "Invalid ID format. Please try again.", nil)
 		return
 	}
@@ -80,6 +82,7 @@ func GetClusterComments(c *gin.Context) {
 	result, err = service.GetClusterCommentsByID(inclID)
 
 	if err != nil {
+		log.Printf("Error: %v", err)
 		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load the comments. Please try again later.", nil)
 		return
 	}

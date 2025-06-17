@@ -5,6 +5,7 @@ import (
 	"alertly/internal/database"
 	"alertly/internal/response"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -86,7 +87,8 @@ func DeleteFollowIncident(c *gin.Context) {
 	accountID, err = auth.GetUserFromContext(c)
 
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "error", nil)
 		return
 	}
 
@@ -94,7 +96,8 @@ func DeleteFollowIncident(c *gin.Context) {
 	acsID, err = strconv.ParseInt(unformattedAcsID, 10, 64)
 
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "error", nil)
 		return
 	}
 
@@ -104,10 +107,11 @@ func DeleteFollowIncident(c *gin.Context) {
 	err = service.DeleteFollowIncident(acsID, accountID)
 
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "error", err.Error())
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "error", nil)
 		return
 	}
 
-	response.Send(c, http.StatusOK, false, "success", err.Error())
+	response.Send(c, http.StatusOK, false, "success", nil)
 
 }

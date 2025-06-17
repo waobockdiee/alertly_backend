@@ -16,7 +16,7 @@ func View(c *gin.Context) {
 
 	accountID, err := auth.GetUserFromContext(c)
 	if err != nil {
-		response.Send(c, http.StatusInternalServerError, true, "We couldn’t verify your session. Please log in again.", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t verify your session. Please log in again.", nil)
 		return
 	}
 
@@ -24,7 +24,7 @@ func View(c *gin.Context) {
 	inclId, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		log.Printf("ID inválido: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "The provided incident ID is not valid. Please check and try again.", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "The provided incident ID is not valid. Please check and try again.", nil)
 		return
 	}
 
@@ -34,7 +34,7 @@ func View(c *gin.Context) {
 	result, err := service.GetIncidentBy(inclId, accountID)
 	if err != nil {
 		log.Printf("error fetching incident. Please try later: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load the incident details. Please try again later.", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load the incident details. Please try again later.", nil)
 		return
 	}
 	response.Send(c, http.StatusOK, false, "Success", result)

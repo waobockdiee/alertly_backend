@@ -38,7 +38,7 @@ func Get(c *gin.Context) {
 	result, err := service.GetClustersByLocation(inputs)
 	if err != nil {
 		log.Printf("We couldn’t load the categories. Please try again later: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load the categories. Please try again later.", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load the categories. Please try again later.", nil)
 		return
 	}
 	response.Send(c, http.StatusOK, false, "Success", result)

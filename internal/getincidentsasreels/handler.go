@@ -15,7 +15,7 @@ func GetReel(c *gin.Context) {
 	accountID, err := auth.GetUserFromContext(c)
 	if err != nil {
 		log.Printf("Error handler 1 reel: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "We couldn’t verify your session. Please log in again.", err.Error())
+		response.Send(c, http.StatusInternalServerError, true, "We couldn’t verify your session. Please log in again.", nil)
 		return
 	}
 

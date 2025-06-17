@@ -62,6 +62,7 @@ func ReportAccount(c *gin.Context) {
 
 	idParam := c.Param("account_id")
 	if idParam == "" {
+		log.Printf("Error ReportAccount: %v", idParam)
 		response.Send(c, http.StatusBadRequest, true, "account_id is required", nil)
 		return
 	}
@@ -73,19 +74,21 @@ func ReportAccount(c *gin.Context) {
 
 	if err := c.ShouldBind(&report); err != nil {
 		log.Printf("Error al bindear formulario: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Wrong data in", err.Error())
+		response.Send(c, http.StatusBadRequest, true, "Wrong data in", nil)
 		return
 	}
 
 	accountIDWhosReporting, err = auth.GetUserFromContext(c)
 
 	if err != nil {
+		log.Printf("Error: %v", err)
 		response.Send(c, http.StatusUnauthorized, true, "unauthorized", nil)
 		return
 	}
 
 	accountID, err = strconv.ParseInt(idParam, 10, 64)
 	if err != nil {
+		log.Printf("Error: %v", err)
 		response.Send(c, http.StatusBadRequest, true, "invalid account_id parameter", nil)
 		return
 	}
@@ -104,6 +107,7 @@ func ReportAccount(c *gin.Context) {
 	err = service.ReportAccount(report)
 
 	if err != nil {
+		log.Printf("Error: %v", err)
 		response.Send(c, http.StatusInternalServerError, true, "error saving report, please try later", nil)
 		return
 	}

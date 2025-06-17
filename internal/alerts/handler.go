@@ -4,7 +4,7 @@ import (
 	"alertly/internal/auth"
 	"alertly/internal/database"
 	"alertly/internal/response"
-	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +24,7 @@ func GetNewAlertsCount(c *gin.Context) {
 	accountID, err = auth.GetUserFromContext(c)
 
 	if err != nil {
-		fmt.Println("error1", err)
+		log.Printf("Error: %v", err)
 		response.Send(c, http.StatusInternalServerError, true, "We couldn’t verify your session. Please log in again.", nil)
 		return
 	}
@@ -34,7 +34,7 @@ func GetNewAlertsCount(c *gin.Context) {
 	count, err = service.GetNewAlertsCount(accountID)
 
 	if err != nil {
-		fmt.Println("error2", err)
+		log.Printf("Error: %v", err)
 		response.Send(c, http.StatusInternalServerError, true, "We couldn’t load your alerts count. Please try again later.", nil)
 		return
 	}

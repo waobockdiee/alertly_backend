@@ -20,8 +20,9 @@ func NewRepository(db *sql.DB) Repository {
 
 func (r *mysqlRepository) GetHistory(accountID int64) ([]History, error) {
 	query := `SELECT
-	his_id, account_id, incl_id, created_at
-	FROM account_history WHERE account_id = ?`
+	t1.his_id, t1.account_id, t1.incl_id, t1.created_at, t2.address, t2.description
+	FROM account_history t1 INNER JOIN incident_clusters t2 ON t1.incl_id = t2.incl_id
+	WHERE t1.account_id = ? ORDER BY t1.his_id DESC LIMIT 1000`
 	rows, err := r.db.Query(query, accountID)
 
 	if err != nil {
@@ -40,6 +41,8 @@ func (r *mysqlRepository) GetHistory(accountID int64) ([]History, error) {
 			&h.AccountID,
 			&h.InclID,
 			&h.CreatedAt,
+			&h.Address,
+			&h.Description,
 		); err != nil {
 			return nil, err
 		}

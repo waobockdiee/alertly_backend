@@ -4,6 +4,7 @@ import (
 	"alertly/internal/comments"
 	"alertly/internal/common"
 	"alertly/internal/database"
+	"log"
 	"math"
 )
 
@@ -32,6 +33,7 @@ func (s *service) GetIncidentBy(inclId, accountID int64) (Cluster, error) {
 	cs := comments.NewService(repo)
 	result.Comments, err = cs.GetClusterCommentsByID(result.InclId)
 
+	// remember what is this for?
 	for i := range result.Incidents {
 		result.Incidents[i].TimeDiff = common.TimeAgo(result.Incidents[i].CreatedAt.Time)
 	}
@@ -39,6 +41,13 @@ func (s *service) GetIncidentBy(inclId, accountID int64) (Cluster, error) {
 	if err != nil {
 		return Cluster{}, err
 	}
+
+	saveErr := s.repo.SaveAccountHistory(accountID, inclId)
+
+	if saveErr != nil {
+		log.Printf("error saving account history: %v", saveErr)
+	}
+
 	return result, nil
 }
 

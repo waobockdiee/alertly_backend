@@ -10,6 +10,7 @@ type Repository interface {
 	GetIncidentBy(inclId int64) (Cluster, error)
 	GetAccountAlreadyVoted(inclID, AccountID int64) (bool, error)
 	GetAccountAlreadySaved(inclID, AccountID int64) (bool, error)
+	SaveAccountHistory(accountID, inclID int64) error
 }
 
 type mysqlRepository struct {
@@ -91,6 +92,7 @@ WHERE c.incl_id = ?;
 	if err := json.Unmarshal([]byte(rawIncidents), &cluster.Incidents); err != nil {
 		return cluster, fmt.Errorf("error unmarshalling incidents: %w", err)
 	}
+
 	// Deserializar los comentarios
 	// if err := json.Unmarshal([]byte(rawComments), &cluster.Comments); err != nil {
 	// 	return cluster, fmt.Errorf("error unmarshalling comments: %w", err)
@@ -118,4 +120,10 @@ func (r *mysqlRepository) GetAccountAlreadySaved(inclID, AccountID int64) (bool,
 		return false, err
 	}
 	return total > 0, nil
+}
+
+func (r *mysqlRepository) SaveAccountHistory(accountID, inclID int64) error {
+	query := `INSERT INTO account_history(account_id, incl_id) VALUES(?, ?)`
+	_, err := r.db.Exec(query, accountID, inclID)
+	return err
 }

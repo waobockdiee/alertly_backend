@@ -57,7 +57,7 @@ func (r *mysqlRepository) GetHistory(accountID int64) ([]History, error) {
 }
 
 func (r *mysqlRepository) ClearHistory(accountID int64) error {
-	query := `DELETE account_history WHERE account_id = ?`
+	query := `DELETE FROM account_history WHERE account_id = ?`
 	_, err := r.db.Exec(query, accountID)
 
 	if err != nil {

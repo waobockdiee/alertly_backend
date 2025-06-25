@@ -4,6 +4,7 @@ type Service interface {
 	GetHistory(accountID int64) ([]History, error)
 	ClearHistory(accountID int64) error
 	DeleteAccount(accountID int64) error
+	GetCounterHistories(accountID int64) (Counter, error)
 }
 
 type service struct {
@@ -24,4 +25,8 @@ func (s *service) ClearHistory(accountID int64) error {
 
 func (s *service) DeleteAccount(accountID int64) error {
 	return nil
+}
+
+func (s *service) GetCounterHistories(accountID int64) (Counter, error) {
+	return s.repo.GetCounterHistories(accountID)
 }

@@ -86,6 +86,7 @@ func main() {
 	api.POST("/account/edit/password", editprofile.UpdatePassword)
 	api.POST("account/edit/picture", editprofile.UpdateThumbnail)
 	api.GET("/account/get_history", account.GetHistory)
+	api.GET("account/get_counter_histories", account.GetCounterHistories)
 	api.POST("/account/clear_history", account.ClearHistory)
 	api.POST("/account/delete_account", account.DeleteAccount)
 	api.POST("/account/check_password", auth.CheckPasswordMatch)

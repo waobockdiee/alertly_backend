@@ -8,6 +8,7 @@ type Repository interface {
 	GetHistory(accountID int64) ([]History, error)
 	ClearHistory(accountID int64) error
 	DeleteAccount(accountID int64) error
+	GetCounterHistories(accountID int64) (Counter, error)
 }
 
 type mysqlRepository struct {
@@ -54,6 +55,17 @@ func (r *mysqlRepository) GetHistory(accountID int64) ([]History, error) {
 	}
 
 	return histories, nil
+}
+
+func (r *mysqlRepository) GetCounterHistories(accountID int64) (Counter, error) {
+	var counter Counter
+	query := "SELECT COUNT(*) AS counter FROM account_history WHERE account_id = ?"
+	err := r.db.QueryRow(query, accountID).Scan(&counter.Counter)
+
+	if err != nil {
+		return counter, err
+	}
+	return counter, err
 }
 
 func (r *mysqlRepository) ClearHistory(accountID int64) error {

@@ -14,3 +14,7 @@ type History struct {
 	Address     string    `db:"address" json:"address"`
 	Description string    `db:"description" json:"description"`
 }
+
+type Counter struct {
+	Counter int `json:"counter"`
+}

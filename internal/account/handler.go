@@ -29,7 +29,7 @@ func GetHistory(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("Error: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "Error getting history", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error getting history", nil)
 		return
 	}
 
@@ -56,14 +56,42 @@ func ClearHistory(c *gin.Context) {
 
 	if err != nil {
 		log.Printf("Error: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "Error", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error", nil)
 		return
 	}
 
 	response.Send(c, http.StatusOK, false, "success", nil)
-
 }
 
 func DeleteAccount(c *gin.Context) {
 	response.Send(c, http.StatusOK, false, "success", nil)
+}
+
+func GetCounterHistories(c *gin.Context) {
+	var accountID int64
+	var err error
+	var counter Counter
+
+	accountID, err = auth.GetUserFromContext(c)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusUnauthorized, true, "Unauthorized", nil)
+		return
+	}
+
+	repo := NewRepository(database.DB)
+	service := NewService(repo)
+
+	counter, err = service.GetCounterHistories(accountID)
+
+	log.Printf("COUNTER: %v", counter)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error", nil)
+		return
+	}
+
+	response.Send(c, http.StatusOK, false, "success", counter)
 }

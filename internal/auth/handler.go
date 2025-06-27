@@ -49,7 +49,7 @@ func SignIn(c *gin.Context) {
 }
 
 func ValidateSession(c *gin.Context) {
-	response.Send(c, http.StatusOK, false, "Token válido", nil)
+	response.Send(c, http.StatusOK, false, "Valid token", nil)
 }
 func CheckPasswordMatch(c *gin.Context) {
 	var pM PasswordMatch

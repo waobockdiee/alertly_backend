@@ -18,7 +18,7 @@ func GetCategories(c *gin.Context) {
 	result, err := service.GetCategories()
 	if err != nil {
 		log.Printf("error al obtener las categorias. Por favor intentalo mas tarde: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "error al obtener las categorias. Por favor intentalo mas tarde", nil)
+		response.Send(c, http.StatusInternalServerError, true, "Unable to load categories. Please try again later.", nil)
 		return
 	}
 	response.Send(c, http.StatusOK, false, "Success", result)

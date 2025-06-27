@@ -9,6 +9,7 @@ import (
 	"alertly/internal/editprofile"
 	"alertly/internal/getcategories"
 	"alertly/internal/getclusterby"
+	"alertly/internal/getclusterbyradius"
 	"alertly/internal/getclustersbylocation"
 	"alertly/internal/getincidentsasreels"
 	"alertly/internal/getsubcategoriesbycategoryid"
@@ -75,6 +76,7 @@ func main() {
 	api.POST("/incident/create", newincident.Create)
 	api.GET("/cluster/getbyid/:incl_id", getclusterby.View)
 	router.GET("/cluster/getbylocation/:min_latitude/:max_latitude/:min_longitude/:max_longitude/:from_date/:to_date/:insu_id", getclustersbylocation.Get)
+	router.GET("/cluster/getbyradius/:latitude/:longitude/:radius/:from_date/:to_date/:insu_id", getclusterbyradius.GetByRadius)
 	api.GET("/cluster/getasreel/:min_latitude/:max_latitude/:min_longitude/:max_longitude", getincidentsasreels.GetReel)
 
 	router.GET("/account/myplaces/get/:account_id", myplaces.Get)

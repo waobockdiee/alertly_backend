@@ -2,8 +2,8 @@ package auth
 
 import (
 	"alertly/internal/database"
+	"alertly/internal/emails"
 	"alertly/internal/response"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -42,9 +42,7 @@ func SignIn(c *gin.Context) {
 		response.Send(c, http.StatusInternalServerError, true, "Error generating token", err.Error())
 		return
 	}
-
-	fmt.Println(tokenResp.Token)
-
+	emails.SendTemplate(user.Email, "New login detected on your Alertly account", "new_login", nil)
 	response.Send(c, http.StatusOK, false, "Success", tokenResp)
 }
 

@@ -63,19 +63,10 @@ func (s *service) GenerateCodeUpdateEmail(accountID int64) error {
 		return err
 	}
 
-	body :=
-		`
-		<div style="margin-bottom: 20px;"}>Hi` + account.FirstName + `,</div>
-		<div style="margin-bottom: 20px">We received a request to change the email address for your Alertly account.  
-		To confirm this change and save your new email, please enter the verification code below in the app:
-		</div>
-		<div style="display: flex; gap: 20px;">
-			<div>Vertification code:</div>
-			<div style="background-color: #1e1c3b; color: #fff; font-size: 18px; padding: 15px 30px; border-radius: 10px;">` + account.Code + `</div>
-		</div>
-		`
-
-	emails.Send(account.Email, "Code verification", body)
+	emails.SendTemplate(account.Email, "Code verification", "update_email_verification_code", map[string]string{
+		"Name": account.FirstName,
+		"Code": account.Code,
+	})
 	return nil
 }
 

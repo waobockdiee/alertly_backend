@@ -1,0 +1,35 @@
+{{ define "base" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ template "title" . }}</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f7f7f7; padding: 20px; }
+    .container { background: white; max-width: 600px; margin: auto; border-radius: 20px; padding: 40px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h1, h2 { color: #333; }
+    p { color: #555; }
+    .btn { display: inline-block; padding: 10px 15px; background: #3b41a5; color: white; text-decoration: none; border-radius: 5px; }
+    .footer { font-size: 12px; text-align: center; margin-top: 40px; color: #aaa; }
+    .main-logo-container{ text-align: center; margin-bottom: 40px;}
+    .main-logo{ width: 150px; height: 150px;}
+    .code { background: #1e1c3b; padding-top: 10px; padding-bottom: 10px; padding-left: 20px; padding-right: 20px; color: #ffffff; font-weight: 700; font-size: 18px; border-radius: 20px;}
+    .text-alertly {margin-bottom: 20px; font-size: 16px; font-weight: 700; text-align: center;}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="text-alertly">
+        <a style="color: #3b41a5; text-decoration: none!important;" href="https://alertly.ca" target="_blank">alertly.ca</a>
+    </div>
+    <div class="main-logo-container">
+        <img class="main-logo" src="https://www.alertly.ca/src/images/main-logo.png" alt="">
+    </div>
+    {{ template "content" . }}
+    <div class="footer">
+      Alertly © 2025 - Stay aware, stay safe.
+    </div>
+  </div>
+</body>
+</html>
+{{ end }}

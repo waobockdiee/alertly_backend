@@ -46,11 +46,11 @@ func (repo *mysqlRepository) InsertUser(user User) (int64, error) {
 
 func (repo *mysqlRepository) GetUserByID(id int64) (User, error) {
 	query := `
-		SELECT account_id, email, password, activation_code
+		SELECT account_id, email, password, activation_code, firstName
 		FROM account WHERE account_id = ?
 	`
 	row := repo.db.QueryRow(query, id)
 	var user User
-	err := row.Scan(&user.ID, &user.Email, &user.Password, &user.ActivationCode)
+	err := row.Scan(&user.ID, &user.Email, &user.Password, &user.ActivationCode, &user.FirstName)
 	return user, err
 }

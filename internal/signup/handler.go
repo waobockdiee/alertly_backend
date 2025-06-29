@@ -37,6 +37,9 @@ func RegisterUserHandler(c *gin.Context) {
 		response.Send(c, http.StatusInternalServerError, true, "We couldn’t register your account. Please try again later.", nil)
 		return
 	}
-	emails.Send(user.Email, "Activation Code", code)
+	emails.SendTemplate(user.Email, "Activate your Alertly account", "new_account_activation_code", map[string]string{
+		"Name": user.FirstName,
+		"Code": code,
+	})
 	response.Send(c, http.StatusOK, false, "Your account has been created successfully. Please check your email to activate it.", registeredUser)
 }

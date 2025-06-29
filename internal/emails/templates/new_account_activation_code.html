@@ -1,0 +1,8 @@
+{{ define "title" }}Activate your Alertly account{{ end }}
+
+{{ define "content" }}
+    <p>Hello, {{ .Name }}</p>
+    <p>Welcome to Alertly!</p>
+    <p>To confirm this change and save your new email, please enter the verification code below in the app:</p>
+    <div class="code">{{ .Code }}</div>
+{{ end }}

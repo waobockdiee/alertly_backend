@@ -1,0 +1,8 @@
+{{ define "title" }}Code verification{{ end }}
+
+{{ define "content" }}
+    <p>Hello, {{ .Name }}</p>
+    <p>We received a request to change the email address for your Alertly account.</p>
+    <p>To confirm this change and save your new email, please enter the verification code below in the app:</p>
+    <div class="code">{{ .Code }}</div>
+{{ end }}

@@ -20,18 +20,16 @@ func NewRepository(db *sql.DB) Repository {
 
 func (repo *mysqlRepository) InsertUser(user User) (int64, error) {
 	query := `
-		INSERT INTO account (email, first_name, last_name,  password, birth_year, birth_month, birth_day, activation_code)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO account (email, first_name, last_name,  password, activation_code, nickname)
+		VALUES (?, ?, ?, ?, ?, ?)
 	`
 	result, err := repo.db.Exec(query,
 		user.Email,
 		user.FirstName,
 		user.LastName,
 		user.Password,
-		user.BirthYear,
-		user.BirthMonth,
-		user.BirthDay,
 		user.ActivationCode,
+		user.Nickname,
 	)
 	if err != nil {
 		return 0, err
@@ -46,7 +44,7 @@ func (repo *mysqlRepository) InsertUser(user User) (int64, error) {
 
 func (repo *mysqlRepository) GetUserByID(id int64) (User, error) {
 	query := `
-		SELECT account_id, email, password, activation_code, firstName
+		SELECT account_id, email, password, activation_code, first_name
 		FROM account WHERE account_id = ?
 	`
 	row := repo.db.QueryRow(query, id)

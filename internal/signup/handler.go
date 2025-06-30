@@ -31,7 +31,7 @@ func RegisterUserHandler(c *gin.Context) {
 	repo := NewRepository(database.DB)
 	service := NewService(repo)
 
-	registeredUser, err, code := service.RegisterUser(user)
+	registeredUser, code, err := service.RegisterUser(user)
 	if err != nil {
 		log.Printf("Error creating account: %v", err)
 		response.Send(c, http.StatusInternalServerError, true, "We couldn’t register your account. Please try again later.", nil)

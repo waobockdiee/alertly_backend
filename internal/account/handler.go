@@ -10,6 +10,33 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func GetMyInfo(c *gin.Context) {
+	var accountID int64
+	var err error
+
+	accountID, err = auth.GetUserFromContext(c)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusUnauthorized, true, "Unauthorized", nil)
+		return
+	}
+
+	repo := NewRepository(database.DB)
+	service := NewService(repo)
+
+	data, err := service.GetMyInfo(accountID)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error getting history", nil)
+		return
+	}
+
+	response.Send(c, http.StatusOK, false, "success", data)
+
+}
+
 func GetHistory(c *gin.Context) {
 	var accountID int64
 	var err error

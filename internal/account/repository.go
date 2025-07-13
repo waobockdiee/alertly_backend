@@ -5,6 +5,7 @@ import (
 )
 
 type Repository interface {
+	GetMyInfo(accountID int64) (MyInfo, error)
 	GetHistory(accountID int64) ([]History, error)
 	ClearHistory(accountID int64) error
 	DeleteAccount(accountID int64) error
@@ -17,6 +18,19 @@ type mysqlRepository struct {
 
 func NewRepository(db *sql.DB) Repository {
 	return &mysqlRepository{db: db}
+}
+
+func (r *mysqlRepository) GetMyInfo(accountID int64) (MyInfo, error) {
+	var myInfo MyInfo
+
+	query := `SELECT account_id, email, is_premium FROM accounts WHERE account_id = ?`
+	err := r.db.QueryRow(query, accountID).Scan(&myInfo.AccountID, &myInfo.Email, &myInfo.IsPremium)
+
+	if err != nil {
+		return myInfo, err
+	}
+
+	return myInfo, nil
 }
 
 func (r *mysqlRepository) GetHistory(accountID int64) ([]History, error) {

@@ -104,6 +104,7 @@ func main() {
 	api.GET("/saved/get_my_list", saveclusteraccount.GetMyList)
 	api.GET("/saved/delete/:acs_id", saveclusteraccount.DeleteFollowIncident)
 	api.POST("/account/report/:account_id", profile.ReportAccount)
+	api.GET("/account/get_my_info", account.GetMyInfo)
 
 	log.Printf("Servidor iniciado en :%s", serverPort)
 

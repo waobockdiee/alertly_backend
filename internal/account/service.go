@@ -1,6 +1,7 @@
 package account
 
 type Service interface {
+	GetMyInfo(accountID int64) (MyInfo, error)
 	GetHistory(accountID int64) ([]History, error)
 	ClearHistory(accountID int64) error
 	DeleteAccount(accountID int64) error
@@ -13,6 +14,10 @@ type service struct {
 
 func NewService(repo Repository) Service {
 	return &service{repo: repo}
+}
+
+func (s *service) GetMyInfo(accountID int64) (MyInfo, error) {
+	return s.repo.GetMyInfo(accountID)
 }
 
 func (s *service) GetHistory(accountID int64) ([]History, error) {

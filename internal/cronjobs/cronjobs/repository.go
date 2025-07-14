@@ -1,4 +1,4 @@
-package cjcluster
+package cronjobs
 
 import "database/sql"
 

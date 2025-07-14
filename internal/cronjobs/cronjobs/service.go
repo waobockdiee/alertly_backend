@@ -1,4 +1,4 @@
-package cjcluster
+package cronjobs
 
 import "fmt"
 
@@ -12,6 +12,10 @@ type service struct {
 
 func NewService(repo Repository) Service {
 	return &service{repo: repo}
+}
+
+func (s *service) NewCluster() {
+	
 }
 
 func (s *service) SetClusterToInactiveAndSetAccountScore() {

@@ -20,6 +20,7 @@ func InitDB(dataSourceName string) {
 	}
 	DB.SetMaxOpenConns(50)                  // Ajusta este valor según la carga esperada
 	DB.SetMaxIdleConns(10)                  // Número de conexiones ociosas que se mantendrán
+	DB.SetConnMaxIdleTime(5 * time.Minute)  //Evita que conexiones ociosas vivan indefinidamente
 	DB.SetConnMaxLifetime(30 * time.Minute) //
 
 	// Configuración adicional: p.ej., tamaño del pool

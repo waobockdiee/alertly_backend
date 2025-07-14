@@ -24,7 +24,16 @@ func main() {
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
 	dbName := os.Getenv("DB_NAME")
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true", dbUser, dbPass, dbHost, dbPort, dbName)
+	// dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true", dbUser, dbPass, dbHost, dbPort, dbName)
+	dsn := fmt.Sprintf(
+		"%s:%s@tcp(%s:%s)/%s"+
+			"?parseTime=true"+
+			"&loc=Local"+
+			"&timeout=5s"+
+			"&readTimeout=2s"+
+			"&writeTimeout=2s",
+		dbUser, dbPass, dbHost, dbPort, dbName,
+	)
 	cjdatabase.InitDB(dsn)
 	defer cjdatabase.DB.Close()
 

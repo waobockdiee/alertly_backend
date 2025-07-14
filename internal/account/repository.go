@@ -23,7 +23,7 @@ func NewRepository(db *sql.DB) Repository {
 func (r *mysqlRepository) GetMyInfo(accountID int64) (MyInfo, error) {
 	var myInfo MyInfo
 
-	query := `SELECT account_id, email, is_premium FROM accounts WHERE account_id = ?`
+	query := `SELECT account_id, email, is_premium FROM account WHERE account_id = ?`
 	err := r.db.QueryRow(query, accountID).Scan(&myInfo.AccountID, &myInfo.Email, &myInfo.IsPremium)
 
 	if err != nil {

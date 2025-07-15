@@ -16,7 +16,7 @@ func InitDB(dataSourceName string) {
 	var err error
 	DB, err = sql.Open("mysql", dataSourceName)
 	if err != nil {
-		log.Fatalf("Error al conectar a la base de datos: %v", err)
+		log.Fatalf("Error connecting DB: %v", err)
 	}
 	DB.SetMaxOpenConns(50)                  // Ajusta este valor según la carga esperada
 	DB.SetMaxIdleConns(10)                  // Número de conexiones ociosas que se mantendrán
@@ -25,6 +25,6 @@ func InitDB(dataSourceName string) {
 
 	// Configuración adicional: p.ej., tamaño del pool
 	if err = DB.Ping(); err != nil {
-		log.Fatalf("Error al hacer ping a la base de datos: %v", err)
+		log.Fatalf("Error pinging DB: %v", err)
 	}
 }

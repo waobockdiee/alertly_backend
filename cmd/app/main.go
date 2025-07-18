@@ -108,7 +108,7 @@ func main() {
 	api.GET("/account/get_my_info", account.GetMyInfo)
 
 	// comunitacions with apple APN (to send push notifications)
-	api.POST("/api/device_tokens", notifications.RegisterDeviceTokenHandler)
+	api.POST("/device_tokens", notifications.RegisterDeviceTokenHandler)
 
 	log.Printf("Servidor iniciado en :%s", serverPort)
 

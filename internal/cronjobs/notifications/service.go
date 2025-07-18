@@ -5,9 +5,6 @@ import (
 	"sync"
 )
 
-// Renombra alias para no chocar:
-// Ahora Notification = model.Notification, Delivery = model.NotificationDelivery
-
 type Service interface {
 	ProcessNotifications()
 	processWelcomeToApp(n Notification) error

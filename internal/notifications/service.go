@@ -1,7 +1,12 @@
 package notifications
 
-type Service struct {
-	Save()
+import (
+	"alertly/internal/alerts"
+	"errors"
+)
+
+type Service interface {
+	handleNotification(nType string, accountID int64, referenceID int64) (alerts.Alert, error)
 }
 
 type service struct {
@@ -12,15 +17,9 @@ func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
-func (s *service) Save(refereceID int64) error {
-	var err error
-
-	
-
-}
-
-func handleNotification () {
+func (s *service) handleNotification(nType string, accountID int64, referenceID int64) (alerts.Alert, error) {
 	var n alerts.Alert
+	var err error
 
 	n.Type = nType
 	n.AccountID = accountID
@@ -35,7 +34,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = false
 		n.ErrorMessage = ""
-		return n
 	case "new_comment":
 		n.Title = "New Comment Received! Check it out."
 		n.Message = ""
@@ -44,7 +42,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = true
 		n.ErrorMessage = ""
-		return n
 	case "new_cluster": // new incident
 		n.Title = "New Incident Reported! Stay informed."
 		n.Message = ""
@@ -53,7 +50,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = true
 		n.ErrorMessage = ""
-		return n
 	case "new_incident_cluster": // an update of an incident
 		n.Title = "New Incident Update! Stay informed."
 		n.Message = ""
@@ -62,7 +58,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = true
 		n.ErrorMessage = ""
-		return n
 	case "earn_citizen_score":
 		n.Title = "Congratulations! You've Earned Citizen Points."
 		n.Message = "ProfileScreen"
@@ -71,7 +66,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = false
 		n.ErrorMessage = ""
-		return n
 	case "membership_expiration_10_days":
 		n.Title = "Reminder: Your Membership Expires in 10 Days."
 		n.Message = "ProfileScreen" // deberia ir el screen de membership
@@ -80,7 +74,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = false
 		n.ErrorMessage = ""
-		return n
 	case "membership_expiration_1_day":
 		n.Title = "Urgent: Your Membership Expires Tomorrow!"
 		n.Message = "ProfileScreen" // deberia ir el screen de membership
@@ -89,7 +82,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = false
 		n.ErrorMessage = ""
-		return n
 	case "welcome_to_membership":
 		n.Title = "Welcome to Alertly Membership! Enjoy Exclusive Benefits."
 		n.Message = ""
@@ -98,7 +90,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = false
 		n.ErrorMessage = ""
-		return n
 	case "password_reset":
 		n.Title = "Password Reset Requested. Secure Your Account."
 		n.Message = ""
@@ -107,7 +98,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = false
 		n.ErrorMessage = ""
-		return n
 	case "new_friend_request": // aun no esta funcionando la logica de friends
 		n.Title = "You Have a New Friend Request. Connect Now!"
 		n.Message = ""
@@ -116,7 +106,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = false
 		n.ErrorMessage = ""
-		return n
 	case "user_mentioned":
 		n.Title = "You've Been Mentioned! See What They Said."
 		n.Message = ""
@@ -125,7 +114,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = false
 		n.ErrorMessage = ""
-		return n
 	case "badge_earned":
 		n.Title = "Achievement Unlocked! New Badge Earned."
 		n.Message = ""
@@ -134,7 +122,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = false
 		n.ErrorMessage = ""
-		return n
 	case "app_update":
 		n.Title = "Alertly App Update Available. Upgrade Now!"
 		n.Message = ""
@@ -143,7 +130,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = true
 		n.ErrorMessage = ""
-		return n
 	case "promotion":
 		n.Title = "Special Promotion: Don't Miss Out on Exclusive Offers."
 		n.Message = ""
@@ -152,7 +138,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = true
 		n.ErrorMessage = ""
-		return n
 	case "system_maintenance":
 		n.Title = "Scheduled Maintenance: Service Updates Coming Soon."
 		n.Message = ""
@@ -161,7 +146,6 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = true
 		n.ErrorMessage = ""
-		return n
 	default:
 		n.Title = "Notification from Alertly."
 		n.Message = ""
@@ -170,6 +154,8 @@ func handleNotification () {
 		n.MustSendInApp = true
 		n.MustBeProcessed = false
 		n.ErrorMessage = ""
-		return n
+		err = errors.New("undefined notification type: " + nType)
 	}
+
+	return n, err
 }

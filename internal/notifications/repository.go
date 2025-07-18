@@ -2,11 +2,13 @@ package notifications
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 )
 
 type Repository interface {
 	Save(n Notification) (int64, error)
+	SaveDeviceToken(accountID int64, token string) error
 }
 
 type mysqlRepository struct {
@@ -39,4 +41,16 @@ func (r *mysqlRepository) Save(n Notification) (int64, error) {
 
 	log.Println("Notification has been saved succesfully...")
 	return notiID, nil
+}
+
+func (r *mysqlRepository) SaveDeviceToken(accountID int64, token string) error {
+	query := `
+        INSERT INTO device_tokens (account_id, device_token)
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;
+    `
+	if _, err := r.db.Exec(query, accountID, token); err != nil {
+		return fmt.Errorf("SaveDeviceToken: %w", err)
+	}
+	return nil
 }

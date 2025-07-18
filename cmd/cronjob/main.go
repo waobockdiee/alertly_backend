@@ -1,8 +1,8 @@
 package main
 
 import (
-	"alertly/internal/cronjobs/cjcluster"
 	"alertly/internal/cronjobs/cjdatabase"
+	"alertly/internal/cronjobs/cjnewcluster"
 	"fmt"
 	"log"
 	"os"
@@ -40,17 +40,15 @@ func main() {
 	// Crear una instancia del scheduler de cron (opción WithSeconds para mayor precisión)
 	c := cron.New(cron.WithSeconds())
 
-	//SetClusterToInactiveAndSetAccountScore
-	// actualiza el cluster cuando ya han pasado mas de 48horas de creado.
-	// actualiza la credibilidad del account
+	reponewcluster := cjnewcluster.NewRepository(cjdatabase.DB)
+	svcnewcluster := cjnewcluster.NewService(reponewcluster)
+
 	_, err := c.AddFunc("@every 1m", func() {
-		repo := cjcluster.NewRepository(cjdatabase.DB)
-		service := cjcluster.NewService(repo)
-		log.Println("running SetClusterToInactiveAndSetAccountScore:", time.Now())
-		service.SetClusterToInactiveAndSetAccountScore()
+		log.Println("running cjnewcluster:", time.Now())
+		svcnewcluster.Run()
 	})
 	if err != nil {
-		log.Fatalf("Error SetClusterToInactiveAndSetAccountScore: %v", err)
+		log.Printf("Error running cjnewcluster: %v", err)
 	}
 	// Iniciar el scheduler
 	c.Start()

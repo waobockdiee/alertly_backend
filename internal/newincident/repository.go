@@ -44,22 +44,8 @@ Guarda un incidente del cluster. Basicamente es una actualizacion del seguimient
 */
 func (r *mysqlRepository) Save(incident IncidentReport) (int64, error) {
 
-	tx, err := r.db.Begin()
-
-	if err != nil {
-		return 0, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		} else {
-			_ = tx.Commit()
-		}
-	}()
-
 	query := "INSERT INTO incident_reports(account_id, insu_id, incl_id, description, event_type, address, city, province, postal_code, latitude, longitude, subcategory_name, is_anonymous, media_url, subcategory_code, category_code, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
-	result, err := tx.Exec(query,
+	result, err := r.db.Exec(query,
 		incident.AccountId,
 		incident.InsuId,
 		incident.InclId,
@@ -89,13 +75,13 @@ func (r *mysqlRepository) Save(incident IncidentReport) (int64, error) {
 
 	// ----------------------CITIZEN SCORE----------------------- //
 	// -- Save to DB
-	err = common.SaveScore(tx, incident.AccountId, 20)
+	err = common.SaveScore(r.db, incident.AccountId, 20)
 	if err != nil {
 		fmt.Println("error saving score") // It's not necesary to stop the server
 	}
 	// ----------------------NOTIFICATION----------------------- //
 	// -- Save to DB
-	err = common.SaveNotification(tx, "new_cluster", incident.AccountId, id)
+	err = common.SaveNotification(r.db, "new_cluster", incident.AccountId, id)
 
 	if err != nil {
 		fmt.Println("error saving notification on createincident event")

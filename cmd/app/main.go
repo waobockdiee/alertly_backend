@@ -16,6 +16,7 @@ import (
 	"alertly/internal/middleware"
 	"alertly/internal/myplaces"
 	"alertly/internal/newincident"
+	"alertly/internal/notifications"
 	"alertly/internal/profile"
 	"alertly/internal/saveclusteraccount"
 	"alertly/internal/signup"
@@ -105,6 +106,9 @@ func main() {
 	api.GET("/saved/delete/:acs_id", saveclusteraccount.DeleteFollowIncident)
 	api.POST("/account/report/:account_id", profile.ReportAccount)
 	api.GET("/account/get_my_info", account.GetMyInfo)
+
+	// comunitacions with apple APN (to send push notifications)
+	api.POST("/api/device_tokens", notifications.RegisterDeviceTokenHandler)
 
 	log.Printf("Servidor iniciado en :%s", serverPort)
 

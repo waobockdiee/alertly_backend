@@ -1,9 +1,13 @@
 package cronjobs
 
-import "database/sql"
+import (
+	"database/sql"
+	"fmt"
+)
 
 type Repository interface {
 	SetClusterToInactiveAndSetAccountScore() error
+	GetDeviceTokensForAccount(accountID int64) ([]string, error)
 }
 
 type mysqlRepository struct {
@@ -12,6 +16,29 @@ type mysqlRepository struct {
 
 func NewRepository(db *sql.DB) Repository {
 	return &mysqlRepository{db: db}
+}
+
+func (r *Repository) GetDeviceTokensForAccount(accountID int64) ([]string, error) {
+	rows, err := r.db.Query(
+		`SELECT device_token
+           FROM device_tokens
+          WHERE account_id = ?`,
+		accountID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("GetDeviceTokensForAccount: %w", err)
+	}
+	defer rows.Close()
+
+	var tokens []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return nil, fmt.Errorf("scanning device_token: %w", err)
+		}
+		tokens = append(tokens, t)
+	}
+	return tokens, nil
 }
 
 /*

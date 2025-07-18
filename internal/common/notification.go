@@ -6,6 +6,10 @@ import (
 	"fmt"
 )
 
+type DBExecutor interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+}
+
 // func SaveNotification(tx *sql.Tx, nType string, accountID int64, referenceID int64) error {
 // 	return nil
 // }
@@ -13,11 +17,11 @@ import (
 /*
 Comentado porque aun no esta definida la logica final y esta me esta dando un error obvio por cambiar cosas en la tabla notifications
 */
-func SaveNotification(tx *sql.Tx, nType string, accountID int64, referenceID int64) error {
+func SaveNotification(dbExec DBExecutor, nType string, accountID int64, referenceID int64) error {
 	query := `INSERT INTO notifications(noti_id, owner_account_id, title, message, type, link, must_send_as_notification_push, must_send_as_notification, must_be_processed, error_message, reference_id)
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	n := HandleNotification(nType, accountID, referenceID)
-	_, err := tx.Exec(query, n.AcnoID, n.AccountID, n.Title, n.Message, n.Type, n.Link, n.MustSendPush, n.MustSendInApp, n.MustBeProcessed, n.ErrorMessage, n.ReferenceID)
+	_, err := dbExec.Exec(query, n.AcnoID, n.AccountID, n.Title, n.Message, n.Type, n.Link, n.MustSendPush, n.MustSendInApp, n.MustBeProcessed, n.ErrorMessage, n.ReferenceID)
 	if err != nil {
 		return fmt.Errorf("failed to save notification: %w", err)
 	}

@@ -2,6 +2,7 @@ package account
 
 import (
 	"database/sql"
+	"log"
 )
 
 type Repository interface {
@@ -27,6 +28,7 @@ func (r *mysqlRepository) GetMyInfo(accountID int64) (MyInfo, error) {
 	err := r.db.QueryRow(query, accountID).Scan(&myInfo.AccountID, &myInfo.Email, &myInfo.IsPremium)
 
 	if err != nil {
+		log.Printf("Error fetching MyInfo for account ID %d: %v", accountID, err)
 		return myInfo, err
 	}
 

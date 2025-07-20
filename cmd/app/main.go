@@ -85,6 +85,7 @@ func main() {
 	api.POST("/account/edit_fullname", editprofile.UpdateFullName)
 	api.POST("/account/edit/nickname", editprofile.UpdateNickname)
 	api.POST("/account/edit/birthdate", editprofile.UpdateBirthDate)
+	api.POST("account/edit/receive_notifications", editprofile.UpdateReceiveNotifications)
 	api.POST("/account/edit/email", editprofile.UpdateEmail)
 	api.POST("/account/edit/password", editprofile.UpdatePassword)
 	api.POST("account/edit/picture", editprofile.UpdateThumbnail)

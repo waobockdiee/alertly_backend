@@ -20,6 +20,7 @@ type Repository interface {
 	UpdateIsPrivateProfile(accountID int64, isPrivateProfile bool) error
 	UpdateIsPremium(accountID int64, isPremium bool) error
 	UpdateBirthDate(accountID int64, year, month, day string) error
+	UpdateReceiveNotifications(accountID int64) error
 }
 
 type mysqlRepository struct {
@@ -31,17 +32,23 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *mysqlRepository) GetAccountByID(accountID int64) (Account, error) {
-	query := `SELECT account_id, email, first_name, last_name, nickname, password, can_update_nickname, can_update_fullname, can_update_birthdate, birth_year, birth_month, birth_day, can_update_email, thumbnail_url FROM account WHERE account_id = ?`
+	query := `SELECT account_id, email, first_name, last_name, nickname, password, can_update_nickname, can_update_fullname, can_update_birthdate, birth_year, birth_month, birth_day, can_update_email, thumbnail_url, receive_notifications FROM account WHERE account_id = ?`
 	row := r.db.QueryRow(query, accountID)
 
 	var account Account
 
-	err := row.Scan(&account.AccountID, &account.Email, &account.FirstName, &account.LastName, &account.NickName, &account.Password, &account.CanUpdateNickname, &account.CanUpdateFullName, &account.CanUpdateBirthDate, &account.BirthYear, &account.BirthMonth, &account.BirthDay, &account.CanUpdateEmail, &account.ThumbnailURL)
+	err := row.Scan(&account.AccountID, &account.Email, &account.FirstName, &account.LastName, &account.NickName, &account.Password, &account.CanUpdateNickname, &account.CanUpdateFullName, &account.CanUpdateBirthDate, &account.BirthYear, &account.BirthMonth, &account.BirthDay, &account.CanUpdateEmail, &account.ThumbnailURL, &account.ReceiveNotifications)
 	return account, err
 }
 
 func (r *mysqlRepository) SaveCodeBeforeUpdateEmail(code string, accountID int64) error {
 	query := `UPDATE account SET update_email_code = ? WHERE account_id = ?`
+	_, err := r.db.Exec(query, accountID)
+	return err
+}
+
+func (r *mysqlRepository) UpdateReceiveNotifications(accountID int64) error {
+	query := `UPDATE account SET receive_notifications = NOT receive_notifications WHERE account_id = ?`
 	_, err := r.db.Exec(query, accountID)
 	return err
 }

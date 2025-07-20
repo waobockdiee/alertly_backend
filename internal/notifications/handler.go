@@ -1,13 +1,20 @@
 package notifications
 
 import (
+	"alertly/internal/auth"
 	"alertly/internal/database"
+	"alertly/internal/response"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterDeviceTokenHandler(c *gin.Context) {
+func SaveDeviceToken(c *gin.Context) {
+
+	var accountID int64
+	var err error
+
 	var req struct {
 		DeviceToken string `json:"deviceToken" binding:"required"`
 	}
@@ -15,14 +22,17 @@ func RegisterDeviceTokenHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "deviceToken is required"})
 		return
 	}
-	accountID, exists := c.Get("accountID") // según tu middleware de auth
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+
+	accountID, err = auth.GetUserFromContext(c)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusUnauthorized, true, "Unauthorized", nil)
 		return
 	}
 
 	repo := NewRepository(database.DB)
-	if err := repo.SaveDeviceToken(accountID.(int64), req.DeviceToken); err != nil {
+	if err := repo.SaveDeviceToken(accountID, req.DeviceToken); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not save device token"})
 		return
 	}

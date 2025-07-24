@@ -7,6 +7,7 @@ import (
 	"alertly/internal/comments"
 	"alertly/internal/database"
 	"alertly/internal/editprofile"
+	"alertly/internal/feedback"
 	"alertly/internal/getcategories"
 	"alertly/internal/getclusterby"
 	"alertly/internal/getclusterbyradius"
@@ -107,6 +108,7 @@ func main() {
 	api.GET("/saved/delete/:acs_id", saveclusteraccount.DeleteFollowIncident)
 	api.POST("/account/report/:account_id", profile.ReportAccount)
 	api.GET("/account/get_my_info", account.GetMyInfo)
+	api.POST("/send_feedback", feedback.SendFeedback)
 
 	// comunitacions with apple APN (to send push notifications)
 	api.POST("/device_tokens", notifications.SaveDeviceToken)

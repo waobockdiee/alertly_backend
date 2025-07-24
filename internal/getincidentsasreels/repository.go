@@ -38,6 +38,7 @@ func (r *mysqlRepository) GetReel(inputs Inputs, accountID int64) ([]getclusterb
                   POINT(f.longitude, f.latitude)
                 ) <= ?
         )
+	AND c.is_active = 1
     ORDER BY RAND()
     LIMIT 20
     `

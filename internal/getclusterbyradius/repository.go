@@ -29,6 +29,7 @@ func (r *mysqlRepository) GetClustersByRadius(inputs Inputs) ([]Cluster, error) 
 		AND DATE(t1.start_time) <= ?
 		AND DATE(t1.end_time) >= ?
 		AND (? = 0 OR t1.insu_id = ?)
+		AND tt1.is_active = 1
 	`
 
 	params := []interface{}{

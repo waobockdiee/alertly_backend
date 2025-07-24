@@ -28,6 +28,7 @@ func (r *mysqlRepository) GetClustersByLocation(inputs Inputs) ([]Cluster, error
 	  AND DATE(t1.start_time) <= ? 
 	  AND DATE(t1.end_time) >= ?
 	  AND (? = 0 OR t1.insu_id = ?)
+	  AND t1.is_active = 1
 	`
 	params := []interface{}{
 		inputs.MinLatitude, inputs.MaxLatitude,

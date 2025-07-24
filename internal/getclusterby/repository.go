@@ -72,12 +72,12 @@ func (r *mysqlRepository) GetIncidentBy(inclId int64) (Cluster, error) {
       )
       FROM incident_reports r
       INNER JOIN account a ON r.account_id = a.account_id
-      WHERE r.incl_id = c.incl_id
+      WHERE r.incl_id = c.incl_id AND r.is_active = 1
     ),
     JSON_ARRAY()
   ) AS incidents
 FROM incident_clusters c
-WHERE c.incl_id = ?;
+WHERE c.incl_id = ? AND c.is_active = 1;
 `
 
 	var cluster Cluster

@@ -14,6 +14,7 @@ import (
 	"alertly/internal/getclustersbylocation"
 	"alertly/internal/getincidentsasreels"
 	"alertly/internal/getsubcategoriesbycategoryid"
+	"alertly/internal/invitefriend"
 	"alertly/internal/middleware"
 	"alertly/internal/myplaces"
 	"alertly/internal/newincident"
@@ -109,6 +110,7 @@ func main() {
 	api.POST("/account/report/:account_id", profile.ReportAccount)
 	api.GET("/account/get_my_info", account.GetMyInfo)
 	api.POST("/send_feedback", feedback.SendFeedback)
+	api.POST("/send_invitation", invitefriend.Save)
 
 	// comunitacions with apple APN (to send push notifications)
 	api.POST("/device_tokens", notifications.SaveDeviceToken)

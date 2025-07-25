@@ -6,6 +6,7 @@ type MyInfo struct {
 	AccountID int64  `db:"account_id" json:"account_id"`
 	Email     string `db:"email" json:"email"`
 	IsPremium bool   `db:"is_premium" json:"is_premium"`
+	Status    string `db:"status" json:"status"`
 }
 type Account struct {
 	AccountID int64 `db:"account_id" json:"account_id"`

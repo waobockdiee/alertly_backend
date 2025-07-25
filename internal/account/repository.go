@@ -24,8 +24,8 @@ func NewRepository(db *sql.DB) Repository {
 func (r *mysqlRepository) GetMyInfo(accountID int64) (MyInfo, error) {
 	var myInfo MyInfo
 
-	query := `SELECT account_id, email, is_premium FROM account WHERE account_id = ?`
-	err := r.db.QueryRow(query, accountID).Scan(&myInfo.AccountID, &myInfo.Email, &myInfo.IsPremium)
+	query := `SELECT account_id, email, is_premium, status FROM account WHERE account_id = ?`
+	err := r.db.QueryRow(query, accountID).Scan(&myInfo.AccountID, &myInfo.Email, &myInfo.IsPremium, &myInfo.Status)
 
 	if err != nil {
 		log.Printf("Error fetching MyInfo for account ID %d: %v", accountID, err)

@@ -21,6 +21,7 @@ type Repository interface {
 	UpdateIsPremium(accountID int64, isPremium bool) error
 	UpdateBirthDate(accountID int64, year, month, day string) error
 	UpdateReceiveNotifications(accountID int64) error
+	DesactivateAccount(account Account) error
 }
 
 type mysqlRepository struct {
@@ -32,12 +33,12 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *mysqlRepository) GetAccountByID(accountID int64) (Account, error) {
-	query := `SELECT account_id, email, first_name, last_name, nickname, password, can_update_nickname, can_update_fullname, can_update_birthdate, birth_year, birth_month, birth_day, can_update_email, thumbnail_url, receive_notifications FROM account WHERE account_id = ?`
+	query := `SELECT account_id, email, first_name, last_name, nickname, password, can_update_nickname, can_update_fullname, can_update_birthdate, birth_year, birth_month, birth_day, can_update_email, thumbnail_url, receive_notifications, status FROM account WHERE account_id = ?`
 	row := r.db.QueryRow(query, accountID)
 
 	var account Account
 
-	err := row.Scan(&account.AccountID, &account.Email, &account.FirstName, &account.LastName, &account.NickName, &account.Password, &account.CanUpdateNickname, &account.CanUpdateFullName, &account.CanUpdateBirthDate, &account.BirthYear, &account.BirthMonth, &account.BirthDay, &account.CanUpdateEmail, &account.ThumbnailURL, &account.ReceiveNotifications)
+	err := row.Scan(&account.AccountID, &account.Email, &account.FirstName, &account.LastName, &account.NickName, &account.Password, &account.CanUpdateNickname, &account.CanUpdateFullName, &account.CanUpdateBirthDate, &account.BirthYear, &account.BirthMonth, &account.BirthDay, &account.CanUpdateEmail, &account.ThumbnailURL, &account.ReceiveNotifications, &account.Status)
 	return account, err
 }
 
@@ -188,4 +189,17 @@ func (r *mysqlRepository) UpdateBirthDate(accountID int64, year, month, day stri
 	}
 
 	return err
+}
+
+func (r *mysqlRepository) DesactivateAccount(account Account) error {
+
+	query := `UPDATE account SET status = ? WHERE account_id = ?`
+	_, err := r.db.Exec(query, account.Status, account.AccountID)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return err
+	}
+
+	return nil
 }

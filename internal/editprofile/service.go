@@ -24,6 +24,7 @@ type Service interface {
 	CheckPasswordMatch(password, newPassword string, accountID int64) error
 	UpdateThumbnail(accountID int64, mediaUrl string) error
 	UpdateReceiveNotifications(accountID int64) error
+	DesactivateAccount(account Account) error
 }
 
 type service struct {
@@ -89,6 +90,10 @@ func (s *service) UpdatePhoneNumber(accountID int64, phoneNumber string) error {
 
 func (s *service) UpdateReceiveNotifications(accountID int64) error {
 	return s.repo.UpdateReceiveNotifications(accountID)
+}
+
+func (s *service) DesactivateAccount(account Account) error {
+	return s.repo.DesactivateAccount(account)
 }
 
 func (s *service) UpdateFullName(accountID int64, firstName, lastName string) error {

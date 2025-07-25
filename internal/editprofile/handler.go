@@ -487,3 +487,35 @@ func UpdateReceiveNotifications(c *gin.Context) {
 
 	response.Send(c, http.StatusOK, false, "success", nil)
 }
+
+func DesactivateAccount(c *gin.Context) {
+	var account Account
+	var err error
+
+	if err = c.ShouldBindJSON(&account); err != nil {
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusBadRequest, true, "Invalid format data", nil)
+		return
+	}
+
+	account.AccountID, err = auth.GetUserFromContext(c)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusUnauthorized, true, "error", nil)
+		return
+	}
+
+	repo := NewRepository(database.DB)
+	service := NewService(repo)
+
+	err = service.DesactivateAccount(account)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error while updating phone number information. Please try later", nil)
+		return
+	}
+
+	response.Send(c, http.StatusOK, false, "success", nil)
+}

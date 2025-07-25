@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 )
 
 type Repository interface {
@@ -23,62 +24,63 @@ func NewRepository(db *sql.DB) Repository {
 
 func (r *mysqlRepository) GetIncidentBy(inclId int64) (Cluster, error) {
 	query := `
-  SELECT 
-  c.incl_id,
-  c.address,
-  c.center_latitude,
-  c.center_longitude,
-  c.city,
-  c.counter_total_comments,
-  c.counter_total_flags,
-  c.counter_total_views,
-  c.counter_total_votes,
-  c.counter_total_votes_true,
-  c.counter_total_votes_false,
-  c.created_at,
-  c.description,
-  c.end_time,
-  c.event_type,
-  c.incident_count,
-  c.is_active,
-  c.insu_id,
-  c.media_type,
-  c.media_url,
-  c.postal_code,
-  c.province,
-  c.start_time,
-  c.subcategory_name,
-  c.category_code,
-  c.subcategory_code,
-  c.credibility,
-  IFNULL(
-    (
-      SELECT JSON_ARRAYAGG(
-        JSON_OBJECT(
-          'inre_id', r.inre_id,
-          'media_url', r.media_url,
-          'description', r.description,
-          'event_type', r.event_type,
-          'is_anonymous', r.is_anonymous,
-          'subcategory_name', r.subcategory_name,
-          'account_id', a.account_id,
-          'nickname', IF(r.is_anonymous, '', a.nickname),
-          'first_name', IF(r.is_anonymous, '', a.first_name),
-          'last_name', IF(r.is_anonymous, '', a.last_name),
-          'is_private_profile', a.is_private_profile,
-          'thumbnail_url', IF(r.is_anonymous, '', a.thumbnail_url),
-          'created_at', r.created_at
+    SELECT 
+    c.incl_id,
+    c.address,
+    c.center_latitude,
+    c.center_longitude,
+    c.city,
+    c.counter_total_comments,
+    c.counter_total_flags,
+    c.counter_total_views,
+    c.counter_total_votes,
+    c.counter_total_votes_true,
+    c.counter_total_votes_false,
+    c.created_at,
+    c.description,
+    c.end_time,
+    c.event_type,
+    c.incident_count,
+    c.is_active,
+    c.insu_id,
+    c.media_type,
+    c.media_url,
+    c.postal_code,
+    c.province,
+    c.start_time,
+    c.subcategory_name,
+    c.category_code,
+    c.subcategory_code,
+    c.credibility,
+    IFNULL(
+      (
+        SELECT JSON_ARRAYAGG(
+          JSON_OBJECT(
+            'inre_id', r.inre_id,
+            'media_url', r.media_url,
+            'description', r.description,
+            'event_type', r.event_type,
+            'is_anonymous', r.is_anonymous,
+            'subcategory_name', r.subcategory_name,
+            'account_id', a.account_id,
+            'nickname', IF(r.is_anonymous, '', a.nickname),
+            'first_name', IF(r.is_anonymous, '', a.first_name),
+            'last_name', IF(r.is_anonymous, '', a.last_name),
+            'is_private_profile', a.is_private_profile,
+            'thumbnail_url', IF(r.is_anonymous, '', a.thumbnail_url),
+            'created_at', r.created_at,
+            'incl_id', r.incl_id
+          )
         )
-      )
-      FROM incident_reports r
-      INNER JOIN account a ON r.account_id = a.account_id
-      WHERE r.incl_id = c.incl_id AND r.is_active = 1
-    ),
-    JSON_ARRAY()
-  ) AS incidents
-FROM incident_clusters c
-WHERE c.incl_id = ? AND c.is_active = 1;
-`
+        FROM incident_reports r
+        INNER JOIN account a ON r.account_id = a.account_id
+        WHERE r.incl_id = c.incl_id AND r.is_active = 1
+      ),
+      JSON_ARRAY()
+    ) AS incidents
+  FROM incident_clusters c
+  WHERE c.incl_id = ? AND c.is_active = 1;
+  `
 
 	var cluster Cluster
 	var rawIncidents string
@@ -93,10 +95,12 @@ WHERE c.incl_id = ? AND c.is_active = 1;
 		return cluster, fmt.Errorf("error unmarshalling incidents: %w", err)
 	}
 
-	// Deserializar los comentarios
-	// if err := json.Unmarshal([]byte(rawComments), &cluster.Comments); err != nil {
-	// 	return cluster, fmt.Errorf("error unmarshalling comments: %w", err)
-	// }
+	query = `UPDATE incident_clusters SET counter_total_views = counter_total_views + 1 WHERE incl_id = ?`
+	_, err = r.db.Exec(query, inclId)
+
+	if err != nil {
+		log.Printf("Error updating view count for cluster %d: %v", inclId, err)
+	}
 
 	return cluster, nil
 }

@@ -4,6 +4,7 @@ import (
 	"alertly/internal/common"
 	"database/sql"
 	"fmt"
+	"log"
 )
 
 type Repository interface {
@@ -21,24 +22,19 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *mysqlRepository) Save(comment InComment) (int64, error) {
-	tx, err := r.db.Begin()
-	if err != nil {
-		return 0, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		} else {
-			_ = tx.Commit()
-		}
-	}()
 
 	// 1. Insertar comentario
-	insertQuery := `INSERT INTO incident_comments (account_id, comment, created_at, incl_id) VALUES (?, ?, NOW(), ?)`
-	result, err := tx.Exec(insertQuery, comment.AccountID, comment.Comment, comment.InclID)
+	query := `INSERT INTO incident_comments (account_id, comment, created_at, incl_id) VALUES (?, ?, NOW(), ?)`
+	result, err := r.db.Exec(query, comment.AccountID, comment.Comment, comment.InclID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert comment: %w", err)
+	}
+
+	query = `UPDATE incident_clusters SET counter_total_comments = counter_total_comments + 1 WHERE incl_id = ?`
+	_, err = r.db.Exec(query, comment.InclID)
+
+	if err != nil {
+		log.Printf("Error updating total comments count: %v", err)
 	}
 
 	commentID, err := result.LastInsertId()
@@ -48,7 +44,7 @@ func (r *mysqlRepository) Save(comment InComment) (int64, error) {
 
 	// ----------------------CITIZEN SCORE----------------------- //
 	// Save to DB
-	err = common.SaveScore(tx, comment.AccountID, 5)
+	err = common.SaveScore(r.db, comment.AccountID, 5)
 	if err != nil {
 		fmt.Println("error saving score") // It's not necesary to stop the server
 	}

@@ -72,4 +72,5 @@ type Incident struct {
 	IsAnonymous      string            `json:"is_anonymous"`
 	TimeDiff         string            `json:"time_diff"`
 	CreatedAt        common.CustomTime `json:"created_at"`
+	InclID           int64             `json:"incl_id"`
 }

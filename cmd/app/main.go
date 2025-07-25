@@ -20,6 +20,7 @@ import (
 	"alertly/internal/newincident"
 	"alertly/internal/notifications"
 	"alertly/internal/profile"
+	"alertly/internal/reportincident"
 	"alertly/internal/saveclusteraccount"
 	"alertly/internal/signup"
 	"fmt"
@@ -87,6 +88,7 @@ func main() {
 	api.POST("/account/edit_fullname", editprofile.UpdateFullName)
 	api.POST("/account/edit/nickname", editprofile.UpdateNickname)
 	api.POST("/account/edit/birthdate", editprofile.UpdateBirthDate)
+	api.POST("account/edit/desactivate_account", editprofile.DesactivateAccount)
 	api.POST("account/edit/receive_notifications", editprofile.UpdateReceiveNotifications)
 	api.POST("/account/edit/email", editprofile.UpdateEmail)
 	api.POST("/account/edit/password", editprofile.UpdatePassword)
@@ -111,6 +113,7 @@ func main() {
 	api.GET("/account/get_my_info", account.GetMyInfo)
 	api.POST("/send_feedback", feedback.SendFeedback)
 	api.POST("/send_invitation", invitefriend.Save)
+	api.POST("report_incident", reportincident.ReportIncident)
 
 	// comunitacions with apple APN (to send push notifications)
 	api.POST("/device_tokens", notifications.SaveDeviceToken)

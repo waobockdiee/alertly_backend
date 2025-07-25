@@ -21,6 +21,7 @@ type Account struct {
 	CanUpdateEmail       bool   `db:"can_update_email" json:"can_update_email"`
 	ThumbnailURL         string `db:"thumbnail_url" json:"thumbnail_url"`
 	ReceiveNotifications bool   `db:"receive_notifications" json:"receive_notifications"`
+	Status               string `db:"status" json:"status"`
 }
 
 type Thumbnail struct {

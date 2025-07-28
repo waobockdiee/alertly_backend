@@ -117,6 +117,10 @@ func main() {
 
 	// comunitacions with apple APN (to send push notifications)
 	api.POST("/device_tokens", notifications.SaveDeviceToken)
+	api.DELETE("/device_tokens", notifications.DeleteDeviceToken)
+
+	// TESTING
+	api.POST("/test_push", notifications.TestPushHandler)
 
 	log.Printf("Servidor iniciado en :%s", serverPort)
 

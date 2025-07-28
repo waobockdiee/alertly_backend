@@ -9,6 +9,7 @@ import (
 type Repository interface {
 	Save(n Notification) (int64, error)
 	SaveDeviceToken(accountID int64, token string) error
+	DeleteDeviceToken(accountID int64, deviceToken string) error
 }
 
 type mysqlRepository struct {
@@ -53,4 +54,13 @@ func (r *mysqlRepository) SaveDeviceToken(accountID int64, token string) error {
 		return fmt.Errorf("SaveDeviceToken: %w", err)
 	}
 	return nil
+}
+
+func (r *mysqlRepository) DeleteDeviceToken(accountID int64, deviceToken string) error {
+	_, err := r.db.Exec(`
+	  DELETE FROM device_tokens 
+	  WHERE account_id = ? AND device_token = ?`,
+		accountID, deviceToken,
+	)
+	return err
 }

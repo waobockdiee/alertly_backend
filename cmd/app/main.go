@@ -41,9 +41,16 @@ func main() {
 	// gin.SetMode(gin.ReleaseMode)
 	// #########################################/
 
-	err := godotenv.Load()
+	// Si NODE_ENV=production, carga .env.production, sino .env
+	var err error
+	if os.Getenv("NODE_ENV") == "production" {
+		err = godotenv.Load(".env.production")
+	} else {
+		err = godotenv.Load(".env")
+	}
+
 	if err != nil {
-		log.Println("No se pudo cargar el archivo .env, se usarán las variables de entorno del sistema")
+		log.Fatalf("Error loading .env file: %v", err)
 	}
 
 	dbUser := os.Getenv("DB_USER")

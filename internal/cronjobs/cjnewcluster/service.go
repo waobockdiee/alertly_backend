@@ -2,8 +2,9 @@ package cjnewcluster
 
 import (
 	"alertly/internal/common"
-	"fmt"
 	"log"
+
+	"github.com/sideshow/apns2/payload"
 )
 
 // Service orchestrates fetching, sending, and marking notifications
@@ -51,15 +52,25 @@ func (s *Service) Run() {
 				continue
 			}
 			// 3b. Send an Expo push to each token
-			for _, tok := range tokens {
-				msg := common.ExpoPushMessage{
-					To:    tok,
-					Title: "Nuevo cluster creado",
-					Body:  fmt.Sprintf("Se ha generado el cluster #%%d", n.ClusterID),
-					Data:  map[string]interface{}{"clusterId": n.ClusterID},
-				}
-				if err := common.SendExpoPush(msg); err != nil {
-					log.Printf("cjnewcluster expo push to %%s error: %%v", tok, err)
+			var title string = `Notification from Alertly`
+			var message string = `This is the body of message`
+
+			for _, deviceToken := range tokens {
+				err = common.SendPush(
+					common.ExpoPushMessage{
+						To:    deviceToken,
+						Title: title,
+						Body:  message,
+						// Data:  map[string]interface{}{"id": deliveryID},
+					},
+					common.APNsNotification{
+						DeviceToken: deviceToken,
+						Topic:       "com.tuempresa.Alertly",
+						Payload:     payload.NewPayload().AlertTitle(title).AlertBody(message),
+					},
+				)
+				if err != nil {
+					log.Printf("cjnewcluster expo push to %s error: %v", deviceToken, err)
 				}
 			}
 			// 3c. Queue delivery record

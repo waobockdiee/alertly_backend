@@ -1,11 +1,14 @@
 package notifications
 
 import (
+	"log"
 	"net/http"
 
 	"alertly/internal/common" // donde está tu SendExpoPush y el struct ExpoPushMessage
+	"alertly/internal/response"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sideshow/apns2/payload"
 )
 
 type testReq struct {
@@ -16,21 +19,32 @@ type testReq struct {
 func TestPushHandler(c *gin.Context) {
 	var req testReq
 	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Send(c, http.StatusBadRequest, true, "Bad request", err.Error())
 		return
 	}
 
-	msg := common.ExpoPushMessage{
-		To:    req.DeviceToken,
-		Title: "Prueba de Notificación",
-		Body:  "¡Funciona tu sistema de push!",
-		Data:  map[string]interface{}{"test": true},
-	}
+	title := "Hola mundo de notifications!"
+	message := "This is a test message from Alertly."
+	deviceToken := req.DeviceToken // <<< aquí
 
-	if err := common.SendExpoPush(msg); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// Envía la notificación
+	err := common.SendPush(
+		common.ExpoPushMessage{
+			To:    deviceToken, // también es importante
+			Title: title,
+			Body:  message,
+		},
+		common.APNsNotification{
+			DeviceToken: deviceToken,
+			Topic:       "com.tuempresa.Alertly",
+			Payload:     payload.NewPayload().AlertTitle(title).AlertBody(message),
+		},
+	)
+	if err != nil {
+		log.Printf("TestPushHandler error sending to %s: %v", deviceToken, err)
+		response.Send(c, http.StatusInternalServerError, true, "Unauthorized", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "sent"})
+	response.Send(c, http.StatusOK, true, "success", nil)
 }

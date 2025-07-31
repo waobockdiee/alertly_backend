@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -14,7 +15,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-var jwtSecret = []byte("mi_clave_secreta")
+var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
 
 func TokenAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {

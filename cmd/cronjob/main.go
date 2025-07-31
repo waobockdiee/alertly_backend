@@ -14,8 +14,15 @@ import (
 
 func main() {
 	// Cargar variables de entorno
-	if err := godotenv.Load(); err != nil {
-		log.Println("No se encontró .env, se usarán las variables de entorno del sistema")
+	var err error
+	if os.Getenv("NODE_ENV") == "production" {
+		err = godotenv.Load(".env.production")
+	} else {
+		err = godotenv.Load(".env")
+	}
+
+	if err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
 	}
 
 	// Configurar la conexión a la base de datos

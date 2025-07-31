@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -19,7 +20,7 @@ type service struct {
 	repo Repository
 }
 
-var jwtSecret = []byte("mi_clave_secreta")
+var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
 
 func NewService(repo Repository) Service {
 	return &service{repo: repo}
@@ -39,6 +40,7 @@ func (s *service) GenerateSessionToken(user User) (TokenResponse, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(jwtSecret)
+	// log.Printf("DEBUG: Token generated for user %s: %s", user.Email, tokenString)
 	if err != nil {
 		return TokenResponse{}, errors.New("we couldn’t start your session. Please try again shortly")
 	}

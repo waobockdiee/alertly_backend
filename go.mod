@@ -13,6 +13,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.1
 	github.com/joho/godotenv v1.5.1
 	github.com/robfig/cron/v3 v3.0.1
+	github.com/sideshow/apns2 v0.25.0
 	gocv.io/x/gocv v0.41.0
 	golang.org/x/crypto v0.32.0
 	golang.org/x/net v0.34.0

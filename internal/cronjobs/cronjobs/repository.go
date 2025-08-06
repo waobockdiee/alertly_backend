@@ -61,3 +61,54 @@ func (r *mysqlRepository) SetClusterToInactiveAndSetAccountScore() error {
 
 	return nil
 }
+
+func (r *mysqlRepository) FetchPending(limit int64) ([]Notification, error) {
+	rows, err := r.db.Query(
+		`SELECT noti_id, incl_id, created_at FROM notifications
+         WHERE type = 'inactivity_reminder' AND must_be_processed = 1
+         ORDER BY created_at
+         LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []Notification
+	for rows.Next() {
+		var n Notification
+		if err := rows.Scan(&n.ID, &n.ClusterID, &n.CreatedAt); err != nil {
+			return nil, err
+		}
+		list = append(list, n)
+	}
+	return list, nil
+}
+
+// MarkProcessed actualiza processed=true
+func (r *mysqlRepository) MarkProcessed(ids []int64) error {
+	query := "UPDATE notifications SET must_be_processed = 0 WHERE noti_id IN ("
+	params := make([]interface{}, len(ids))
+	for i, id := range ids {
+		query += fmt.Sprintf("?%s", ",")
+		params[i] = id
+	}
+	query = query[:len(query)-1] + ")"
+	_, err := r.db.Exec(query, params...)
+	return err
+}
+
+// helpers
+func Placeholders(n int) string {
+	s := ""
+	for i := 0; i < n; i++ {
+		s += "?,"
+	}
+	return s[:len(s)-1]
+}
+func InterfaceSlice(ids []int64) []interface{} {
+	out := make([]interface{}, len(ids))
+	for i, v := range ids {
+		out[i] = v
+	}
+	return out
+}

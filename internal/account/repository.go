@@ -11,6 +11,7 @@ type Repository interface {
 	ClearHistory(accountID int64) error
 	DeleteAccount(accountID int64) error
 	GetCounterHistories(accountID int64) (Counter, error)
+	SaveLastRequest(AccountID int64, ip string) error
 }
 
 type mysqlRepository struct {
@@ -96,4 +97,11 @@ func (r *mysqlRepository) ClearHistory(accountID int64) error {
 
 func (r *mysqlRepository) DeleteAccount(accountID int64) error {
 	return nil
+}
+
+func (r *mysqlRepository) SaveLastRequest(AccountID int64, ip string) error {
+	query := `INSERT INTO account_session_history (account_id, ip) VALUES(?, ?)`
+	_, err := r.db.Exec(query, AccountID, ip)
+
+	return err
 }

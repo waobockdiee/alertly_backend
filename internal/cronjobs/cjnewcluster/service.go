@@ -56,18 +56,10 @@ func (s *Service) Run() {
 			var message string = `This is the body of message`
 
 			for _, deviceToken := range tokens {
-				err = common.SendPush(
-					common.ExpoPushMessage{
-						To:    deviceToken,
-						Title: title,
-						Body:  message,
-						// Data:  map[string]interface{}{"id": deliveryID},
-					},
-					common.APNsNotification{
-						DeviceToken: deviceToken,
-						Topic:       "com.tuempresa.Alertly",
-						Payload:     payload.NewPayload().AlertTitle(title).AlertBody(message),
-					},
+				err := common.SendPush(
+					common.ExpoPushMessage{Title: title, Body: message},
+					deviceToken,
+					payload.NewPayload().AlertTitle(title).AlertBody(message),
 				)
 				if err != nil {
 					log.Printf("cjnewcluster expo push to %s error: %v", deviceToken, err)

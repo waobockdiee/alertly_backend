@@ -23,22 +23,15 @@ func TestPushHandler(c *gin.Context) {
 		return
 	}
 
-	title := "Hola mundo de notifications!"
+	title := "Alertly Test Notification"
 	message := "This is a test message from Alertly."
 	deviceToken := req.DeviceToken // <<< aquí
 
 	// Envía la notificación
 	err := common.SendPush(
-		common.ExpoPushMessage{
-			To:    deviceToken, // también es importante
-			Title: title,
-			Body:  message,
-		},
-		common.APNsNotification{
-			DeviceToken: deviceToken,
-			Topic:       "com.tuempresa.Alertly",
-			Payload:     payload.NewPayload().AlertTitle(title).AlertBody(message),
-		},
+		common.ExpoPushMessage{Title: title, Body: message},
+		deviceToken,
+		payload.NewPayload().AlertTitle(title).AlertBody(message),
 	)
 	if err != nil {
 		log.Printf("TestPushHandler error sending to %s: %v", deviceToken, err)

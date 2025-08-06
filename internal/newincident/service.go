@@ -119,6 +119,8 @@ func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
 	incident.Province = prov
 	incident.PostalCode = postal
 
+	fmt.Printf("IsAnonymousssss: %v\n", incident.IsAnonymous)
+
 	inreId, err := s.repo.Save(incident)
 	if err != nil {
 		return IncidentReport{}, err

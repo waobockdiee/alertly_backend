@@ -18,8 +18,8 @@ func NewRepository(db *sql.DB) *Repository {
 // FetchPending obtiene notificaciones no procesadas en batch
 func (r *Repository) FetchPending(limit int64) ([]Notification, error) {
 	rows, err := r.db.Query(
-		`SELECT id, cluster_id, created_at FROM notifications
-         WHERE type = 'new_cluster' AND processed = FALSE
+		`SELECT noti_id, reference_id, created_at FROM notifications
+         WHERE type = 'new_cluster' AND must_be_processed = 1
          ORDER BY created_at
          LIMIT ?`, limit)
 	if err != nil {
@@ -40,7 +40,7 @@ func (r *Repository) FetchPending(limit int64) ([]Notification, error) {
 
 // MarkProcessed actualiza processed=true
 func (r *Repository) MarkProcessed(ids []int64) error {
-	query := "UPDATE notifications SET processed = TRUE WHERE id IN ("
+	query := "UPDATE notifications SET must_be_processed = 0 WHERE noti_id IN ("
 	params := make([]interface{}, len(ids))
 	for i, id := range ids {
 		query += fmt.Sprintf("?%s", ",")
@@ -82,8 +82,8 @@ func (r *Repository) InsertDeliveries(delivs []Delivery) error {
 	if err != nil {
 		return err
 	}
-	stmt, _ := tx.Prepare(`INSERT INTO notifications_deliveries
-        (notification_id, account_id, sent_at) VALUES (?,?,?)`)
+	stmt, _ := tx.Prepare(`INSERT INTO notification_deliveries
+        (noti_id, account_id, created_at) VALUES (?,?,?)`)
 	defer stmt.Close()
 	now := time.Now()
 	for _, d := range delivs {

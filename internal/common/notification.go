@@ -171,6 +171,15 @@ func HandleNotification(nType string, accountID int64, referenceID int64) alerts
 		n.MustBeProcessed = true
 		n.ErrorMessage = ""
 		return n
+	case "inactivity_reminder":
+		n.Title = "We Miss You at Alertly"
+		n.Message = "It's been a while since you last logged in. We have exciting updates and features waiting for you!"
+		n.Link = ""
+		n.MustSendPush = true
+		n.MustSendInApp = true
+		n.MustBeProcessed = true
+		n.ErrorMessage = ""
+		return n
 	default:
 		n.Title = "Notification from Alertly."
 		n.Message = ""

@@ -2,6 +2,7 @@ package main
 
 import (
 	"alertly/internal/cronjobs/cjdatabase"
+	"alertly/internal/cronjobs/cjinactivityreminder"
 	"alertly/internal/cronjobs/cjnewcluster"
 	"fmt"
 	"log"
@@ -25,6 +26,12 @@ func main() {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
 
+	// SET TIMEZONE
+	loc, err := time.LoadLocation("America/Edmonton")
+	if err != nil {
+		log.Fatalf("could not load timezone: %v", err)
+	}
+
 	// Configurar la conexión a la base de datos
 	dbUser := os.Getenv("DB_USER")
 	dbPass := os.Getenv("DB_PASS")
@@ -45,18 +52,50 @@ func main() {
 	defer cjdatabase.DB.Close()
 
 	// Crear una instancia del scheduler de cron (opción WithSeconds para mayor precisión)
-	c := cron.New(cron.WithSeconds())
+	c := cron.New(
+		cron.WithSeconds(),
+		cron.WithLocation(loc),
+	)
 
 	reponewcluster := cjnewcluster.NewRepository(cjdatabase.DB)
 	svcnewcluster := cjnewcluster.NewService(reponewcluster)
 
-	_, err := c.AddFunc("@every 1m", func() {
+	cjinactivityreminderRepo := cjinactivityreminder.NewRepository(cjdatabase.DB)
+	cjinactivityreminderService := cjinactivityreminder.NewService(cjinactivityreminderRepo)
+
+	//*******************************
+	// EVERY 1 MINUTE
+	_, err = c.AddFunc("@every 1m", func() {
 		log.Println("running cjnewcluster:", time.Now())
 		svcnewcluster.Run()
 	})
 	if err != nil {
 		log.Printf("Error running cjnewcluster: %v", err)
 	}
+
+	// EVERY DAY AT 8 AM
+	_, err = c.AddFunc("0 0 8 * * *", func() {
+		log.Println("running cjinactivityreminder:", time.Now())
+		cjinactivityreminderService.Run()
+	})
+	if err != nil {
+		log.Printf("Error running cjinactivityreminder: %v", err)
+	}
+
+	// ******************************* GENERATE AUTO NOTIFICATION CREATION
+	//*******************************
+	// EVERY DAY AT 7:30 AM
+	//
+	_, err = c.AddFunc("0 30 7 * * *", func() {
+		// _, err = c.AddFunc("@every 1m", func() {
+		log.Println("running cjinactivityreminder:", time.Now())
+		cjinactivityreminderService.Run()
+	})
+	if err != nil {
+		log.Printf("Error running cjinactivityreminder: %v", err)
+	}
+
+	// ******************************* END ADDFUNC LOGIC
 	// Iniciar el scheduler
 	c.Start()
 	log.Println("Cron scheduler started. Waiting tasks...")

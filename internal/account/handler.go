@@ -22,6 +22,8 @@ func GetMyInfo(c *gin.Context) {
 		return
 	}
 
+	ip := c.ClientIP()
+
 	repo := NewRepository(database.DB)
 	service := NewService(repo)
 
@@ -31,6 +33,12 @@ func GetMyInfo(c *gin.Context) {
 		log.Printf("Error: %v", err)
 		response.Send(c, http.StatusInternalServerError, true, "Error getting history", nil)
 		return
+	}
+
+	// Save the last request for the account for cronjob method(send notification push to user)
+	err = service.SaveLastRequest(accountID, ip)
+	if err != nil {
+		log.Printf("Error: %v", err)
 	}
 
 	response.Send(c, http.StatusOK, false, "success", data)

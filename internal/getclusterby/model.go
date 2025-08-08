@@ -73,4 +73,5 @@ type Incident struct {
 	TimeDiff         string            `json:"time_diff"`
 	CreatedAt        common.CustomTime `json:"created_at"`
 	InclID           int64             `json:"incl_id"`
+	Status           string            `json:"status"`
 }

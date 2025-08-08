@@ -12,6 +12,7 @@ type Repository interface {
 	DeleteAccount(accountID int64) error
 	GetCounterHistories(accountID int64) (Counter, error)
 	SaveLastRequest(AccountID int64, ip string) error
+	SetHasFinishedTutorial(accountID int64) error
 }
 
 type mysqlRepository struct {
@@ -25,8 +26,8 @@ func NewRepository(db *sql.DB) Repository {
 func (r *mysqlRepository) GetMyInfo(accountID int64) (MyInfo, error) {
 	var myInfo MyInfo
 
-	query := `SELECT account_id, email, is_premium, status FROM account WHERE account_id = ?`
-	err := r.db.QueryRow(query, accountID).Scan(&myInfo.AccountID, &myInfo.Email, &myInfo.IsPremium, &myInfo.Status)
+	query := `SELECT account_id, email, is_premium, status, has_finished_tutorial FROM account WHERE account_id = ?`
+	err := r.db.QueryRow(query, accountID).Scan(&myInfo.AccountID, &myInfo.Email, &myInfo.IsPremium, &myInfo.Status, &myInfo.HasFinishedTutorial)
 
 	if err != nil {
 		log.Printf("Error fetching MyInfo for account ID %d: %v", accountID, err)
@@ -103,5 +104,13 @@ func (r *mysqlRepository) SaveLastRequest(AccountID int64, ip string) error {
 	query := `INSERT INTO account_session_history (account_id, ip) VALUES(?, ?)`
 	_, err := r.db.Exec(query, AccountID, ip)
 
+	return err
+}
+func (r *mysqlRepository) SetHasFinishedTutorial(accountID int64) error {
+	query := "UPDATE account SET has_finished_tutorial = 1 WHERE account_id = ?"
+	_, err := r.db.Exec(query, accountID)
+	if err != nil {
+		log.Printf("Error actualizando notificación (ID: %d) como procesada: %v", accountID, err)
+	}
 	return err
 }

@@ -2,10 +2,20 @@ package cjnewcluster
 
 import (
 	"alertly/internal/common"
+	"alertly/internal/cronjobs/shared"
+	"database/sql"
+	"fmt"
 	"log"
 
 	"github.com/sideshow/apns2/payload"
 )
+
+// Notification represents a pending notification to be processed
+type Notification struct {
+	ID        int64
+	ClusterID int64
+	CreatedAt sql.NullTime
+}
 
 // Service orchestrates fetching, sending, and marking notifications
 type Service struct {
@@ -30,51 +40,49 @@ func (s *Service) Run() {
 		return
 	}
 
-	// 2. Build clusterIDs slice and fetch recipients map
-	clusterIDs := make([]int64, len(notifs))
-	for i, n := range notifs {
-		clusterIDs[i] = n.ClusterID
-	}
-	recMap, err := s.repo.FetchRecipients(clusterIDs)
-	if err != nil {
-		log.Printf("cjnewcluster fetch recipients: %v", err)
-		return
-	}
+	var allDeliveries []shared.Delivery
+	var processedNotifIDs []int64
 
-	var deliveries []Delivery
-	// 3. Send pushes and prepare deliveries
+	// 2. Process each notification
 	for _, n := range notifs {
-		for _, accID := range recMap[n.ClusterID] {
-			// 3a. Get device tokens for this user
-			tokens, err := s.repo.GetDeviceTokensForAccount(int64(accID))
+		users, err := s.repo.FindSubscribedUsersForCluster(n.ClusterID)
+		if err != nil {
+			log.Printf("cjnewcluster find users for cluster %d: %v", n.ClusterID, err)
+			continue // Skip to next notification on error
+		}
+
+		// 3. Send pushes and prepare deliveries
+		for _, u := range users {
+			title := "New Incident Near You"
+			body := fmt.Sprintf("A new '%s' incident has been reported near your saved location: '%s'.", u.SubcategoryName, u.LocationTitle)
+
+			err := common.SendPush(
+				common.ExpoPushMessage{Title: title, Body: body},
+				u.DeviceToken,
+				payload.NewPayload().AlertTitle(title).AlertBody(body),
+			)
 			if err != nil {
-				log.Printf("cjnewcluster tokens for account %d: %v", accID, err)
+				log.Printf("cjnewcluster expo push to %s error: %v", u.DeviceToken, err)
 				continue
 			}
-			// 3b. Send an Expo push to each token
-			var title string = `Notification from Alertly`
-			var message string = `This is the body of message`
-
-			for _, deviceToken := range tokens {
-				err := common.SendPush(
-					common.ExpoPushMessage{Title: title, Body: message},
-					deviceToken,
-					payload.NewPayload().AlertTitle(title).AlertBody(message),
-				)
-				if err != nil {
-					log.Printf("cjnewcluster expo push to %s error: %v", deviceToken, err)
-				}
-			}
-			// 3c. Queue delivery record
-			deliveries = append(deliveries, Delivery{NotificationID: n.ID, AccountID: accID})
+			// Queue delivery record
+			allDeliveries = append(allDeliveries, shared.Delivery{NotificationID: n.ID, AccountID: u.AccountID})
 		}
+		processedNotifIDs = append(processedNotifIDs, n.ID)
 	}
 
 	// 4. Insert deliveries and mark as processed
-	if err := s.repo.InsertDeliveries(deliveries); err != nil {
-		log.Printf("cjnewcluster insert deliveries: %v", err)
+	if len(allDeliveries) > 0 {
+		if err := s.repo.InsertDeliveries(allDeliveries); err != nil {
+			log.Printf("cjnewcluster insert deliveries: %v", err)
+		}
 	}
-	if err := s.repo.MarkProcessed(clusterIDs); err != nil {
-		log.Printf("cjnewcluster mark processed: %v", err)
+
+	if len(processedNotifIDs) > 0 {
+		if err := s.repo.MarkProcessed(processedNotifIDs); err != nil {
+			log.Printf("cjnewcluster mark processed: %v", err)
+		}
 	}
+
+	log.Printf("cjnewcluster processed %d notifications and sent %d pushes", len(processedNotifIDs), len(allDeliveries))
 }

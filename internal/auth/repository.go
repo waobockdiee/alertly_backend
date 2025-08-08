@@ -20,12 +20,12 @@ func NewRepository(db *sql.DB) Repository {
 
 func (r *mysqlRepository) GetUserByEmail(email string) (User, error) {
 	query := `
-		SELECT account_id, email, password, phone_number, first_name, last_name, status, is_premium
+		SELECT account_id, email, password, phone_number, first_name, last_name, status, is_premium, has_finished_tutorial
 		FROM account WHERE email = ?
 	`
 	row := r.db.QueryRow(query, email)
 	var user User
-	err := row.Scan(&user.AccountID, &user.Email, &user.Password, &user.PhoneNumber, &user.FirstName, &user.LastName, &user.Status, &user.IsPremium)
+	err := row.Scan(&user.AccountID, &user.Email, &user.Password, &user.PhoneNumber, &user.FirstName, &user.LastName, &user.Status, &user.IsPremium, &user.HasFinishedTutorial)
 	return user, err
 }
 

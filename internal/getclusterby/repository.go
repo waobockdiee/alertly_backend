@@ -69,7 +69,8 @@ func (r *mysqlRepository) GetIncidentBy(inclId int64) (Cluster, error) {
             'is_private_profile', a.is_private_profile,
             'thumbnail_url', IF(r.is_anonymous, '', a.thumbnail_url),
             'created_at', r.created_at,
-            'incl_id', r.incl_id
+            'incl_id', r.incl_id,
+            'status', r.status
           )
         )
         FROM incident_reports r

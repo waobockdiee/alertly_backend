@@ -130,3 +130,29 @@ func GetCounterHistories(c *gin.Context) {
 
 	response.Send(c, http.StatusOK, false, "success", counter)
 }
+
+func SetHasFinishedTutorial(c *gin.Context) {
+	var accountID int64
+	var err error
+
+	accountID, err = auth.GetUserFromContext(c)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusUnauthorized, true, "Unauthorized", nil)
+		return
+	}
+
+	repo := NewRepository(database.DB)
+	service := NewService(repo)
+
+	err = service.SetHasFinishedTutorial(accountID)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error", nil)
+		return
+	}
+
+	response.Send(c, http.StatusOK, false, "success", nil)
+}

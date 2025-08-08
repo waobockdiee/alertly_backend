@@ -67,3 +67,25 @@ func InsertDeliveries(db *sql.DB, deliveries []Delivery) error {
 	_, err := db.ExecContext(ctx, query, args...)
 	return err
 }
+
+// GetDeviceTokensForAccount returns all device tokens for a given account
+func GetDeviceTokensForAccount(db *sql.DB, accountID int64) ([]string, error) {
+	rows, err := db.Query(
+		`SELECT device_token FROM device_tokens WHERE account_id = ?`,
+		accountID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("GetDeviceTokensForAccount: %w", err)
+	}
+	defer rows.Close()
+
+	var tokens []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return nil, fmt.Errorf("scanning device_token: %w", err)
+		}
+		tokens = append(tokens, t)
+	}
+	return tokens, nil
+}

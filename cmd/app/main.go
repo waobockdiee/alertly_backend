@@ -23,6 +23,7 @@ import (
 	"alertly/internal/reportincident"
 	"alertly/internal/saveclusteraccount"
 	"alertly/internal/signup"
+	"alertly/internal/tutorial"
 	"fmt"
 	"log"
 	"net/http"
@@ -109,6 +110,7 @@ func main() {
 	api.GET("/account/myplaces/get", myplaces.GetByAccountId)
 	api.GET("/account/myplaces/get_by_id/:afl_id", myplaces.GetById)
 	api.POST("/account/myplaces/update", myplaces.Update)
+	api.POST("account/set_has_finished_tutorial", account.SetHasFinishedTutorial)
 	api.POST("/account/myplaces/full_update", myplaces.FullUpdate)
 	api.GET("/account/myplaces/delete/:afl_id", myplaces.Delete)
 	api.GET("/account/profile/get_by_id/:account_id", profile.GetById)
@@ -121,6 +123,9 @@ func main() {
 	api.POST("/send_feedback", feedback.SendFeedback)
 	api.POST("/send_invitation", invitefriend.Save)
 	api.POST("report_incident", reportincident.ReportIncident)
+
+	// Tutorial
+	api.POST("/tutorial/complete", tutorial.CompleteHandler)
 
 	// comunitacions with apple APN (to send push notifications)
 	api.POST("/device_tokens", notifications.SaveDeviceToken)

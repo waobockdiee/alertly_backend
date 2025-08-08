@@ -1,9 +1,14 @@
 package main
 
 import (
+	"alertly/internal/cronjobs/cjbadgeearn"
+	"alertly/internal/cronjobs/cjblockincident"
+	"alertly/internal/cronjobs/cjblockuser"
+	"alertly/internal/cronjobs/cjcomments"
 	"alertly/internal/cronjobs/cjdatabase"
 	"alertly/internal/cronjobs/cjinactivityreminder"
 	"alertly/internal/cronjobs/cjnewcluster"
+	"alertly/internal/cronjobs/cjuserank"
 	"fmt"
 	"log"
 	"os"
@@ -63,6 +68,26 @@ func main() {
 	cjinactivityreminderRepo := cjinactivityreminder.NewRepository(cjdatabase.DB)
 	cjinactivityreminderService := cjinactivityreminder.NewService(cjinactivityreminderRepo)
 
+	// New Badge Earn Cronjob
+	repobadgeearn := cjbadgeearn.NewRepository(cjdatabase.DB)
+	svcbadgeearn := cjbadgeearn.NewService(repobadgeearn)
+
+	// New User Rank Cronjob
+	repouserank := cjuserank.NewRepository(cjdatabase.DB)
+	svcuserank := cjuserank.NewService(repouserank)
+
+	// New Comments Cronjob
+	repocomments := cjcomments.NewRepository(cjdatabase.DB)
+	svccomments := cjcomments.NewService(repocomments)
+
+	// Block users Cronjob
+	repoblockuser := cjblockuser.NewRepository(cjdatabase.DB)
+	svcblockuser := cjblockuser.NewService(repoblockuser)
+
+	// Block incident Cronjob
+	repoblockincident := cjblockincident.NewRepository(cjdatabase.DB)
+	svcblockincident := cjblockincident.NewService(repoblockincident)
+
 	//*******************************
 	// EVERY 1 MINUTE
 	_, err = c.AddFunc("@every 1m", func() {
@@ -73,8 +98,26 @@ func main() {
 		log.Printf("Error running cjnewcluster: %v", err)
 	}
 
+	// EVERY 1 HOUR
+	_, err = c.AddFunc("@every 1h", func() {
+		log.Println("running cjblockuser:", time.Now())
+		svcblockuser.Run()
+	})
+	if err != nil {
+		log.Printf("Error running cjblockuser: %v", err)
+	}
+
+	_, err = c.AddFunc("@every 1m", func() {
+		log.Println("running cjblockincident:", time.Now())
+		svcblockincident.Run()
+	})
+	if err != nil {
+		log.Printf("Error running cjblockincident: %v", err)
+	}
+
 	// EVERY DAY AT 8 AM
 	_, err = c.AddFunc("0 0 8 * * *", func() {
+		// _, err = c.AddFunc("@every 1m", func() {
 		log.Println("running cjinactivityreminder:", time.Now())
 		cjinactivityreminderService.Run()
 	})
@@ -82,17 +125,32 @@ func main() {
 		log.Printf("Error running cjinactivityreminder: %v", err)
 	}
 
-	// ******************************* GENERATE AUTO NOTIFICATION CREATION
-	//*******************************
-	// EVERY DAY AT 7:30 AM
-	//
-	_, err = c.AddFunc("0 30 7 * * *", func() {
-		// _, err = c.AddFunc("@every 1m", func() {
-		log.Println("running cjinactivityreminder:", time.Now())
-		cjinactivityreminderService.Run()
+	// EVERY 10 MINUTES (Badge Earn)
+	_, err = c.AddFunc("0 */10 * * * *", func() {
+		log.Println("running cjbadgeearn:", time.Now())
+		svcbadgeearn.Run()
 	})
 	if err != nil {
-		log.Printf("Error running cjinactivityreminder: %v", err)
+		log.Printf("Error running cjbadgeearn: %v", err)
+	}
+
+	// EVERY DAY AT 8 AM (User Rank)
+	_, err = c.AddFunc("0 0 8 * * *", func() {
+		log.Println("running cjuserank:", time.Now())
+		svcuserank.Run()
+	})
+	if err != nil {
+		log.Printf("Error running cjuserank: %v", err)
+	}
+
+	// EVERY 2 MINUTE (Comments)
+	// _, err = c.AddFunc("@every 2m", func() {
+	_, err = c.AddFunc("@every 1m", func() {
+		log.Println("running cjcomments:", time.Now())
+		svccomments.Run()
+	})
+	if err != nil {
+		log.Printf("Error running cjcomments: %v", err)
 	}
 
 	// ******************************* END ADDFUNC LOGIC

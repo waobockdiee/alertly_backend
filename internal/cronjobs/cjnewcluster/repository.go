@@ -1,10 +1,17 @@
 package cjnewcluster
 
 import (
+	"alertly/internal/cronjobs/shared"
 	"database/sql"
-	"fmt"
-	"time"
 )
+
+// SubscribedUser representa un usuario que debe ser notificado
+type SubscribedUser struct {
+	DeviceToken      string
+	AccountID        int64
+	LocationTitle    string
+	SubcategoryName string
+}
 
 // Repository encapsula acceso a BD
 type Repository struct {
@@ -38,97 +45,68 @@ func (r *Repository) FetchPending(limit int64) ([]Notification, error) {
 	return list, nil
 }
 
-// MarkProcessed actualiza processed=true
-func (r *Repository) MarkProcessed(ids []int64) error {
-	query := "UPDATE notifications SET must_be_processed = 0 WHERE noti_id IN ("
-	params := make([]interface{}, len(ids))
-	for i, id := range ids {
-		query += fmt.Sprintf("?%s", ",")
-		params[i] = id
-	}
-	query = query[:len(query)-1] + ")"
-	_, err := r.db.Exec(query, params...)
-	return err
-}
+// FindSubscribedUsersForCluster encuentra usuarios que deben ser notificados sobre un cluster
+func (r *Repository) FindSubscribedUsersForCluster(clusterID int64) ([]SubscribedUser, error) {
+	query := `
+        SELECT
+            dt.device_token,
+            a.account_id,
+            afl.title AS location_title,
+            ic.subcategory_name
+        FROM
+            incident_clusters ic
+        JOIN
+            account_favorite_locations afl ON
+            -- Fórmula de Haversine para calcular la distancia en KM
+            (6371 * ACOS(COS(RADIANS(ic.center_latitude)) * COS(RADIANS(afl.latitude)) * COS(RADIANS(afl.longitude) - RADIANS(ic.center_longitude)) + SIN(RADIANS(ic.center_latitude)) * SIN(RADIANS(afl.latitude)))) <= afl.radius / 1000
+        JOIN
+            account a ON afl.account_id = a.account_id
+        JOIN
+            device_tokens dt ON a.account_id = dt.account_id
+        WHERE
+            ic.incl_id = ?
+            AND a.status = 'active'
+            AND a.receive_notifications = 1
+            AND CASE
+                WHEN ic.category_code = 'crime' THEN afl.crime = 1
+                WHEN ic.category_code = 'traffic_accident' THEN afl.traffic_accident = 1
+                WHEN ic.category_code = 'medical_emergency' THEN afl.medical_emergency = 1
+                WHEN ic.category_code = 'fire_incident' THEN afl.fire_incident = 1
+                WHEN ic.category_code = 'vandalism' THEN afl.vandalism = 1
+                WHEN ic.category_code = 'suspicious_activity' THEN afl.suspicious_activity = 1
+                WHEN ic.category_code = 'infrastructure_issues' THEN afl.infrastructure_issues = 1
+                WHEN ic.category_code = 'extreme_weather' THEN afl.extreme_weather = 1
+                WHEN ic.category_code = 'community_events' THEN afl.community_events = 1
+                WHEN ic.category_code = 'dangerous_wildlife_sighting' THEN afl.dangerous_wildlife_sighting = 1
+                WHEN ic.category_code = 'positive_actions' THEN afl.positive_actions = 1
+                WHEN ic.category_code = 'lost_pet' THEN afl.lost_pet = 1
+                ELSE 0
+            END
+    `
 
-// FetchRecipients obtiene cuentas a notificar para múltiples clusters
-func (r *Repository) FetchRecipients(clusterIDs []int64) (map[int64][]int64, error) {
-	// Devolver map[clusterID] -> []accountID
-	// Ejemplo: JOIN accounts_clusters
-	in := placeholders(len(clusterIDs))
-	args := interfaceSlice(clusterIDs)
-	q := fmt.Sprintf(
-		`SELECT cluster_id, account_id FROM accounts_clusters
-         WHERE cluster_id IN (%s)`, in)
-
-	rows, err := r.db.Query(q, args...)
+	rows, err := r.db.Query(query, clusterID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	m := make(map[int64][]int64)
+	var users []SubscribedUser
 	for rows.Next() {
-		var cid, aid int64
-		rows.Scan(&cid, &aid)
-		m[cid] = append(m[cid], aid)
+		var u SubscribedUser
+		if err := rows.Scan(&u.DeviceToken, &u.AccountID, &u.LocationTitle, &u.SubcategoryName); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
 	}
-	return m, nil
+	return users, nil
+}
+
+// MarkProcessed actualiza processed=true
+func (r *Repository) MarkProcessed(ids []int64) error {
+	return shared.MarkItemsAsProcessed(r.db, "notifications", "noti_id", ids)
 }
 
 // InsertDeliveries inserta en batch registros de envío
-func (r *Repository) InsertDeliveries(delivs []Delivery) error {
-	tx, err := r.db.Begin()
-	if err != nil {
-		return err
-	}
-	stmt, _ := tx.Prepare(`INSERT INTO notification_deliveries
-        (noti_id, account_id, created_at) VALUES (?,?,?)`)
-	defer stmt.Close()
-	now := time.Now()
-	for _, d := range delivs {
-		if _, err := stmt.Exec(d.NotificationID, d.AccountID, now); err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-	return tx.Commit()
-}
-
-// helpers
-func placeholders(n int) string {
-	s := ""
-	for i := 0; i < n; i++ {
-		s += "?,"
-	}
-	return s[:len(s)-1]
-}
-func interfaceSlice(ids []int64) []interface{} {
-	out := make([]interface{}, len(ids))
-	for i, v := range ids {
-		out[i] = v
-	}
-	return out
-}
-
-// GetDeviceTokensForAccount returns all device tokens for a given account
-func (r *Repository) GetDeviceTokensForAccount(accountID int64) ([]string, error) {
-	rows, err := r.db.Query(
-		`SELECT device_token FROM device_tokens WHERE account_id = ?`,
-		accountID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("GetDeviceTokensForAccount: %w", err)
-	}
-	defer rows.Close()
-
-	var tokens []string
-	for rows.Next() {
-		var t string
-		if err := rows.Scan(&t); err != nil {
-			return nil, fmt.Errorf("scanning device_token: %w", err)
-		}
-		tokens = append(tokens, t)
-	}
-	return tokens, nil
+func (r *Repository) InsertDeliveries(deliveries []shared.Delivery) error {
+	return shared.InsertDeliveries(r.db, deliveries)
 }

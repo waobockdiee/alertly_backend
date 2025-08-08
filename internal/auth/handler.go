@@ -42,8 +42,15 @@ func SignIn(c *gin.Context) {
 		response.Send(c, http.StatusInternalServerError, true, "Error generating token", err.Error())
 		return
 	}
+
+	// Crea una respuesta combinada
+	loginResponse := gin.H{
+		"token": tokenResp.Token,
+		"user":  user,
+	}
+
 	emails.SendTemplate(user.Email, "New login detected on your Alertly account", "new_login", nil)
-	response.Send(c, http.StatusOK, false, "Success", tokenResp)
+	response.Send(c, http.StatusOK, false, "Success", loginResponse)
 }
 
 func ValidateSession(c *gin.Context) {

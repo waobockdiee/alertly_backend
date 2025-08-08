@@ -7,6 +7,7 @@ type Service interface {
 	DeleteAccount(accountID int64) error
 	GetCounterHistories(accountID int64) (Counter, error)
 	SaveLastRequest(accountID int64, ip string) error
+	SetHasFinishedTutorial(accountID int64) error
 }
 
 type service struct {
@@ -39,4 +40,8 @@ func (s *service) GetCounterHistories(accountID int64) (Counter, error) {
 
 func (s *service) SaveLastRequest(accountID int64, ip string) error {
 	return s.repo.SaveLastRequest(accountID, ip)
+}
+
+func (s *service) SetHasFinishedTutorial(accountID int64) error {
+	return s.repo.SetHasFinishedTutorial(accountID)
 }

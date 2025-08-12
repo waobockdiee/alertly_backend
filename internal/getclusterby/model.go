@@ -38,7 +38,9 @@ type Cluster struct {
 	CredibilityPercent     float64            `json:"credibility_percent"`
 	GetAccountAlreadyVoted bool               `json:"get_account_already_voted"`
 	GetAccountAlreadySaved bool               `json:"get_account_already_saved"`
+	UserVote               int                `json:"user_vote"`
 	Credibility            float64            `json:"credibility"`
+	AccountId              sql.NullInt64      `json:"account_id"` // ID del creador del cluster (nullable)
 }
 
 type Comment struct {
@@ -66,6 +68,7 @@ type Incident struct {
 	LastName         string            `json:"last_name"`
 	IsPrivateProfile int8              `json:"is_private_profile"`
 	ThumbnailUrl     string            `json:"thumbnail_url"`
+	Score            int               `json:"score"`
 	Description      string            `json:"description"`
 	EventType        string            `json:"event_type"`
 	SubcategortyName string            `json:"subcategory_name"`

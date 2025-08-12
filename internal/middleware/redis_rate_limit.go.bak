@@ -1,0 +1,166 @@
+package middleware
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+)
+
+// RedisRateLimiter - Rate limiter escalable con Redis
+type RedisRateLimiter struct {
+	client      *redis.Client
+	keyPrefix   string
+	maxRequests int
+	window      time.Duration
+}
+
+// NewRedisRateLimiter crea un nuevo rate limiter con Redis
+func NewRedisRateLimiter(redisClient *redis.Client, maxRequests int, window time.Duration) *RedisRateLimiter {
+	return &RedisRateLimiter{
+		client:      redisClient,
+		keyPrefix:   "rate_limit:",
+		maxRequests: maxRequests,
+		window:      window,
+	}
+}
+
+// IsAllowed verifica si la IP puede hacer una petición
+func (rl *RedisRateLimiter) IsAllowed(ctx context.Context, ip string) (bool, int, error) {
+	key := rl.keyPrefix + ip
+
+	// ✅ Usar pipeline para atomicidad y performance
+	pipe := rl.client.Pipeline()
+
+	// Incrementar contador
+	incrCmd := pipe.Incr(ctx, key)
+
+	// Obtener TTL actual
+	ttlCmd := pipe.TTL(ctx, key)
+
+	// Ejecutar pipeline
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return false, 0, err
+	}
+
+	// Obtener resultados
+	count := incrCmd.Val()
+	ttl := ttlCmd.Val()
+
+	// Si es la primera petición, establecer TTL
+	if ttl == -1 {
+		rl.client.Expire(ctx, key, rl.window)
+	}
+
+	// Calcular requests restantes
+	remaining := rl.maxRequests - int(count)
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return count <= int64(rl.maxRequests), remaining, nil
+}
+
+// RedisRateLimitMiddleware - Middleware escalable para rate limiting
+func RedisRateLimitMiddleware(redisClient *redis.Client) gin.HandlerFunc {
+	// ✅ Configuración dinámica según ambiente
+	var maxRequests int
+	var window time.Duration
+
+	if os.Getenv("GIN_MODE") == "release" {
+		// ✅ PRODUCCIÓN: 60 requests por hora por IP
+		maxRequests = 60
+		window = time.Hour
+	} else {
+		// ✅ DESARROLLO: 200 requests por hora por IP
+		maxRequests = 200
+		window = time.Hour
+	}
+
+	limiter := NewRedisRateLimiter(redisClient, maxRequests, window)
+
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+		ctx := context.Background()
+
+		allowed, remaining, err := limiter.IsAllowed(ctx, ip)
+		if err != nil {
+			// ✅ Log error pero no bloquear el tráfico
+			fmt.Printf("Rate limit error for IP %s: %v\n", ip, err)
+			c.Next()
+			return
+		}
+
+		// ✅ Agregar headers informativos
+		c.Header("X-RateLimit-Limit", strconv.Itoa(maxRequests))
+		c.Header("X-RateLimit-Remaining", strconv.Itoa(remaining))
+		c.Header("X-RateLimit-Reset", strconv.FormatInt(time.Now().Add(window).Unix(), 10))
+
+		if !allowed {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"error":     "Rate limit exceeded",
+				"limit":     maxRequests,
+				"window":    window.String(),
+				"remaining": 0,
+				"reset_at":  time.Now().Add(window).Unix(),
+			})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// ✅ Rate limiter específico para endpoints públicos (más estricto)
+func RedisPublicRateLimitMiddleware(redisClient *redis.Client) gin.HandlerFunc {
+	var maxRequests int
+	var window time.Duration
+
+	if os.Getenv("GIN_MODE") == "release" {
+		// ✅ PRODUCCIÓN: 10 requests por hora para endpoints públicos
+		maxRequests = 10
+		window = time.Hour
+	} else {
+		// ✅ DESARROLLO: 50 requests por hora
+		maxRequests = 50
+		window = time.Hour
+	}
+
+	limiter := NewRedisRateLimiter(redisClient, maxRequests, window)
+	limiter.keyPrefix = "public_rate_limit:" // Namespace diferente
+
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+		ctx := context.Background()
+
+		allowed, remaining, err := limiter.IsAllowed(ctx, ip)
+		if err != nil {
+			fmt.Printf("Public rate limit error for IP %s: %v\n", ip, err)
+			c.Next()
+			return
+		}
+
+		c.Header("X-RateLimit-Limit", strconv.Itoa(maxRequests))
+		c.Header("X-RateLimit-Remaining", strconv.Itoa(remaining))
+
+		if !allowed {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"error":     "Public API rate limit exceeded",
+				"limit":     maxRequests,
+				"window":    window.String(),
+				"remaining": 0,
+			})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}

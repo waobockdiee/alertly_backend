@@ -19,12 +19,16 @@ func InitDB(dataSourceName string) {
 		log.Fatalf("Error al conectar a la base de datos: %v", err)
 	}
 
-	DB.SetMaxOpenConns(200) // O ajustar según la carga esperada
-	DB.SetMaxIdleConns(20)  // Más conexiones inactivas disponibles
-	DB.SetConnMaxLifetime(30 * time.Minute)
+	// ✅ OPTIMIZACIÓN: Configuración más agresiva para alta concurrencia
+	DB.SetMaxOpenConns(500)                 // Más conexiones concurrentes
+	DB.SetMaxIdleConns(50)                  // Más conexiones inactivas
+	DB.SetConnMaxLifetime(15 * time.Minute) // Menor tiempo de vida
+	DB.SetConnMaxIdleTime(5 * time.Minute)  // Menor tiempo inactivo
 
 	// Configuración adicional: p.ej., tamaño del pool
 	if err = DB.Ping(); err != nil {
 		log.Fatalf("Error al hacer ping a la base de datos: %v", err)
 	}
+
+	log.Println("✅ Database connection pool optimized for high concurrency")
 }

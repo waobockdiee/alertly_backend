@@ -30,11 +30,9 @@ func NewService(repo Repository) Service {
 // service.go
 
 func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
-	// 1) Geocoding (lo necesitas siempre para el report)
-	addr, city, prov, postal, err := common.ReverseGeocode(incident.Latitude, incident.Longitude)
-	if err != nil {
-		return IncidentReport{}, err
-	}
+	// ✅ OPTIMIZACIÓN: Geocoding asíncrono compatible
+	// 1) Guardar incidente inmediatamente con dirección temporal
+	addr, city, prov, postal := "Processing...", "Processing...", "Processing...", "..."
 
 	// 2) **Si viene incl_id Y NO viene vote, es solo un update de posición**
 	if incident.InclId != 0 && incident.Vote == nil {
@@ -59,6 +57,7 @@ func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
 			now := time.Now().UTC()
 			end := now.Add(CLUSTER_EXPIRES_IN * time.Hour)
 			cluster = Cluster{
+				AccountId:       incident.AccountId,
 				CreatedAt:       &now,
 				StartTime:       &now,
 				EndTime:         &end,
@@ -66,10 +65,11 @@ func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
 				CenterLatitude:  incident.Latitude,
 				CenterLongitude: incident.Longitude,
 				InsuId:          incident.InsuId,
+				IsActive:        true, // Cluster activo por defecto
 				MediaType:       incident.MediaType,
 				EventType:       incident.EventType,
 				Description:     incident.Description,
-				Address:         addr,
+				Address:         addr, // Dirección temporal
 				City:            city,
 				Province:        prov,
 				PostalCode:      postal,
@@ -112,7 +112,7 @@ func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
 		incident.InclId = cluster.InclId
 	}
 
-	// 4) Ahora grabamos siempre el incident_report
+	// 4) Ahora grabamos siempre el incident_report con dirección temporal
 	incident.MediaUrl = incident.Media.Uri
 	incident.Address = addr
 	incident.City = city
@@ -130,6 +130,35 @@ func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
 	// 5) Actualizamos contador de perfil
 	profSvc := profile.NewService(profile.NewRepository(database.DB))
 	_ = profSvc.UpdateTotalIncidents(incident.AccountId)
+
+	// ✅ OPTIMIZACIÓN: Geocoding asíncrono en background
+	go func() {
+		// Esperar un poco para no sobrecargar Nominatim
+		time.Sleep(2 * time.Second)
+
+		// Realizar geocoding
+		realAddr, realCity, realProv, realPostal, err := common.ReverseGeocode(incident.Latitude, incident.Longitude)
+		if err != nil {
+			fmt.Printf("⚠️ Geocoding failed for incident %d: %v\n", inreId, err)
+			return
+		}
+
+		// Actualizar cluster con dirección real
+		if incident.InclId != 0 {
+			if err := s.repo.UpdateClusterAddress(incident.InclId, realAddr, realCity, realProv, realPostal); err != nil {
+				fmt.Printf("⚠️ Failed to update cluster address for %d: %v\n", incident.InclId, err)
+			} else {
+				fmt.Printf("✅ Geocoding completed for cluster %d: %s, %s\n", incident.InclId, realAddr, realCity)
+			}
+		}
+
+		// Actualizar incident report con dirección real
+		if err := s.repo.UpdateIncidentAddress(inreId, realAddr, realCity, realProv, realPostal); err != nil {
+			fmt.Printf("⚠️ Failed to update incident address for %d: %v\n", inreId, err)
+		} else {
+			fmt.Printf("✅ Geocoding completed for incident %d: %s, %s\n", inreId, realAddr, realCity)
+		}
+	}()
 
 	return incident, nil
 }

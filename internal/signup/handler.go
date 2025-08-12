@@ -3,6 +3,7 @@ package signup
 import (
 	"log"
 	"net/http"
+	"strings"
 
 	"alertly/internal/database"
 	"alertly/internal/emails"
@@ -21,6 +22,11 @@ func RegisterUserHandler(c *gin.Context) {
 		response.Send(c, http.StatusBadRequest, true, "Invalid input. Please check the data and try again.", nil)
 		return
 	}
+
+	// Log de debug para ver qué datos se están recibiendo
+	log.Printf("DEBUG: Datos recibidos en signup - Email: %s, FirstName: %s, LastName: %s, Password: %s (length: %d)",
+		user.Email, user.FirstName, user.LastName,
+		strings.Repeat("*", len(user.Password)), len(user.Password))
 
 	if err := validate.Struct(user); err != nil {
 		log.Printf("Error de validación: %v", err)

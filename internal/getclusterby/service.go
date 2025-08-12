@@ -29,6 +29,11 @@ func (s *service) GetIncidentBy(inclId, accountID int64) (Cluster, error) {
 	result.GetAccountAlreadyVoted, _ = s.repo.GetAccountAlreadyVoted(result.InclId, accountID)
 	result.GetAccountAlreadySaved, _ = s.repo.GetAccountAlreadySaved(result.InclId, accountID)
 
+	// Obtener el voto del usuario si ya votó
+	if result.GetAccountAlreadyVoted {
+		result.UserVote, _ = s.repo.GetUserVote(result.InclId, accountID)
+	}
+
 	repo := comments.NewRepository(database.DB)
 	cs := comments.NewService(repo)
 	result.Comments, err = cs.GetClusterCommentsByID(result.InclId)

@@ -2,6 +2,7 @@ package editprofile
 
 import (
 	"alertly/internal/auth"
+	"alertly/internal/common"
 	"alertly/internal/database"
 	"alertly/internal/media"
 	"alertly/internal/response"
@@ -441,10 +442,14 @@ func UpdateThumbnail(c *gin.Context) {
 		return
 	}
 
+	// ✅ FIX: Usar common.GetImageURL para construir la URL correcta
+	processedFileName := filepath.Base(processedFilePath)
+	correctImageURL := common.GetImageURL("profile/" + processedFileName)
+
 	repo := NewRepository(database.DB)
 	service := NewService(repo)
 
-	err = service.UpdateThumbnail(accountID, processedFilePath)
+	err = service.UpdateThumbnail(accountID, correctImageURL)
 
 	if err != nil {
 		log.Printf("error saving profile picture in handler: %v", err)

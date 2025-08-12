@@ -38,3 +38,11 @@ func (nt *NullTime) UnmarshalJSON(b []byte) error {
 	nt.Valid = true
 	return nil
 }
+
+// MarshalJSON implementa la serialización JSON para NullTime
+func (nt *NullTime) MarshalJSON() ([]byte, error) {
+	if !nt.Valid {
+		return []byte("null"), nil
+	}
+	return json.Marshal(nt.Time.Format("2006-01-02T15:04:05Z07:00"))
+}

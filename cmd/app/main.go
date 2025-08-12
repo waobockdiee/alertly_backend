@@ -3,8 +3,11 @@ package main
 import (
 	"alertly/internal/account"
 	"alertly/internal/activate"
+	"alertly/internal/analytics"
 	"alertly/internal/auth"
 	"alertly/internal/comments"
+	"alertly/internal/common"
+	"alertly/internal/config"
 	"alertly/internal/database"
 	"alertly/internal/editprofile"
 	"alertly/internal/feedback"
@@ -14,7 +17,9 @@ import (
 	"alertly/internal/getclustersbylocation"
 	"alertly/internal/getincidentsasreels"
 	"alertly/internal/getsubcategoriesbycategoryid"
+	"alertly/internal/health"
 	"alertly/internal/invitefriend"
+	"alertly/internal/logging"
 	"alertly/internal/middleware"
 	"alertly/internal/myplaces"
 	"alertly/internal/newincident"
@@ -26,47 +31,81 @@ import (
 	"alertly/internal/tutorial"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 )
 
 func main() {
+	log.Println("🚀 Starting Alertly Backend...")
 
-	// ############ PRODUCTION ENV #############/
-	// gin.SetMode(gin.ReleaseMode)
-	// #########################################/
+	// ✅ PRODUCCIÓN: Configuración segura desde variables de ambiente
+	var cfg *config.ProductionConfig
 
-	// Si NODE_ENV=production, carga .env.production, sino .env
-	var err error
-	if os.Getenv("NODE_ENV") == "production" {
-		err = godotenv.Load(".env.production")
+	if os.Getenv("GIN_MODE") == "release" {
+		// ✅ Modo producción: Solo variables de ambiente
+		log.Println("📦 Loading production configuration from environment variables...")
+		cfg = config.LoadProductionConfig()
 	} else {
-		err = godotenv.Load(".env")
+		// ✅ Modo desarrollo: Mantener compatibilidad con .env
+		log.Println("🔧 Development mode: Loading from .env file...")
+		var err error
+		if os.Getenv("NODE_ENV") == "production" {
+			err = godotenv.Load(".env.production")
+		} else {
+			err = godotenv.Load(".env")
+		}
+
+		if err != nil {
+			log.Printf("⚠️ Warning: .env file not found, using environment variables: %v", err)
+		}
+
+		// Crear configuración desde variables de ambiente (compatible con .env)
+		cfg = &config.ProductionConfig{
+			DBUser: getEnvOrDefault("DB_USER", ""),
+			DBPass: getEnvOrDefault("DB_PASS", ""),
+			DBHost: getEnvOrDefault("DB_HOST", "localhost"),
+			DBPort: getEnvOrDefault("DB_PORT", "3306"),
+			DBName: getEnvOrDefault("DB_NAME", ""),
+			Port:   getEnvOrDefault("PORT", "8080"),
+		}
 	}
 
-	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
-	}
+	// ✅ Configurar logging para producción
+	logging.SetupProductionLogging()
 
-	dbUser := os.Getenv("DB_USER")
-	dbPass := os.Getenv("DB_PASS")
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-	dbName := os.Getenv("DB_NAME")
-	IpServer := os.Getenv("IP_SERVER")
-	serverPort := os.Getenv("SERVER_PORT")
+	// ✅ Configurar base de datos con la nueva configuración
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
+		cfg.DBUser, cfg.DBPass, cfg.DBHost, cfg.DBPort, cfg.DBName)
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", dbUser, dbPass, dbHost, dbPort, dbName)
+	log.Printf("🗄️ Connecting to database at %s:%s...", cfg.DBHost, cfg.DBPort)
 	database.InitDB(dsn)
+	log.Println("✅ Database connected successfully")
 	defer database.DB.Close()
 
+	// ✅ OPTIMIZACIÓN: Iniciar cache cleanup
+	common.StartCacheCleanup()
+	log.Println("✅ Cache cleanup started")
+
 	router := gin.Default()
+
+	// ✅ PRODUCCIÓN: Configurar middlewares de seguridad
+	if os.Getenv("GIN_MODE") == "release" {
+		// ✅ Logging optimizado para producción
+		router.Use(logging.ProductionLogger())
+
+		// ✅ Security headers para producción
+		router.Use(middleware.SecurityHeadersMiddleware())
+
+		// ✅ Rate limit headers informativos
+		router.Use(middleware.RateLimitHeadersMiddleware())
+	}
+
+	// ✅ CORS optimizado con SafeCORSMiddleware (O(1) lookup, misma funcionalidad)
+	router.Use(middleware.SafeCORSMiddleware())
+
 	wd, err := os.Getwd()
 	if err != nil {
 		log.Fatalf("Failed to get working directory: %v", err)
@@ -74,7 +113,17 @@ func main() {
 
 	uploadsPath := filepath.Join(wd, "uploads")
 	log.Println("Serving uploads from:", uploadsPath)
-	router.Static("/uploads", "./uploads")
+	// ✅ CORRECCIÓN: Usar ruta absoluta para servir archivos estáticos
+	router.Static("/uploads", uploadsPath)
+
+	// ✅ HEALTH CHECKS: Endpoints de monitoreo (sin rate limiting)
+	router.GET("/health", health.HealthHandler(database.DB))
+	router.GET("/health/ready", health.ReadinessHandler(database.DB))
+	router.GET("/health/live", health.LivenessHandler())
+	log.Println("✅ Health check endpoints configured")
+
+	// ✅ OPTIMIZACIÓN: Rate limiting para endpoints públicos
+	router.Use(middleware.RateLimitMiddleware())
 
 	router.POST("/account/signup", signup.RegisterUserHandler)
 	router.POST("/account/signin", auth.SignIn)
@@ -82,9 +131,18 @@ func main() {
 
 	api := router.Group("/api")
 	api.Use(middleware.TokenAuthMiddleware())
+	// ✅ OPTIMIZACIÓN: Rate limiting más estricto para endpoints autenticados
+	api.Use(middleware.RateLimitMiddlewareStrict())
+
 	api.GET("/account/validate", auth.ValidateSession)
 	router.GET("/category/get_all", getcategories.GetCategories)
 	router.GET("/category/getsubcategoriesbycategoryid/:id", getsubcategoriesbycategoryid.GetSubcategoriesByCategoryId)
+
+	// ✅ PÚBLICO: Endpoint para landing pages web (con rate limiting estricto)
+	publicRoutes := router.Group("/public")
+	publicRoutes.Use(middleware.RateLimitMiddlewarePublic()) // Rate limiting más estricto
+	publicRoutes.GET("/cluster/getbyid/:incl_id", getclusterby.ViewPublic)
+
 	api.POST("/incident/create", newincident.Create)
 	api.GET("/cluster/getbyid/:incl_id", getclusterby.View)
 	router.GET("/cluster/getbylocation/:min_latitude/:max_latitude/:min_longitude/:max_longitude/:from_date/:to_date/:insu_id", getclustersbylocation.Get)
@@ -115,7 +173,7 @@ func main() {
 	api.GET("/account/myplaces/delete/:afl_id", myplaces.Delete)
 	api.GET("/account/profile/get_by_id/:account_id", profile.GetById)
 	api.GET("/account/cluster/toggle_save/:incl_id", saveclusteraccount.ToggleSaveClusterAccount)
-	api.POST("/cluster/send_comment", comments.SaveClusterComment)
+	api.POST("/cluster/send_comment", middleware.ProfanityFilterMiddleware(), comments.SaveClusterComment)
 	api.GET("/saved/get_my_list", saveclusteraccount.GetMyList)
 	api.GET("/saved/delete/:acs_id", saveclusteraccount.DeleteFollowIncident)
 	api.POST("/account/report/:account_id", profile.ReportAccount)
@@ -127,27 +185,44 @@ func main() {
 	// Tutorial
 	api.POST("/tutorial/complete", tutorial.CompleteHandler)
 
+	// Analytics endpoints
+	analyticsService := analytics.NewBasicAnalytics(database.DB)
+	analyticsHandler := analytics.NewHandler(analyticsService)
+	api.GET("/analytics/summary", analyticsHandler.GetAnalyticsSummary)
+	api.GET("/analytics/predictions", analyticsHandler.GetSimplePredictions)
+	api.GET("/analytics/test", analyticsHandler.TestAnalytics)
+	api.GET("/analytics/location", analyticsHandler.GetLocationAnalytics)
+
 	// comunitacions with apple APN (to send push notifications)
-	api.POST("/device_tokens", notifications.SaveDeviceToken)
-	api.DELETE("/device_tokens", notifications.DeleteDeviceToken)
+	// ✅ MOVIDO: Endpoints de device tokens sin rate limiting estricto
+	router.POST("/api/device_tokens", middleware.TokenAuthMiddleware(), notifications.SaveDeviceToken)
+	router.DELETE("/api/device_tokens", middleware.TokenAuthMiddleware(), notifications.DeleteDeviceToken)
+
+	// Notification endpoints
+	api.GET("/notifications", notifications.GetNotifications)
+	api.GET("/notifications/unread_count", notifications.GetUnreadCount)
+	api.POST("/notifications/mark_as_read", notifications.MarkAsRead)
+	api.POST("/notifications/mark_all_as_read", notifications.MarkAllAsRead)
+	api.DELETE("/notifications", notifications.DeleteNotification)
 
 	// TESTING
 	api.POST("/test_push", notifications.TestPushHandler)
 
-	log.Printf("Servidor iniciado en :%s", serverPort)
+	// ✅ PRODUCCIÓN: Iniciar servidor con configuración segura
+	port := ":" + cfg.Port
+	log.Printf("🚀 Alertly Backend starting on port %s", cfg.Port)
+	log.Printf("🌍 Environment: %s", os.Getenv("GIN_MODE"))
+	log.Printf("🔗 Health check: http://localhost%s/health", port)
 
-	router.Run(IpServer + ":" + serverPort)
-	addr := IpServer + ":" + serverPort
-	log.Printf("Servidor iniciado en %s", addr)
-
-	// Configuramos HTTP/2 en modo h2c (sin TLS) para entorno de desarrollo
-	h2s := &http2.Server{}
-	srv := &http.Server{
-		Addr:    addr,
-		Handler: h2c.NewHandler(router, h2s),
+	if err := router.Run(port); err != nil {
+		log.Fatalf("❌ Failed to start server: %v", err)
 	}
+}
 
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatalf("Error al iniciar el servidor: %v", err)
+// ✅ Helper function para compatibilidad con desarrollo
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
+	return defaultValue
 }

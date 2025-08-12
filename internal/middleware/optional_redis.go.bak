@@ -1,0 +1,118 @@
+package middleware
+
+import (
+	"context"
+	"log"
+	"os"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+	"golang.org/x/time/rate"
+)
+
+// OptionalRedisRateLimiter - Rate limiter que funciona con o sin Redis
+type OptionalRedisRateLimiter struct {
+	redisClient     *redis.Client
+	fallbackLimiter *RateLimiter // ✅ Usar el rate limiter existente como fallback
+	useRedis        bool
+}
+
+// NewOptionalRedisRateLimiter crea rate limiter híbrido
+func NewOptionalRedisRateLimiter() *OptionalRedisRateLimiter {
+	limiter := &OptionalRedisRateLimiter{
+		useRedis: false,
+	}
+
+	// ✅ Intentar conectar Redis solo si está configurado
+	if redisHost := os.Getenv("REDIS_HOST"); redisHost != "" {
+		client := redis.NewClient(&redis.Options{
+			Addr:        redisHost + ":" + os.Getenv("REDIS_PORT"),
+			Password:    os.Getenv("REDIS_PASSWORD"),
+			DB:          0,
+			DialTimeout: 2 * time.Second, // ✅ Timeout corto para no bloquear startup
+		})
+
+		// ✅ Test rápido de conexión
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		if _, err := client.Ping(ctx).Result(); err == nil {
+			limiter.redisClient = client
+			limiter.useRedis = true
+			log.Println("✅ Redis connected - using distributed rate limiting")
+		} else {
+			log.Printf("⚠️ Redis connection failed, using in-memory rate limiting: %v", err)
+			client.Close()
+		}
+	}
+
+	// ✅ Siempre crear fallback limiter
+	if os.Getenv("GIN_MODE") == "release" {
+		limiter.fallbackLimiter = NewRateLimiter(rate.Every(20*time.Second), 3)
+	} else {
+		limiter.fallbackLimiter = NewRateLimiter(rate.Every(6*time.Second), 10)
+	}
+
+	return limiter
+}
+
+// IsAllowed verifica rate limit con Redis o fallback
+func (orl *OptionalRedisRateLimiter) IsAllowed(ip string) bool {
+	if orl.useRedis && orl.redisClient != nil {
+		// ✅ Usar Redis si está disponible
+		return orl.isAllowedRedis(ip)
+	}
+
+	// ✅ Fallback al rate limiter in-memory existente
+	limiter := orl.fallbackLimiter.getLimiter(ip)
+	return limiter.Allow()
+}
+
+func (orl *OptionalRedisRateLimiter) isAllowedRedis(ip string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	key := "rate_limit:" + ip
+
+	// ✅ Operación atómica simple
+	count, err := orl.redisClient.Incr(ctx, key).Result()
+	if err != nil {
+		// ✅ Si Redis falla, usar fallback automáticamente
+		log.Printf("Redis rate limit error for %s, using fallback: %v", ip, err)
+		limiter := orl.fallbackLimiter.getLimiter(ip)
+		return limiter.Allow()
+	}
+
+	// ✅ Establecer TTL en primera petición
+	if count == 1 {
+		orl.redisClient.Expire(ctx, key, time.Hour)
+	}
+
+	maxRequests := 60 // Por hora
+	if os.Getenv("GIN_MODE") != "release" {
+		maxRequests = 200
+	}
+
+	return count <= int64(maxRequests)
+}
+
+// HybridRateLimitMiddleware - Middleware híbrido que no rompe nada
+func HybridRateLimitMiddleware() gin.HandlerFunc {
+	limiter := NewOptionalRedisRateLimiter()
+
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+
+		if !limiter.IsAllowed(ip) {
+			c.JSON(429, gin.H{
+				"error":   "Rate limit exceeded",
+				"message": "Please wait before making another request",
+			})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}

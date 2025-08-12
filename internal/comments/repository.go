@@ -61,7 +61,7 @@ func (r *mysqlRepository) GetClusterCommentsByID(inclID int64) ([]Comment, error
 	t1.comment_status,
 	t1.counter_flags,
 	t2.nickname,
-	t2.thumbnail_url
+	COALESCE(t2.thumbnail_url, '') as thumbnail_url
 	FROM incident_comments t1 INNER JOIN account t2 ON t1.account_id = t2.account_id
 	WHERE t1.incl_id = ?
 	ORDER BY t1.inco_id DESC`
@@ -109,7 +109,7 @@ func (r *mysqlRepository) GetCommentById(incoID int64) (Comment, error) {
 	t1.comment_status,
 	t1.counter_flags,
 	t2.nickname,
-	t2.thumbnail_url
+	COALESCE(t2.thumbnail_url, '') as thumbnail_url
 	FROM incident_comments t1 INNER JOIN account t2 ON t1.account_id = t2.account_id
 	WHERE t1.inco_id = ?`
 

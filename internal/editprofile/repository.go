@@ -33,13 +33,56 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *mysqlRepository) GetAccountByID(accountID int64) (Account, error) {
-	query := `SELECT account_id, email, first_name, last_name, nickname, password, can_update_nickname, can_update_fullname, can_update_birthdate, birth_year, birth_month, birth_day, can_update_email, thumbnail_url, receive_notifications, status FROM account WHERE account_id = ?`
+	// ✅ FIX: Usar COALESCE para manejar valores NULL en birth_year, birth_month, birth_day
+	query := `SELECT 
+		account_id, 
+		email, 
+		first_name, 
+		last_name, 
+		nickname, 
+		password, 
+		can_update_nickname, 
+		can_update_fullname, 
+		can_update_birthdate, 
+		COALESCE(birth_year, '') as birth_year, 
+		COALESCE(birth_month, '') as birth_month, 
+		COALESCE(birth_day, '') as birth_day, 
+		can_update_email, 
+		COALESCE(thumbnail_url, '') as thumbnail_url, 
+		receive_notifications, 
+		status 
+	FROM account 
+	WHERE account_id = ?`
+
 	row := r.db.QueryRow(query, accountID)
 
 	var account Account
 
-	err := row.Scan(&account.AccountID, &account.Email, &account.FirstName, &account.LastName, &account.NickName, &account.Password, &account.CanUpdateNickname, &account.CanUpdateFullName, &account.CanUpdateBirthDate, &account.BirthYear, &account.BirthMonth, &account.BirthDay, &account.CanUpdateEmail, &account.ThumbnailURL, &account.ReceiveNotifications, &account.Status)
-	return account, err
+	err := row.Scan(
+		&account.AccountID,
+		&account.Email,
+		&account.FirstName,
+		&account.LastName,
+		&account.NickName,
+		&account.Password,
+		&account.CanUpdateNickname,
+		&account.CanUpdateFullName,
+		&account.CanUpdateBirthDate,
+		&account.BirthYear,
+		&account.BirthMonth,
+		&account.BirthDay,
+		&account.CanUpdateEmail,
+		&account.ThumbnailURL,
+		&account.ReceiveNotifications,
+		&account.Status,
+	)
+
+	if err != nil {
+		log.Printf("Error scanning account data for ID %d: %v", accountID, err)
+		return account, err
+	}
+
+	return account, nil
 }
 
 func (r *mysqlRepository) SaveCodeBeforeUpdateEmail(code string, accountID int64) error {

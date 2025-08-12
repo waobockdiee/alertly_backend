@@ -28,10 +28,36 @@ func SaveClusterComment(c *gin.Context) {
 	}
 
 	var comment InComment
-	if err = c.BindJSON(&comment); err != nil {
-		fmt.Println("error1", err)
-		response.Send(c, http.StatusBadRequest, true, "Invalid input format. Please check the data and try again.", err.Error())
-		return
+
+	// Check if profanity filter was applied
+	if filteredRequest, exists := c.Get("filtered_request"); exists {
+		// Use filtered request data
+		filteredData := filteredRequest.(map[string]interface{})
+		commentText, _ := filteredData["comment"].(string)
+		profanityLevel, _ := filteredData["profanity_level"].(string)
+		profanityMessage, _ := filteredData["profanity_message"].(string)
+
+		// Log profanity detection for monitoring
+		if profanityLevel != "" {
+			fmt.Printf("Profanity detected - Level: %s, Message: %s\n", profanityLevel, profanityMessage)
+		}
+
+		// Bind other fields from request
+		if err = c.ShouldBindJSON(&comment); err != nil {
+			fmt.Println("error1", err)
+			response.Send(c, http.StatusBadRequest, true, "Invalid input format. Please check the data and try again.", err.Error())
+			return
+		}
+
+		// Override comment text with filtered version
+		comment.Comment = commentText
+	} else {
+		// No profanity filter applied, use normal binding
+		if err = c.BindJSON(&comment); err != nil {
+			fmt.Println("error1", err)
+			response.Send(c, http.StatusBadRequest, true, "Invalid input format. Please check the data and try again.", err.Error())
+			return
+		}
 	}
 
 	if err = validate.Struct(comment); err != nil {

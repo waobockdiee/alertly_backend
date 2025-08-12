@@ -116,8 +116,10 @@ func (r *mysqlRepository) GetReel(inputs Inputs, accountID int64) ([]getclusterb
               'first_name',     IF(r.is_anonymous, '', a.first_name),
               'last_name',      IF(r.is_anonymous, '', a.last_name),
               'is_private_profile', a.is_private_profile,
-              'thumbnail_url',  IF(r.is_anonymous, '', a.thumbnail_url),
-              'created_at',     r.created_at
+              'thumbnail_url',  IF(r.is_anonymous, '', COALESCE(a.thumbnail_url, '')),
+              'score',          IF(r.is_anonymous, 0, COALESCE(a.score, 0)),
+              'created_at',     r.created_at,
+              'status',         r.status
             )
           )
           FROM incident_reports r

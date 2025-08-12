@@ -7,9 +7,9 @@ import (
 
 // SubscribedUser representa un usuario que debe ser notificado
 type SubscribedUser struct {
-	DeviceToken      string
-	AccountID        int64
-	LocationTitle    string
+	DeviceToken     string
+	AccountID       int64
+	LocationTitle   string
 	SubcategoryName string
 }
 

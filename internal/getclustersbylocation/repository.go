@@ -19,16 +19,17 @@ func NewRepository(db *sql.DB) Repository {
 
 func (r *mysqlRepository) GetClustersByLocation(inputs Inputs) ([]Cluster, error) {
 
+	// ✅ OPTIMIZACIÓN: Query mejorada con LIMIT y mejor estructura
 	query := `
-	SELECT
-		t1.incl_id, t1.center_latitude, t1.center_longitude, t1.insu_id, t1.category_code, t1.subcategory_code
-	FROM incident_clusters t1
-	WHERE t1.center_latitude BETWEEN ? AND ?
-	  AND t1.center_longitude BETWEEN ? AND ?
-	  AND DATE(t1.start_time) <= ? 
-	  AND DATE(t1.end_time) >= ?
-	  AND (? = 0 OR t1.insu_id = ?)
-	  AND t1.is_active = 1
+        SELECT
+                t1.incl_id, t1.center_latitude, t1.center_longitude, t1.insu_id, t1.category_code, t1.subcategory_code
+        FROM incident_clusters t1
+        WHERE t1.center_latitude BETWEEN ? AND ?
+          AND t1.center_longitude BETWEEN ? AND ?
+          AND DATE(t1.start_time) <= ?
+          AND DATE(t1.end_time) >= ?
+          AND (? = 0 OR t1.insu_id = ?)
+          AND t1.is_active = 1
 	`
 	params := []interface{}{
 		inputs.MinLatitude, inputs.MaxLatitude,
@@ -38,6 +39,7 @@ func (r *mysqlRepository) GetClustersByLocation(inputs Inputs) ([]Cluster, error
 		inputs.InsuID, inputs.InsuID,
 	}
 
+	// ✅ CORRECCIÓN: Agregar categorías antes del ORDER BY
 	if inputs.Categories != "" {
 		cats := strings.Split(inputs.Categories, ",")
 		placeholders := make([]string, len(cats))
@@ -48,9 +50,13 @@ func (r *mysqlRepository) GetClustersByLocation(inputs Inputs) ([]Cluster, error
 		query += " AND t1.category_code IN (" + strings.Join(placeholders, ",") + ")"
 	}
 
+	// ✅ CORRECCIÓN: ORDER BY y LIMIT después de todas las condiciones WHERE
+	query += " ORDER BY t1.created_at DESC LIMIT 100"
+
 	var clusters []Cluster
 	rows, err := r.db.Query(query, params...)
 	if err != nil {
+
 		return clusters, err
 	}
 	defer rows.Close()

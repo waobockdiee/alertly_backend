@@ -8,6 +8,7 @@ import (
 type Service interface {
 	ProcessNotifications()
 	processWelcomeToApp(n Notification) error
+	processBadgeEarned(n Notification) error
 }
 
 type service struct {
@@ -38,6 +39,8 @@ func (s *service) ProcessNotifications() {
 				switch n.Type {
 				case "welcome_to_app":
 					err = s.processWelcomeToApp(n)
+				case "badge_earned":
+					err = s.processBadgeEarned(n)
 				default:
 					log.Printf("Acción no definida para el tipo de notificación: %s", n.Type)
 				}
@@ -86,5 +89,32 @@ func (s *service) processWelcomeToApp(n Notification) error {
 		log.Printf("Error marcando processed noti %d: %v", n.NotiID, err)
 		return err
 	}
+	return nil
+}
+
+func (s *service) processBadgeEarned(n Notification) error {
+	// Para badge_earned, creamos una notificación directa al usuario específico
+	// No necesitamos buscar múltiples cuentas como en welcome_to_app
+
+	delivery := NotificationDelivery{
+		ToAccountID: n.AccountID, // Usar AccountID del modelo
+		NotiID:      n.NotiID,
+		Title:       n.Title,   // Usar título personalizado del cronjob
+		Message:     n.Message, // Usar mensaje personalizado del cronjob
+	}
+
+	// Guardar la delivery individual
+	if err := s.repo.SaveNotificationDelivery(delivery); err != nil {
+		log.Printf("Error saving notification delivery for badge_earned ID %d: %v", n.NotiID, err)
+		return err
+	}
+
+	// Marcar la notificación como procesada
+	if err := s.repo.UpdateNotificationAsProcessed(n.NotiID); err != nil {
+		log.Printf("Error marcando processed badge_earned noti %d: %v", n.NotiID, err)
+		return err
+	}
+
+	log.Printf("Successfully processed badge_earned notification ID %d for account %d", n.NotiID, n.AccountID)
 	return nil
 }

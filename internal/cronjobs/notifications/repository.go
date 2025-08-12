@@ -9,6 +9,7 @@ import (
 type Repository interface {
 	GetUnprocessedNotificationsPush() ([]Notification, error)
 	BatchSaveNewNotificationDeliveries(nd []NotificationDelivery) error
+	SaveNotificationDelivery(nd NotificationDelivery) error
 	UpdateNotificationAsProcessed(notiID int64) error
 	GetProcessWelcomeToAppAccounts(n Notification) ([]Account, error)
 }
@@ -28,7 +29,7 @@ func (r *mysqlRepository) GetUnprocessedNotificationsPush() ([]Notification, err
 	SELECT 
 		t1.noti_id, t1.owner_account_id, t1.title, t1.message, t1.type, t1.link, 
 		t1.created_at, t1.must_send_as_notification_push, t1.must_send_as_notification, 
-		t1.must_be_processed, t1.retry_count, t1.reference_id, t2.nickname, t2.thumbnail_url
+		t1.must_be_processed, t1.retry_count, t1.reference_id, t2.nickname, COALESCE(t2.thumbnail_url, '') as thumbnail_url
 	FROM notifications t1 
 	INNER JOIN account t2 ON t1.owner_account_id = t2.account_id
 	WHERE t1.must_be_processed = 1`
@@ -81,6 +82,17 @@ func (r *mysqlRepository) BatchSaveNewNotificationDeliveries(nd []NotificationDe
 	return nil
 }
 
+// SaveNotificationDelivery guarda una sola notification delivery
+func (r *mysqlRepository) SaveNotificationDelivery(nd NotificationDelivery) error {
+	query := "INSERT INTO notification_deliveries (to_account_id, noti_id, title, message) VALUES (?, ?, ?, ?)"
+	_, err := r.db.Exec(query, nd.ToAccountID, nd.NotiID, nd.Title, nd.Message)
+	if err != nil {
+		log.Printf("Error saving individual notification delivery: %v", err)
+		return err
+	}
+	return nil
+}
+
 func (r *mysqlRepository) UpdateNotificationAsProcessed(notiID int64) error {
 	query := "UPDATE notifications SET must_be_processed = 0 WHERE noti_id = ?"
 	_, err := r.db.Exec(query, notiID)
@@ -97,7 +109,7 @@ func (r *mysqlRepository) GetProcessWelcomeToAppAccounts(n Notification) ([]Acco
 	// excepto el dueño (podrías ajustar la condición según la lógica del negocio).
 	query := `
 	SELECT 
-		a.account_id, a.email, a.nickname, a.thumbnail_url 
+		a.account_id, a.email, a.nickname, COALESCE(a.thumbnail_url, '') as thumbnail_url 
 	FROM account a 
 	WHERE a.account_id != ?`
 	rows, err := r.db.Query(query, n.AccountID)

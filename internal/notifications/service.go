@@ -115,12 +115,13 @@ func (s *service) handleNotification(nType string, accountID int64, referenceID 
 		n.MustBeProcessed = false
 		n.ErrorMessage = ""
 	case "badge_earned":
-		n.Title = "Achievement Unlocked! New Badge Earned."
-		n.Message = ""
-		n.Link = ""
+		// No sobrescribir título/mensaje - usar los personalizados del cronjob
+		// n.Title ya viene del cronjob con el rango específico
+		// n.Message ya viene del cronjob con el score específico
+		n.Link = "ProfileScreen"
 		n.MustSendPush = true
 		n.MustSendInApp = true
-		n.MustBeProcessed = false
+		n.MustBeProcessed = true // ✅ Cambiar a true para que se procese
 		n.ErrorMessage = ""
 	case "app_update":
 		n.Title = "Alertly App Update Available. Upgrade Now!"

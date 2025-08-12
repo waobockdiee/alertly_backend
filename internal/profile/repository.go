@@ -39,12 +39,12 @@ func (r *mysqlRepository) GetById(accountID int64) (Profile, error) {
 			a.counter_total_locations, 
 			a.counter_total_flags, 
 			a.counter_total_medals, 
-			a.birth_year, 
-			a.birth_month, 
-			a.birth_day, 
+			COALESCE(a.birth_year, '') as birth_year, 
+			COALESCE(a.birth_month, '') as birth_month, 
+			COALESCE(a.birth_day, '') as birth_day, 
 			a.has_finished_tutorial, 
 			a.has_watch_new_incident_tutorial, 
-			a.thumbnail_url,
+			COALESCE(a.thumbnail_url, '') as thumbnail_url,
 			a.crime,
 			a.traffic_accident,
 			a.medical_emergency,
@@ -69,13 +69,15 @@ func (r *mysqlRepository) GetById(accountID int64) (Profile, error) {
 					'subcategory_name', i.subcategory_name,
 					'credibility', ic.credibility,
 					'incl_id', i.incl_id,
-					'is_anonymous', i.is_anonymous
+					'is_anonymous', i.is_anonymous,
+					'created_at', i.created_at
 					)
 				)
 				FROM incident_reports i
 				INNER JOIN incident_clusters ic 
 					ON i.incl_id = ic.incl_id
 				WHERE i.account_id = a.account_id
+				ORDER BY i.created_at DESC
 				),
 				JSON_ARRAY()
 			) AS incidents

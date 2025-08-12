@@ -15,6 +15,12 @@ type Repository interface {
 	// SaveAsUpdate(incident IncidentReport) error
 	HasAccountVoted(inclID, accountID int64) (bool, bool, error)
 	UpdateClusterLocation(inclId int64, latitude, longitude float32) (sql.Result, error)
+	// ✅ NUEVOS MÉTODOS: Para geocoding asíncrono
+	UpdateClusterAddress(inclId int64, address, city, province, postalCode string) error
+	UpdateIncidentAddress(inreId int64, address, city, province, postalCode string) error
+	// ✅ NUEVOS MÉTODOS: Para procesamiento asíncrono de imágenes
+	UpdateIncidentMediaPath(inreId int64, mediaPath string) error
+	UpdateClusterMediaPath(inclId int64, mediaPath string) error
 }
 
 type mysqlRepository struct {
@@ -27,15 +33,18 @@ func NewRepository(db *sql.DB) Repository {
 
 func (r *mysqlRepository) CheckAndGetIfClusterExist(incident IncidentReport) (Cluster, error) {
 	query := `SELECT incl_id FROM incident_clusters WHERE insu_id = ? 
+	  AND category_code = ?
+	  AND subcategory_code = ?
 	  AND ST_Distance_Sphere(
 		POINT(center_longitude, center_latitude),
 		POINT(?, ?)
 	  ) < ?
 	  AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR);`
 
-	row := r.db.QueryRow(query, incident.InsuId, incident.Longitude, incident.Latitude, incident.DefaultCircleRange)
+	row := r.db.QueryRow(query, incident.InsuId, incident.CategoryCode, incident.SubcategoryCode, incident.Longitude, incident.Latitude, incident.DefaultCircleRange)
 	var cluster Cluster
 	err := row.Scan(&cluster.InclId)
+
 	return cluster, err
 }
 
@@ -44,7 +53,19 @@ Guarda un incidente del cluster. Basicamente es una actualizacion del seguimient
 */
 func (r *mysqlRepository) Save(incident IncidentReport) (int64, error) {
 
-	query := "INSERT INTO incident_reports(account_id, insu_id, incl_id, description, event_type, address, city, province, postal_code, latitude, longitude, subcategory_name, is_anonymous, media_url, subcategory_code, category_code, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
+	// Determinar el valor del voto para la base de datos
+	var voteValue interface{}
+	if incident.Vote != nil {
+		if *incident.Vote {
+			voteValue = 1 // TRUE
+		} else {
+			voteValue = 0 // FALSE
+		}
+	} else {
+		voteValue = nil // No es un voto
+	}
+
+	query := "INSERT INTO incident_reports(account_id, insu_id, incl_id, description, event_type, address, city, province, postal_code, latitude, longitude, subcategory_name, is_anonymous, media_url, subcategory_code, category_code, vote, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
 	result, err := r.db.Exec(query,
 		incident.AccountId,
 		incident.InsuId,
@@ -62,6 +83,7 @@ func (r *mysqlRepository) Save(incident IncidentReport) (int64, error) {
 		incident.Media.Uri,
 		incident.SubcategoryCode,
 		incident.CategoryCode,
+		voteValue,
 	)
 
 	if err != nil {
@@ -123,12 +145,14 @@ func (r *mysqlRepository) SaveCluster(cluster Cluster, accountID int64) (int64, 
 		subcategory_name,
 		category_code,
 		subcategory_code,
+		account_id,
+		is_active,
 		score_true,
 		score_false,
 		credibility
 	  )
 	  VALUES (
-		?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,
+		?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,
 		(SELECT a.credibility      FROM account a WHERE a.account_id = ?),
 		(10 - (SELECT a.credibility FROM account a WHERE a.account_id = ?)),
 		(SELECT a.credibility      FROM account a WHERE a.account_id = ?)
@@ -151,9 +175,11 @@ func (r *mysqlRepository) SaveCluster(cluster Cluster, accountID int64) (int64, 
 		cluster.SubcategoryName,
 		cluster.CategoryCode,
 		cluster.SubcategoryCode,
-		accountID,
-		accountID,
-		accountID,
+		accountID, // account_id del creador del cluster
+		1,         // is_active = 1 (activo)
+		accountID, // para calcular score_true
+		accountID, // para calcular score_false
+		accountID, // para calcular credibility
 	)
 
 	if err != nil {
@@ -327,18 +353,22 @@ func UpdateCounterIncidentsAccount(tx *sql.Tx, accountID int64) error {
 }
 
 func (r *mysqlRepository) HasAccountVoted(inclID, accountID int64) (bool, bool, error) {
-	var votedVal sql.NullBool
+	var voteVal sql.NullInt64
 	err := r.db.QueryRow(
-		`SELECT is_true FROM incident_reports WHERE incl_id = ? AND account_id = ? LIMIT 1`,
+		`SELECT vote FROM incident_reports WHERE incl_id = ? AND account_id = ? AND vote IS NOT NULL LIMIT 1`,
 		inclID, accountID,
-	).Scan(&votedVal)
+	).Scan(&voteVal)
 	if err == sql.ErrNoRows {
 		return false, false, nil
 	}
 	if err != nil {
 		return false, false, err
 	}
-	return true, votedVal.Bool, nil
+	if !voteVal.Valid {
+		return false, false, nil
+	}
+	// Convertir 1 = true, 0 = false
+	return true, voteVal.Int64 == 1, nil
 }
 
 func (r *mysqlRepository) UpdateClusterLocation(inclId int64, latitude, longitude float32) (sql.Result, error) {
@@ -349,4 +379,58 @@ func (r *mysqlRepository) UpdateClusterLocation(inclId int64, latitude, longitud
       center_longitude = (center_longitude + ?) / 2
     WHERE incl_id = ?;`
 	return r.db.Exec(query, latitude, longitude, inclId)
+}
+
+// ✅ NUEVOS MÉTODOS: Para geocoding asíncrono
+
+func (r *mysqlRepository) UpdateClusterAddress(inclId int64, address, city, province, postalCode string) error {
+	query := `
+    UPDATE incident_clusters 
+    SET 
+      address = ?,
+      city = ?,
+      province = ?,
+      postal_code = ?
+    WHERE incl_id = ?;`
+
+	_, err := r.db.Exec(query, address, city, province, postalCode, inclId)
+	return err
+}
+
+func (r *mysqlRepository) UpdateIncidentAddress(inreId int64, address, city, province, postalCode string) error {
+	query := `
+    UPDATE incident_reports 
+    SET 
+      address = ?,
+      city = ?,
+      province = ?,
+      postal_code = ?
+    WHERE inre_id = ?;`
+
+	_, err := r.db.Exec(query, address, city, province, postalCode, inreId)
+	return err
+}
+
+// ✅ NUEVOS MÉTODOS: Para procesamiento asíncrono de imágenes
+
+func (r *mysqlRepository) UpdateIncidentMediaPath(inreId int64, mediaPath string) error {
+	query := `
+    UPDATE incident_reports 
+    SET 
+      media_url = ?
+    WHERE inre_id = ?;`
+
+	_, err := r.db.Exec(query, mediaPath, inreId)
+	return err
+}
+
+func (r *mysqlRepository) UpdateClusterMediaPath(inclId int64, mediaPath string) error {
+	query := `
+    UPDATE incident_clusters 
+    SET 
+      media_url = ?
+    WHERE incl_id = ?;`
+
+	_, err := r.db.Exec(query, mediaPath, inclId)
+	return err
 }

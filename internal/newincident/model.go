@@ -26,13 +26,14 @@ type IncidentReport struct {
 	DefaultCircleRange int     `form:"default_circle_range" json:"default_circle_range"`
 	MediaUrl           string  `form:"media_url"        json:"media_url"`
 	SubcategoryCode    string  `form:"subcategory_code" json:"subcategory_code"`
-	CategoryCode       string  `form:"code"             json:"category_code"`
+	CategoryCode       string  `form:"category_code"    json:"category_code"`
 	Vote               *bool   `form:"vote,omitempty"   json:"vote,omitempty"`
 	Credibility        float32 `form:"credibility"      json:"credibility"`
 }
 
 type Cluster struct {
 	InclId          int64      `json:"incl_id"`
+	AccountId       int64      `json:"account_id"`
 	CreatedAt       *time.Time `json:"created_at"`
 	StartTime       *time.Time `json:"start_time"`
 	EndTime         *time.Time `json:"end_time"`
@@ -50,7 +51,7 @@ type Cluster struct {
 	PostalCode      string     `json:"postal_code"`
 	SubcategoryName string     `json:"subcategory_name"`
 	SubcategoryCode string     `json:"subcategory_code"`
-	CategoryCode    string     `json:"code"`
+	CategoryCode    string     `json:"category_code"`
 	Credibility     float32    `json:"credibility"`
 	ScoreTrue       float32    `json:"score_true"`
 	ScoreFalse      float32    `json:"score_false"`

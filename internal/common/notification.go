@@ -136,12 +136,13 @@ func HandleNotification(nType string, accountID int64, referenceID int64) alerts
 		n.ErrorMessage = ""
 		return n
 	case "badge_earned":
-		n.Title = "Achievement Unlocked! New Badge Earned."
-		n.Message = ""
-		n.Link = ""
+		// No sobrescribir título/mensaje - usar los personalizados del cronjob
+		// n.Title ya viene del cronjob con el rango específico
+		// n.Message ya viene del cronjob con el score específico
+		n.Link = "ProfileScreen"
 		n.MustSendPush = true
 		n.MustSendInApp = true
-		n.MustBeProcessed = false
+		n.MustBeProcessed = true // ✅ Cambiar a true para que se procese
 		n.ErrorMessage = ""
 		return n
 	case "app_update":

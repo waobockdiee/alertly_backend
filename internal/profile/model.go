@@ -13,13 +13,14 @@ type ProfileCard struct {
 
 type Incident struct {
 	InreId          int64   `json:"inre_id"`
-	MedialUrl       string  `json:"media_url"`
+	MediaUrl        string  `json:"media_url"`
 	Description     string  `json:"description"`
 	EventType       string  `json:"event_type"`
 	SubcategoryName string  `json:"subcategory_name"`
 	Credibility     float32 `json:"credibility"`
 	InclID          int64   `json:"incl_id"`
 	IsAnonymous     string  `json:"is_anonymous"`
+	CreatedAt       string  `json:"created_at"`
 }
 
 type Range struct {

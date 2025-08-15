@@ -49,6 +49,9 @@ func (r *mysqlRepository) GetClustersByRadius(inputs Inputs) ([]Cluster, error) 
 		query += " AND t1.category_code IN (" + strings.Join(placeholders, ",") + ")"
 	}
 
+	// ✅ OPTIMIZACIÓN: Agregar ORDER BY y LIMIT para consistencia y performance
+	query += " ORDER BY t1.created_at DESC LIMIT 200"
+
 	var clusters []Cluster
 	rows, err := r.db.Query(query, params...)
 	if err != nil {

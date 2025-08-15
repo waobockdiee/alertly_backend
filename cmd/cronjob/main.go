@@ -7,6 +7,7 @@ import (
 	"alertly/internal/cronjobs/cjcomments"
 	"alertly/internal/cronjobs/cjdatabase"
 	"alertly/internal/cronjobs/cjinactivityreminder"
+	"alertly/internal/cronjobs/cjincidentupdate"
 	"alertly/internal/cronjobs/cjnewcluster"
 	"alertly/internal/cronjobs/cjuserank"
 	"fmt"
@@ -80,6 +81,10 @@ func main() {
 	repocomments := cjcomments.NewRepository(cjdatabase.DB)
 	svccomments := cjcomments.NewService(repocomments)
 
+	// New Incident Update Cronjob
+	repoincidentupdate := cjincidentupdate.NewRepository(cjdatabase.DB)
+	svcincidentupdate := cjincidentupdate.NewService(repoincidentupdate)
+
 	// Block users Cronjob
 	repoblockuser := cjblockuser.NewRepository(cjdatabase.DB)
 	svcblockuser := cjblockuser.NewService(repoblockuser)
@@ -151,6 +156,15 @@ func main() {
 	})
 	if err != nil {
 		log.Printf("Error running cjcomments: %v", err)
+	}
+
+	// EVERY 1 MINUTE (Incident Updates)
+	_, err = c.AddFunc("@every 1m", func() {
+		log.Println("running cjincidentupdate:", time.Now())
+		svcincidentupdate.Run()
+	})
+	if err != nil {
+		log.Printf("Error running cjincidentupdate: %v", err)
 	}
 
 	// ******************************* END ADDFUNC LOGIC

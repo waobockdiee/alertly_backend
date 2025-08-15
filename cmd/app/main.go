@@ -8,6 +8,7 @@ import (
 	"alertly/internal/comments"
 	"alertly/internal/common"
 	"alertly/internal/config"
+	"alertly/internal/cronjob"
 	"alertly/internal/database"
 	"alertly/internal/editprofile"
 	"alertly/internal/feedback"
@@ -160,6 +161,7 @@ func main() {
 	api.POST("/account/edit/password", editprofile.UpdatePassword)
 	api.POST("account/edit/picture", editprofile.UpdateThumbnail)
 	api.GET("/account/get_history", account.GetHistory)
+	api.GET("/account/get_viewed_incident_ids", account.GetViewedIncidentIds)
 	api.GET("account/get_counter_histories", account.GetCounterHistories)
 	api.POST("/account/clear_history", account.ClearHistory)
 	api.POST("/account/delete_account", account.DeleteAccount)
@@ -178,6 +180,7 @@ func main() {
 	api.GET("/saved/delete/:acs_id", saveclusteraccount.DeleteFollowIncident)
 	api.POST("/account/report/:account_id", profile.ReportAccount)
 	api.GET("/account/get_my_info", account.GetMyInfo)
+	api.POST("/account/update_premium_status", account.UpdatePremiumStatus)
 	api.POST("/send_feedback", feedback.SendFeedback)
 	api.POST("/send_invitation", invitefriend.Save)
 	api.POST("report_incident", reportincident.ReportIncident)
@@ -191,6 +194,11 @@ func main() {
 	api.GET("/analytics/summary", analyticsHandler.GetAnalyticsSummary)
 	api.GET("/analytics/predictions", analyticsHandler.GetSimplePredictions)
 	api.GET("/analytics/test", analyticsHandler.TestAnalytics)
+
+	// Cronjob endpoints (for manual execution and monitoring)
+	api.POST("/cronjob/premium/expire", cronjob.RunPremiumExpirationCheck)
+	api.GET("/cronjob/premium/stats", cronjob.GetPremiumStats)
+	api.POST("/cronjob/premium/warnings", cronjob.SendExpirationWarnings)
 	api.GET("/analytics/location", analyticsHandler.GetLocationAnalytics)
 
 	// comunitacions with apple APN (to send push notifications)

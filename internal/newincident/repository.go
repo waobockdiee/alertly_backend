@@ -103,10 +103,19 @@ func (r *mysqlRepository) Save(incident IncidentReport) (int64, error) {
 	}
 	// ----------------------NOTIFICATION----------------------- //
 	// -- Save to DB
-	err = common.SaveNotification(r.db, "new_cluster", incident.AccountId, id)
-
-	if err != nil {
-		fmt.Println("error saving notification on createincident event")
+	// Si el incident tiene incl_id != 0, significa que se está agregando a un cluster existente
+	if incident.InclId != 0 {
+		// Es un update/report adicional a un cluster existente
+		err = common.SaveNotification(r.db, "new_incident_cluster", incident.AccountId, incident.InclId)
+		if err != nil {
+			fmt.Println("error saving notification on incident cluster update event")
+		}
+	} else {
+		// Es un cluster completamente nuevo
+		err = common.SaveNotification(r.db, "new_cluster", incident.AccountId, id)
+		if err != nil {
+			fmt.Println("error saving notification on createincident event")
+		}
 	}
 
 	return id, nil

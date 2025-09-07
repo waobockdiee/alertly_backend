@@ -17,18 +17,18 @@ type DBExecutor interface {
 /*
 Comentado porque aun no esta definida la logica final y esta me esta dando un error obvio por cambiar cosas en la tabla notifications
 */
-func SaveNotification(dbExec DBExecutor, nType string, accountID int64, referenceID int64) error {
-	query := `INSERT INTO notifications(noti_id, owner_account_id, title, message, type, link, must_send_as_notification_push, must_send_as_notification, must_be_processed, error_message, reference_id)
+func SaveNotification(dbExec DBExecutor, nType string, accountID int64, referenceID int64, customContent ...string) error {
+	query := `INSERT INTO notifications(owner_account_id, title, message, type, link, must_send_as_notification_push, must_send_as_notification, must_be_processed, error_message, reference_id)
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	n := HandleNotification(nType, accountID, referenceID)
-	_, err := dbExec.Exec(query, n.AcnoID, n.AccountID, n.Title, n.Message, n.Type, n.Link, n.MustSendPush, n.MustSendInApp, n.MustBeProcessed, n.ErrorMessage, n.ReferenceID)
+	n := HandleNotification(nType, accountID, referenceID, customContent...)
+	_, err := dbExec.Exec(query, n.AccountID, n.Title, n.Message, n.Type, n.Link, n.MustSendPush, n.MustSendInApp, n.MustBeProcessed, n.ErrorMessage, n.ReferenceID)
 	if err != nil {
 		return fmt.Errorf("failed to save notification: %w", err)
 	}
 	return nil
 }
 
-func HandleNotification(nType string, accountID int64, referenceID int64) alerts.Alert {
+func HandleNotification(nType string, accountID int64, referenceID int64, customContent ...string) alerts.Alert {
 	var n alerts.Alert
 
 	n.Type = nType
@@ -180,6 +180,32 @@ func HandleNotification(nType string, accountID int64, referenceID int64) alerts
 		n.MustSendInApp = true
 		n.MustBeProcessed = true
 		n.ErrorMessage = ""
+		return n
+	case "incident_result_win":
+		// El título y mensaje se personalizan en el servicio que llama.
+		if len(customContent) > 0 {
+			n.Title = customContent[0]
+		}
+		if len(customContent) > 1 {
+			n.Message = customContent[1]
+		}
+		n.Link = "ViewIncidentScreen"
+		n.MustSendPush = true
+		n.MustSendInApp = true
+		n.MustBeProcessed = true
+		return n
+	case "incident_result_loss":
+		// El título y mensaje se personalizan en el servicio que llama.
+		if len(customContent) > 0 {
+			n.Title = customContent[0]
+		}
+		if len(customContent) > 1 {
+			n.Message = customContent[1]
+		}
+		n.Link = "ViewIncidentScreen"
+		n.MustSendPush = true
+		n.MustSendInApp = true
+		n.MustBeProcessed = true
 		return n
 	default:
 		n.Title = "Notification from Alertly."

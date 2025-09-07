@@ -66,7 +66,9 @@ func (r *Repository) FindSubscribedUsersForCluster(clusterID int64) ([]Subscribe
         WHERE
             ic.incl_id = ?
             AND a.status = 'active'
+            AND a.is_premium = 1
             AND a.receive_notifications = 1
+            AND afl.status = 1
             AND CASE
                 WHEN ic.category_code = 'crime' THEN afl.crime = 1
                 WHEN ic.category_code = 'traffic_accident' THEN afl.traffic_accident = 1

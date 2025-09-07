@@ -18,7 +18,7 @@ type Repository interface {
 	UpdatePhoneNumber(accountID int64, phoneNumber string) error
 	UpdateFullName(accountID int64, firstName, lastName string) error
 	UpdateIsPrivateProfile(accountID int64, isPrivateProfile bool) error
-	UpdateIsPremium(accountID int64, isPremium bool) error
+	
 	UpdateBirthDate(accountID int64, year, month, day string) error
 	UpdateReceiveNotifications(accountID int64) error
 	DesactivateAccount(account Account) error
@@ -212,16 +212,7 @@ func (r *mysqlRepository) UpdateIsPrivateProfile(accountID int64, isPrivateProfi
 	return err
 }
 
-func (r *mysqlRepository) UpdateIsPremium(accountID int64, isPremium bool) error {
-	query := `UPDATE account SET is_premium = ? WHERE account_id = ?`
-	_, err := r.db.Exec(query, isPremium, accountID)
 
-	if err != nil {
-		log.Printf("Error: %v", err)
-	}
-
-	return err
-}
 
 func (r *mysqlRepository) UpdateBirthDate(accountID int64, year, month, day string) error {
 	query := `UPDATE account SET birth_year = ?, birth_month = ?, birth_day = ?, can_update_birthdate = 0 WHERE account_id = ? AND can_update_birthdate = 1`

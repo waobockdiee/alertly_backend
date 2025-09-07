@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	CLUSTER_EXPIRES_IN = 48 // in hours
+	MINIMUM_DURATION_HOURS = 24
 )
 
 type Service interface {
@@ -54,8 +54,22 @@ func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
 
 		if err == sql.ErrNoRows {
 			// crear cluster nuevo…
+			// 1. Obtenemos la duración "ideal" de la subcategoría
+			proposedDuration, err := s.repo.GetDurationForSubcategory(incident.SubcategoryCode)
+			if err != nil {
+				return IncidentReport{}, fmt.Errorf("error getting subcategory duration: %w", err)
+			}
+
+			// 2. Aplicamos la lógica de duración mínima garantizada
+			finalDurationHours := proposedDuration
+			if finalDurationHours < MINIMUM_DURATION_HOURS {
+				finalDurationHours = MINIMUM_DURATION_HOURS
+			}
+
+			// 3. Calculamos la fecha de finalización
 			now := time.Now().UTC()
-			end := now.Add(CLUSTER_EXPIRES_IN * time.Hour)
+			end := now.Add(time.Duration(finalDurationHours) * time.Hour)
+
 			cluster = Cluster{
 				AccountId:       incident.AccountId,
 				CreatedAt:       &now,

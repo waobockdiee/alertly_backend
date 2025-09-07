@@ -125,6 +125,7 @@ func (r *Repository) GetDeviceTokensForAccounts(accountIDs []int64) ([]Recipient
         JOIN account a ON dt.account_id = a.account_id
         WHERE dt.account_id IN (%s) 
             AND a.status = 'active' 
+            AND a.is_premium = 1
             AND a.receive_notifications = 1
             AND dt.device_token IS NOT NULL 
             AND dt.device_token != ''

@@ -13,7 +13,7 @@ type Service interface {
 	GetCounterHistories(accountID int64) (Counter, error)
 	SaveLastRequest(accountID int64, ip string) error
 	SetHasFinishedTutorial(accountID int64) error
-	UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, purchaseDate *time.Time, platform string) error
+	UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error
 }
 
 type service struct {
@@ -56,6 +56,6 @@ func (s *service) SetHasFinishedTutorial(accountID int64) error {
 	return s.repo.SetHasFinishedTutorial(accountID)
 }
 
-func (s *service) UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, purchaseDate *time.Time, platform string) error {
-	return s.repo.UpdatePremiumStatus(accountID, isPremium, subscriptionType, purchaseDate, platform)
+func (s *service) UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error {
+	return s.repo.UpdatePremiumStatus(accountID, isPremium, subscriptionType, expirationDate, platform)
 }

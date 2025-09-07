@@ -2,18 +2,15 @@ package newincident
 
 import (
 	"alertly/internal/auth"
+	"alertly/internal/common"
 	"alertly/internal/database"
 	"alertly/internal/media"
 	"alertly/internal/response"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
-
-	"alertly/internal/common"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -82,28 +79,18 @@ func Create(c *gin.Context) {
 	}
 	tmpFile.Close()
 
-	// ✅ SOLUCIÓN: Guardar imagen original inmediatamente para mostrar en frontend
+	// Procesar la imagen directamente y obtener la ruta del archivo procesado
 	uploadDir := "uploads"
-	originalFileName := fmt.Sprintf("alerty_%d%s", time.Now().UnixNano(), ext)
-	originalFilePath := filepath.Join(uploadDir, originalFileName)
-
-	// Crear carpeta uploads si no existe
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		log.Printf("Error creating uploads directory: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "Error creating uploads folder", nil)
+	processedFilePath, err := media.ProcessImage(tmpFilePath, uploadDir)
+	if err != nil {
+		log.Printf("Error processing image: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "Error processing file", err.Error())
 		return
 	}
 
-	// Copiar archivo temporal a carpeta uploads
-	if err := copyFile(tmpFilePath, originalFilePath); err != nil {
-		log.Printf("Error copying file to uploads: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "Error saving image", nil)
-		return
-	}
-
-	// ✅ OPTIMIZACIÓN: Guardar incidente con imagen original inmediatamente
-	// Usar la URL completa que el frontend puede acceder
-	incident.Media.Uri = common.GetImageURL(originalFileName)
+	// Usar la URL de la imagen procesada para guardarla en la base de datos
+	processedFileName := filepath.Base(processedFilePath)
+	incident.Media.Uri = common.GetImageURL(processedFileName)
 
 	// Continuar con la lógica original de guardado en la base de datos
 	repo := NewRepository(database.DB)
@@ -117,38 +104,8 @@ func Create(c *gin.Context) {
 		return
 	}
 
-	// ✅ OPTIMIZACIÓN: Procesar imagen optimizada en background
-	go func() {
-		// ✅ Asegurar que el archivo temporal se elimine al final
-		defer os.Remove(tmpFilePath)
-
-		// Llamar a ProcessImage usando el archivo temporal
-		processedFilePath, err := media.ProcessImage(tmpFilePath, uploadDir)
-		if err != nil {
-			log.Printf("⚠️ Error processing image for incident %d: %v", result.InreId, err)
-			return
-		}
-
-		// ✅ Convertir ruta absoluta a URL completa para el frontend
-		processedFileName := filepath.Base(processedFilePath)
-		processedFullURL := common.GetImageURL(processedFileName)
-
-		// ✅ Actualizar la ruta del archivo procesado en la base de datos
-		if err := repo.UpdateIncidentMediaPath(result.InreId, processedFullURL); err != nil {
-			log.Printf("⚠️ Error updating media path for incident %d: %v", result.InreId, err)
-		} else {
-			log.Printf("✅ Image processed successfully for incident %d: %s", result.InreId, processedFullURL)
-		}
-
-		// ✅ Actualizar también el cluster si existe
-		if result.InclId != 0 {
-			if err := repo.UpdateClusterMediaPath(result.InclId, processedFullURL); err != nil {
-				log.Printf("⚠️ Error updating cluster media path for %d: %v", result.InclId, err)
-			} else {
-				log.Printf("✅ Cluster media updated for %d: %s", result.InclId, processedFullURL)
-			}
-		}
-	}()
+	// Eliminar el archivo temporal después de que todo ha sido procesado
+	defer os.Remove(tmpFilePath)
 
 	log.Printf("success: %v", result)
 	response.Send(c, http.StatusOK, false, "Thank you for your report! We've received your incident and will review it shortly.", result)

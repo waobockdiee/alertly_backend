@@ -15,7 +15,7 @@ type Repository interface {
 	GetCounterHistories(accountID int64) (Counter, error)
 	SaveLastRequest(AccountID int64, ip string) error
 	SetHasFinishedTutorial(accountID int64) error
-	UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, purchaseDate *time.Time, platform string) error
+	UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error
 }
 
 type mysqlRepository struct {
@@ -142,7 +142,7 @@ func (r *mysqlRepository) SetHasFinishedTutorial(accountID int64) error {
 }
 
 // UpdatePremiumStatus updates the user's premium status and logs the payment history
-func (r *mysqlRepository) UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, purchaseDate *time.Time, platform string) error {
+func (r *mysqlRepository) UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error {
 	// Start a transaction to ensure both operations succeed or fail together
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -150,22 +150,7 @@ func (r *mysqlRepository) UpdatePremiumStatus(accountID int64, isPremium bool, s
 	}
 	defer tx.Rollback()
 
-	// 1. Calculate expiration date based on subscription type
-	var expirationDate *time.Time
-	if isPremium && purchaseDate != nil {
-		expDate := *purchaseDate
-		switch subscriptionType {
-		case "monthly":
-			expDate = expDate.AddDate(0, 1, 0) // Add 1 month
-		case "yearly":
-			expDate = expDate.AddDate(1, 0, 0) // Add 1 year
-		default:
-			expDate = expDate.AddDate(0, 1, 0) // Default to 1 month
-		}
-		expirationDate = &expDate
-	}
-
-	// 2. Update the account's is_premium status and expiration date
+	// 1. Update the account's is_premium status and expiration date
 	var updateAccountQuery string
 	var args []interface{}
 
@@ -173,11 +158,11 @@ func (r *mysqlRepository) UpdatePremiumStatus(accountID int64, isPremium bool, s
 		updateAccountQuery = "UPDATE account SET is_premium = ?, premium_expired_date = ? WHERE account_id = ?"
 		args = []interface{}{isPremium, expirationDate, accountID}
 	} else if !isPremium {
-		// When cancelling, set is_premium to false and clear expiration date
+		// When cancelling or expiring, set is_premium to false and clear expiration date
 		updateAccountQuery = "UPDATE account SET is_premium = ?, premium_expired_date = NULL WHERE account_id = ?"
 		args = []interface{}{isPremium, accountID}
 	} else {
-		// Fallback: just update is_premium
+		// Fallback for safety, though should not be reached in normal flow
 		updateAccountQuery = "UPDATE account SET is_premium = ? WHERE account_id = ?"
 		args = []interface{}{isPremium, accountID}
 	}
@@ -188,33 +173,24 @@ func (r *mysqlRepository) UpdatePremiumStatus(accountID int64, isPremium bool, s
 		return err
 	}
 
-	// 2. Map subscription type to your enum values
+	// 2. Map subscription type to your enum values for history
 	var typePlan string
-	switch subscriptionType {
-	case "monthly":
-		typePlan = "1 month"
-	case "yearly":
-		typePlan = "12 months"
-	case "restored":
-		typePlan = "1 month" // Default for restored purchases
-	default:
-		if isPremium {
-			typePlan = "1 month" // Default to monthly if unknown
-		} else {
-			typePlan = "free"
-		}
+	if isPremium {
+		// We use the subscriptionType which should now be the product_id from Apple
+		typePlan = subscriptionType
+	} else {
+		typePlan = "free"
 	}
 
 	// 3. Create description based on the action
 	var description string
 	if isPremium {
-		description = "Premium subscription activated via " + platform + " platform. Subscription type: " + subscriptionType
-		if purchaseDate != nil {
-			description += ". Purchase date: " + purchaseDate.Format("2006-01-02 15:04:05")
+		description = "Premium subscription activated or updated via " + platform + ". Product ID: " + subscriptionType
+		if expirationDate != nil {
+			description += ". Expires on: " + expirationDate.Format("2006-01-02 15:04:05")
 		}
 	} else {
 		description = "Premium subscription cancelled or expired"
-		typePlan = "free"
 	}
 
 	// 4. Insert payment history record

@@ -21,6 +21,7 @@ type Repository interface {
 	// ✅ NUEVOS MÉTODOS: Para procesamiento asíncrono de imágenes
 	UpdateIncidentMediaPath(inreId int64, mediaPath string) error
 	UpdateClusterMediaPath(inclId int64, mediaPath string) error
+	GetDurationForSubcategory(subcategoryCode string) (int, error)
 }
 
 type mysqlRepository struct {
@@ -95,13 +96,13 @@ func (r *mysqlRepository) Save(incident IncidentReport) (int64, error) {
 		return 0, fmt.Errorf("failed to get last insert id: %w", err)
 	}
 
-	// ----------------------CITIZEN SCORE----------------------- //
+	// ----------------------CITIZEN SCORE-----------------------
 	// -- Save to DB
 	err = common.SaveScore(r.db, incident.AccountId, 20)
 	if err != nil {
 		fmt.Println("error saving score") // It's not necesary to stop the server
 	}
-	// ----------------------NOTIFICATION----------------------- //
+	// ----------------------NOTIFICATION-----------------------
 	// -- Save to DB
 	// Si el incident tiene incl_id != 0, significa que se está agregando a un cluster existente
 	if incident.InclId != 0 {
@@ -165,7 +166,8 @@ func (r *mysqlRepository) SaveCluster(cluster Cluster, accountID int64) (int64, 
 		(SELECT a.credibility      FROM account a WHERE a.account_id = ?),
 		(10 - (SELECT a.credibility FROM account a WHERE a.account_id = ?)),
 		(SELECT a.credibility      FROM account a WHERE a.account_id = ?)
-	  );`
+	  );
+	`
 	result, err := r.db.Exec(query,
 		cluster.CreatedAt,
 		cluster.StartTime,
@@ -200,13 +202,13 @@ func (r *mysqlRepository) SaveCluster(cluster Cluster, accountID int64) (int64, 
 		return 0, err
 	}
 
-	// ----------------------CITIZEN SCORE----------------------- //
+	// ----------------------CITIZEN SCORE-----------------------
 	// -- Save to DB
 	err = common.SaveScore(tx, accountID, 20)
 	if err != nil {
 		fmt.Println("error saving score") // It's not necesary to stop the server
 	}
-	// ----------------------NOTIFICATION----------------------- //
+	// ----------------------NOTIFICATION-----------------------
 	// -- Save to DB
 	err = common.SaveNotification(tx, "new_cluster", accountID, id)
 
@@ -304,13 +306,13 @@ func (r *mysqlRepository) UpdateClusterAsFalse(inclId int64, accountID int64, la
 // 		return err
 // 	}
 
-// 	// ----------------------CITIZEN SCORE----------------------- //
+// 	// ----------------------CITIZEN SCORE-----------------------
 // 	// -- Save to DB
 // 	err = common.SaveScore(tx, incident.AccountId, 20)
 // 	if err != nil {
 // 		fmt.Println("error saving score") // It's not necesary to stop the server
 // 	}
-// 	// ----------------------NOTIFICATION----------------------- //
+// 	// ----------------------NOTIFICATION-----------------------
 // 	// -- Save to DB
 // 	err = common.SaveNotification(tx, "new_cluster", incident.AccountId, id)
 
@@ -386,7 +388,8 @@ func (r *mysqlRepository) UpdateClusterLocation(inclId int64, latitude, longitud
     SET 
       center_latitude  = (center_latitude  + ?) / 2,
       center_longitude = (center_longitude + ?) / 2
-    WHERE incl_id = ?;`
+    WHERE incl_id = ?;
+	`
 	return r.db.Exec(query, latitude, longitude, inclId)
 }
 
@@ -400,7 +403,8 @@ func (r *mysqlRepository) UpdateClusterAddress(inclId int64, address, city, prov
       city = ?,
       province = ?,
       postal_code = ?
-    WHERE incl_id = ?;`
+    WHERE incl_id = ?;
+	`
 
 	_, err := r.db.Exec(query, address, city, province, postalCode, inclId)
 	return err
@@ -414,7 +418,8 @@ func (r *mysqlRepository) UpdateIncidentAddress(inreId int64, address, city, pro
       city = ?,
       province = ?,
       postal_code = ?
-    WHERE inre_id = ?;`
+    WHERE inre_id = ?;
+	`
 
 	_, err := r.db.Exec(query, address, city, province, postalCode, inreId)
 	return err
@@ -427,7 +432,8 @@ func (r *mysqlRepository) UpdateIncidentMediaPath(inreId int64, mediaPath string
     UPDATE incident_reports 
     SET 
       media_url = ?
-    WHERE inre_id = ?;`
+    WHERE inre_id = ?;
+	`
 
 	_, err := r.db.Exec(query, mediaPath, inreId)
 	return err
@@ -438,8 +444,25 @@ func (r *mysqlRepository) UpdateClusterMediaPath(inclId int64, mediaPath string)
     UPDATE incident_clusters 
     SET 
       media_url = ?
-    WHERE incl_id = ?;`
+    WHERE incl_id = ?;
+	`
 
 	_, err := r.db.Exec(query, mediaPath, inclId)
 	return err
+}
+
+func (r *mysqlRepository) GetDurationForSubcategory(subcategoryCode string) (int, error) {
+	var duration int
+	// Usamos el nombre de tabla correcto: incident_subcategories
+	query := "SELECT default_duration_hours FROM incident_subcategories WHERE code = ?"
+	err := r.db.QueryRow(query, subcategoryCode).Scan(&duration)
+
+	// Si no se encuentra una subcategoría (caso raro), devolvemos 48h por seguridad.
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 48, nil
+		}
+		return 0, err
+	}
+	return duration, nil
 }

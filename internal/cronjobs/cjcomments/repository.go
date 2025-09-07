@@ -125,7 +125,7 @@ func (r *Repository) GetDeviceTokensForAccounts(accountIDs []int64) ([]Recipient
         SELECT dt.account_id, dt.device_token
         FROM device_tokens dt
         JOIN account a ON dt.account_id = a.account_id
-        WHERE dt.account_id IN (%s) AND a.status = 'active' AND a.receive_notifications = 1
+        WHERE dt.account_id IN (%s) AND a.status = 'active' AND a.is_premium = 1 AND a.receive_notifications = 1
     `, placeholders)
 
 	// Convertir []int64 a []interface{} para Query

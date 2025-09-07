@@ -226,38 +226,7 @@ func UpdateBirthDate(c *gin.Context) {
 	response.Send(c, http.StatusOK, false, "success", nil)
 }
 
-func UpdateIsPremium(c *gin.Context) {
-	var account Account
-	var err error
 
-	if err = c.ShouldBindJSON(&account); err != nil {
-		log.Printf("Error: %v", err)
-		response.Send(c, http.StatusBadRequest, true, "Invalid format data", nil)
-		return
-	}
-
-	account.AccountID, err = auth.GetUserFromContext(c)
-	account.IsPremium = true
-
-	if err != nil {
-		log.Printf("Error: %v", err)
-		response.Send(c, http.StatusUnauthorized, true, "error", nil)
-		return
-	}
-
-	repo := NewRepository(database.DB)
-	service := NewService(repo)
-
-	err = service.UpdateIsPremium(account.AccountID, account.IsPremium)
-
-	if err != nil {
-		log.Printf("Error: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "Error while updating birthdate information. Please try later", nil)
-		return
-	}
-
-	response.Send(c, http.StatusOK, false, "success", nil)
-}
 
 func UpdateIsPrivateProfile(c *gin.Context) {
 	var account Account
@@ -434,7 +403,7 @@ func UpdateThumbnail(c *gin.Context) {
 
 	uploadDir := "uploads/profile"
 
-	processedFilePath, err := media.ProcessImage(tmpFilePath, uploadDir)
+	processedFilePath, err := media.ProcessProfileImage(tmpFilePath, uploadDir)
 
 	if err != nil {
 		log.Printf("Error processing image: %v", err)

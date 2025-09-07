@@ -19,7 +19,7 @@ type Service interface {
 	UpdatePhoneNumber(accountID int64, phoneNumber string) error
 	UpdateFullName(accountID int64, firstName, lastName string) error
 	UpdateIsPrivateProfile(accountID int64, isPrivateProfile bool) error
-	UpdateIsPremium(accountID int64, isPremium bool) error
+	
 	UpdateBirthDate(accountID int64, year, month, day string) error
 	CheckPasswordMatch(password, newPassword string, accountID int64) error
 	UpdateThumbnail(accountID int64, mediaUrl string) error
@@ -104,9 +104,7 @@ func (s *service) UpdateIsPrivateProfile(accountID int64, isPrivateProfile bool)
 	return s.repo.UpdateIsPrivateProfile(accountID, isPrivateProfile)
 }
 
-func (s *service) UpdateIsPremium(accountID int64, isPremium bool) error {
-	return s.repo.UpdateIsPremium(accountID, isPremium)
-}
+
 
 func (s *service) UpdateBirthDate(accountID int64, year, month, day string) error {
 	return s.repo.UpdateBirthDate(accountID, year, month, day)

@@ -7,10 +7,12 @@ import (
 	"alertly/internal/auth"
 	"alertly/internal/comments"
 	"alertly/internal/common"
-	"alertly/internal/config"
+
+	// "alertly/internal/config" // No longer needed
 	"alertly/internal/cronjob"
 	"alertly/internal/database"
 	"alertly/internal/editprofile"
+	"alertly/internal/emails"
 	"alertly/internal/feedback"
 	"alertly/internal/getcategories"
 	"alertly/internal/getclusterby"
@@ -33,58 +35,53 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
+	// "github.com/joho/godotenv" // No longer needed
 )
 
 func main() {
 	log.Println("🚀 Starting Alertly Backend...")
 
-	// ✅ PRODUCCIÓN: Configuración segura desde variables de ambiente
-	var cfg *config.ProductionConfig
+	// --- AWS Lambda Refactor ---
+	// Directly read configuration from environment variables.
+	// This simplifies logic and removes dependency on .env files and complex config structs for the Lambda environment.
+	dbUser := os.Getenv("DB_USER")
+	dbPass := os.Getenv("DB_PASS")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+	dbName := os.Getenv("DB_NAME")
+	port := os.Getenv("PORT")
 
-	if os.Getenv("GIN_MODE") == "release" {
-		// ✅ Modo producción: Solo variables de ambiente
-		log.Println("📦 Loading production configuration from environment variables...")
-		cfg = config.LoadProductionConfig()
-	} else {
-		// ✅ Modo desarrollo: Mantener compatibilidad con .env
-		log.Println("🔧 Development mode: Loading from .env file...")
-		var err error
-		if os.Getenv("NODE_ENV") == "production" {
-			err = godotenv.Load(".env.production")
-		} else {
-			err = godotenv.Load(".env")
-		}
-
-		if err != nil {
-			log.Printf("⚠️ Warning: .env file not found, using environment variables: %v", err)
-		}
-
-		// Crear configuración desde variables de ambiente (compatible con .env)
-		cfg = &config.ProductionConfig{
-			DBUser: getEnvOrDefault("DB_USER", ""),
-			DBPass: getEnvOrDefault("DB_PASS", ""),
-			DBHost: getEnvOrDefault("DB_HOST", "localhost"),
-			DBPort: getEnvOrDefault("DB_PORT", "3306"),
-			DBName: getEnvOrDefault("DB_NAME", ""),
-			Port:   getEnvOrDefault("PORT", "8080"),
-		}
+	if port == "" {
+		port = "8080" // Default port if not set
 	}
+
+	// ✅ Inicializar el cliente de AWS SES
+	emails.InitSES()
 
 	// ✅ Configurar logging para producción
 	logging.SetupProductionLogging()
 
-	// ✅ Configurar base de datos con la nueva configuración
+	// ✅ Construir el DSN (Data Source Name) de forma robusta
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
-		cfg.DBUser, cfg.DBPass, cfg.DBHost, cfg.DBPort, cfg.DBName)
+		dbUser, dbPass, dbHost, dbPort, dbName)
 
-	log.Printf("🗄️ Connecting to database at %s:%s...", cfg.DBHost, cfg.DBPort)
+	log.Printf("🗄️ Connecting to database at %s:%s...", dbHost, dbPort)
 	database.InitDB(dsn)
 	log.Println("✅ Database connected successfully")
 	defer database.DB.Close()
+
+	// ✅ Initialize database schema if needed
+	if err := database.CheckAndInitDatabase(database.DB); err != nil {
+		log.Printf("⚠️ Warning: Could not initialize database schema: %v", err)
+		// Continue anyway, the app might still work with existing tables
+	}
+
+	// ✅ Fix schema discrepancies
+	if err := database.FixSchema(database.DB); err != nil {
+		log.Printf("⚠️ Warning: Could not fix schema: %v", err)
+	}
 
 	// ✅ OPTIMIZACIÓN: Iniciar cache cleanup
 	common.StartCacheCleanup()
@@ -93,6 +90,7 @@ func main() {
 	router := gin.Default()
 
 	// ✅ PRODUCCIÓN: Configurar middlewares de seguridad
+	// The GIN_MODE check is kept to ensure these are only applied in a production-like environment.
 	if os.Getenv("GIN_MODE") == "release" {
 		// ✅ Logging optimizado para producción
 		router.Use(logging.ProductionLogger())
@@ -107,15 +105,9 @@ func main() {
 	// ✅ CORS optimizado con SafeCORSMiddleware (O(1) lookup, misma funcionalidad)
 	router.Use(middleware.SafeCORSMiddleware())
 
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Fatalf("Failed to get working directory: %v", err)
-	}
-
-	uploadsPath := filepath.Join(wd, "uploads")
-	log.Println("Serving uploads from:", uploadsPath)
-	// ✅ CORRECCIÓN: Usar ruta absoluta para servir archivos estáticos
-	router.Static("/uploads", uploadsPath)
+	// ✅ IMÁGENES AHORA SE SIRVEN DESDE S3
+	// Ya no necesitamos servir archivos estáticos locales
+	log.Println("✅ Images served from S3: alertly-images-production")
 
 	// ✅ HEALTH CHECKS: Endpoints de monitoreo (sin rate limiting)
 	router.GET("/health", health.HealthHandler(database.DB))
@@ -217,20 +209,15 @@ func main() {
 	api.POST("/test_push", notifications.TestPushHandler)
 
 	// ✅ PRODUCCIÓN: Iniciar servidor con configuración segura
-	port := ":" + cfg.Port
-	log.Printf("🚀 Alertly Backend starting on port %s", cfg.Port)
+	serverPort := ":" + port
+	log.Printf("🚀 Alertly Backend starting on port %s", port)
 	log.Printf("🌍 Environment: %s", os.Getenv("GIN_MODE"))
-	log.Printf("🔗 Health check: http://localhost%s/health", port)
+	log.Printf("🔗 Health check: http://localhost%s/health", serverPort)
 
-	if err := router.Run(port); err != nil {
+	log.Println("🚦 Starting Gin router...")
+	if err := router.Run(serverPort); err != nil {
 		log.Fatalf("❌ Failed to start server: %v", err)
 	}
 }
 
-// ✅ Helper function para compatibilidad con desarrollo
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
+// getEnvOrDefault is no longer needed as we read variables directly.

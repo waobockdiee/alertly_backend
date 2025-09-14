@@ -1,0 +1,73 @@
+# Dockerfile optimizado para ECS Fargate
+# Multi-stage build para imagen mínima y rápida
+
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023 AS builder
+
+# Instalar Go y dependencias de build
+RUN dnf update -y && \
+    dnf install -y wget tar gzip gcc libwebp-devel && \
+    wget https://go.dev/dl/go1.23.0.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go1.23.0.linux-amd64.tar.gz && \
+    dnf clean all
+
+ENV PATH="/usr/local/go/bin:$PATH"
+
+# Configurar directorio de trabajo
+WORKDIR /app
+
+# Copiar go.mod y go.sum primero para aprovechar Docker layer caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copiar código fuente
+COPY . .
+
+# Build optimizado para producción
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-s -w -X main.version=$(date +%Y%m%d-%H%M%S)" \
+    -o alertly-api \
+    ./cmd/app/main.go
+
+# Verificar el binario
+RUN chmod +x alertly-api && ./alertly-api --version || true
+
+# Etapa final - imagen mínima para runtime
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
+
+# Instalar solo dependencias de runtime necesarias
+RUN dnf update -y && \
+    dnf install -y libwebp ca-certificates shadow-utils && \
+    dnf clean all && \
+    rm -rf /var/cache/dnf
+
+# Crear usuario no-root para seguridad
+RUN useradd -r -s /bin/false -m -d /app alertly
+
+# Configurar directorio de trabajo
+WORKDIR /app
+
+# Copiar binario desde builder
+COPY --from=builder /app/alertly-api .
+COPY --from=builder /app/data ./data
+# ✅ COPIAR TEMPLATES DE EMAILS
+COPY --from=builder /app/internal/emails/templates ./internal/emails/templates
+# ✅ COPIAR ARCHIVOS SQL PARA INICIALIZACIÓN DE BASE DE DATOS
+COPY --from=builder /app/assets/db ./assets/db
+
+# Cambiar ownership al usuario alertly
+RUN chown -R alertly:alertly /app
+
+# Cambiar al usuario no-root
+USER alertly
+
+# Configurar variables de entorno por defecto
+ENV GIN_MODE=release
+ENV PORT=8080
+
+# Exponer puerto
+EXPOSE 8080
+
+# Health check delegado al ALB - sin curl para evitar conflictos
+
+# Comando de inicio
+CMD ["./alertly-api"]

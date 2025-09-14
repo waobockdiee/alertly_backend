@@ -2,7 +2,6 @@ package newincident
 
 import (
 	"alertly/internal/auth"
-	"alertly/internal/common"
 	"alertly/internal/database"
 	"alertly/internal/media"
 	"alertly/internal/response"
@@ -79,18 +78,17 @@ func Create(c *gin.Context) {
 	}
 	tmpFile.Close()
 
-	// Procesar la imagen directamente y obtener la ruta del archivo procesado
-	uploadDir := "uploads"
-	processedFilePath, err := media.ProcessImage(tmpFilePath, uploadDir)
+	// Procesar la imagen directamente y obtener la URL de S3
+	s3Folder := "incidents"
+	s3URL, err := media.ProcessImage(tmpFilePath, s3Folder)
 	if err != nil {
 		log.Printf("Error processing image: %v", err)
 		response.Send(c, http.StatusInternalServerError, true, "Error processing file", err.Error())
 		return
 	}
 
-	// Usar la URL de la imagen procesada para guardarla en la base de datos
-	processedFileName := filepath.Base(processedFilePath)
-	incident.Media.Uri = common.GetImageURL(processedFileName)
+	// Usar la URL de S3 directamente para guardarla en la base de datos
+	incident.Media.Uri = s3URL
 
 	// Continuar con la lógica original de guardado en la base de datos
 	repo := NewRepository(database.DB)
@@ -111,20 +109,5 @@ func Create(c *gin.Context) {
 	response.Send(c, http.StatusOK, false, "Thank you for your report! We've received your incident and will review it shortly.", result)
 }
 
-// ✅ Función auxiliar para copiar archivos
-func copyFile(src, dst string) error {
-	sourceFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer sourceFile.Close()
-
-	destFile, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer destFile.Close()
-
-	_, err = io.Copy(destFile, sourceFile)
-	return err
-}
+// ✅ ELIMINADA: Función obsoleta que no es compatible con AWS Lambda
+// copyFile() se eliminó porque Lambda no permite crear archivos fuera de /tmp

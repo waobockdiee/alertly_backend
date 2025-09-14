@@ -3,6 +3,7 @@ package common
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -34,18 +35,29 @@ var (
 func init() {
 	// Carga configuración de entorno
 	env := os.Getenv("APNS_ENV") // "production" o "development"
-	p12Path := os.Getenv("APNS_P12_PATH")
 	p12Pass := os.Getenv("APNS_P12_PASS")
 	apnsTopic = os.Getenv("APNS_TOPIC")
 
 	// Inicializa APNs solo en producción
 	if env == "production" {
-		if p12Path == "" || p12Pass == "" || apnsTopic == "" {
-			log.Fatalf("APNs production requires APNS_P12_PATH, APNS_P12_PASS and APNS_TOPIC")
+		// ✅ AWS Lambda: Usar certificado desde variable de entorno base64
+		p12Base64 := os.Getenv("APNS_P12_BASE64")
+		if p12Base64 == "" || p12Pass == "" || apnsTopic == "" {
+			log.Printf("⚠️ APNs disabled: missing APNS_P12_BASE64, APNS_P12_PASS or APNS_TOPIC")
+			return
 		}
-		cert, err := certificate.FromP12File(p12Path, p12Pass)
+
+		// Decodificar certificado de base64
+		certData, err := base64.StdEncoding.DecodeString(p12Base64)
 		if err != nil {
-			log.Fatalf("APNs cert load error (%s): %v", p12Path, err)
+			log.Printf("⚠️ APNs cert decode error: %v", err)
+			return
+		}
+
+		cert, err := certificate.FromP12Bytes(certData, p12Pass)
+		if err != nil {
+			log.Printf("⚠️ APNs cert load error: %v", err)
+			return
 		}
 		APNSClient = apns2.NewClient(cert).Production()
 		log.Println("✅ APNs client initialized in Production mode")

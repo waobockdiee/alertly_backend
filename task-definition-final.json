@@ -1,0 +1,76 @@
+{
+  "family": "alertly-api",
+  "taskRoleArn": "arn:aws:iam::129158986318:role/AlertlyECSTaskRole",
+  "executionRoleArn": "arn:aws:iam::129158986318:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "alertly-api",
+      "image": "129158986318.dkr.ecr.us-west-2.amazonaws.com/alertly-api:20250911171049",
+      "cpu": 0,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "hostPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "PORT",
+          "value": "8080"
+        },
+        {
+          "name": "GIN_MODE",
+          "value": "release"
+        },
+        {
+          "name": "DB_PORT",
+          "value": "3306"
+        },
+        {
+          "name": "DB_PASS",
+          "value": "Po1Ng2O3;"
+        },
+        {
+          "name": "DB_USER",
+          "value": "adminalertly"
+        },
+        {
+          "name": "DB_NAME",
+          "value": "alertly"
+        },
+        {
+          "name": "IMAGE_BASE_URL",
+          "value": "https://cdn.alertly.ca"
+        },
+        {
+          "name": "DB_HOST",
+          "value": "alertly-ecs-db.c3qmq4y86s84.us-west-2.rds.amazonaws.com"
+        }
+      ],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/alertly-api",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "systemControls": [],
+      "command": [
+        "/app/bootstrap"
+      ]
+    }
+  ],
+  "volumes": [],
+  "placementConstraints": [],
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "256",
+  "memory": "512"
+}

@@ -2,7 +2,6 @@ package editprofile
 
 import (
 	"alertly/internal/auth"
-	"alertly/internal/common"
 	"alertly/internal/database"
 	"alertly/internal/media"
 	"alertly/internal/response"
@@ -226,8 +225,6 @@ func UpdateBirthDate(c *gin.Context) {
 	response.Send(c, http.StatusOK, false, "success", nil)
 }
 
-
-
 func UpdateIsPrivateProfile(c *gin.Context) {
 	var account Account
 	var err error
@@ -401,9 +398,9 @@ func UpdateThumbnail(c *gin.Context) {
 	tmpFile.Close()
 	defer os.Remove(tmpFilePath)
 
-	uploadDir := "uploads/profile"
+	s3Folder := "profiles"
 
-	processedFilePath, err := media.ProcessProfileImage(tmpFilePath, uploadDir)
+	s3URL, err := media.ProcessProfileImage(tmpFilePath, s3Folder)
 
 	if err != nil {
 		log.Printf("Error processing image: %v", err)
@@ -411,9 +408,8 @@ func UpdateThumbnail(c *gin.Context) {
 		return
 	}
 
-	// ✅ FIX: Usar common.GetImageURL para construir la URL correcta
-	processedFileName := filepath.Base(processedFilePath)
-	correctImageURL := common.GetImageURL("profile/" + processedFileName)
+	// Usar la URL de S3 directamente
+	correctImageURL := s3URL
 
 	repo := NewRepository(database.DB)
 	service := NewService(repo)

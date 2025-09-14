@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: "Alertly Backend v2 - NO VPC: API and Cronjobs without VPC for optimal performance"
-
+Description: 'Alertly Backend v2 - NO VPC: API and Cronjobs without VPC for optimal
+  performance'
 Parameters:
   DBUser:
     Type: String
@@ -27,57 +27,68 @@ Parameters:
     Type: String
     Description: Base URL for images (CDN)
     Default: https://cdn.alertly.ca
-
 Resources:
   alertlyapifunction:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
       Architectures:
-        - x86_64
+      - x86_64
       MemorySize: 1024
       Timeout: 120
       Policies:
-        - S3FullAccessPolicy:
-            BucketName: alertly-images-production
+      - S3FullAccessPolicy:
+          BucketName: alertly-images-production
       Environment:
         Variables:
-          DB_USER: !Ref DBUser
-          DB_PASS: !Ref DBPass
-          DB_HOST: !Ref DBHost
-          DB_PORT: !Ref DBPort
-          DB_NAME: !Ref DBName
-          GIN_MODE: !Ref GinMode
-          IMAGE_BASE_URL: !Ref ImageBaseURL
+          DB_USER:
+            Ref: DBUser
+          DB_PASS:
+            Ref: DBPass
+          DB_HOST:
+            Ref: DBHost
+          DB_PORT:
+            Ref: DBPort
+          DB_NAME:
+            Ref: DBName
+          GIN_MODE:
+            Ref: GinMode
+          IMAGE_BASE_URL:
+            Ref: ImageBaseURL
       Events:
         CatchAll:
           Type: Api
           Properties:
             Path: /{proxy+}
             Method: ANY
-      # VpcConfig removed - RDS is publicly accessible, no need for VPC
-      # This eliminates cold start delays caused by VPC ENI initialization
+      ImageUri: alertlyapifunction:api-v1
     Metadata:
+      DockerContext: /Users/garyeikoow/Documents/www/alertly/backend
       DockerTag: api-v1
-      DockerContext: .
       Dockerfile: Dockerfile.api.simple
-
+      SamResourceId: alertlyapifunction
   alertlycronjobfunction:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
       Architectures:
-        - x86_64
+      - x86_64
       MemorySize: 512
-      Timeout: 900 # 15 minutes for potentially longer tasks
+      Timeout: 900
       Environment:
         Variables:
-          DB_USER: !Ref DBUser
-          DB_PASS: !Ref DBPass
-          DB_HOST: !Ref DBHost
-          DB_PORT: !Ref DBPort
-          DB_NAME: !Ref DBName
-          GIN_MODE: !Ref GinMode
+          DB_USER:
+            Ref: DBUser
+          DB_PASS:
+            Ref: DBPass
+          DB_HOST:
+            Ref: DBHost
+          DB_PORT:
+            Ref: DBPort
+          DB_NAME:
+            Ref: DBName
+          GIN_MODE:
+            Ref: GinMode
       Events:
         NewClusterSchedule:
           Type: Schedule
@@ -142,20 +153,14 @@ Resources:
             Description: Runs the incident expiration job every 5 minutes
             Schedule: rate(5 minutes)
             Input: '{"task": "incident_expiration"}'
-      # VpcConfig: TEMPORALMENTE REMOVIDO PARA TESTING
-      # SecurityGroupIds:
-      #   - sg-0e9d350920aa98e1f
-      # SubnetIds:
-      #   - subnet-08a4804a0d561e322
-      #   - subnet-04cc61d6f56cf6858
-      #   - subnet-0d2808fcad7ca6008
-      #   - subnet-069ffaf6555a9627c
+      ImageUri: alertlycronjobfunction:cron-v1
     Metadata:
+      DockerContext: /Users/garyeikoow/Documents/www/alertly/backend
       DockerTag: cron-v1
-      DockerContext: .
       Dockerfile: Dockerfile.cronjob.simple
-
+      SamResourceId: alertlycronjobfunction
 Outputs:
   AlertlyApiEndpoint:
-    Description: "API Gateway endpoint URL for Prod stage for Alertly function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+    Description: API Gateway endpoint URL for Prod stage for Alertly function
+    Value:
+      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/

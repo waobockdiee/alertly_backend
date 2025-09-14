@@ -1,0 +1,1 @@
+ALTER TABLE `alertly`.`account` ADD COLUMN `last_active` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP AFTER `receive_notifications`;

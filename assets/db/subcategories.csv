@@ -1,0 +1,58 @@
+insu_id,inca_id,name,description,code,icon_uri
+1,1,Theft,"Incidents involving the unauthorized taking of property without the use of force.",theft,crime.png
+2,1,Robbery,"Crimes where property is taken by force or intimidation from a person or place.",robbery,robbery.png
+3,1,Assault,"Physical attacks or violent confrontations that result in harm or the threat of harm.",assault,assault.png
+4,1,Homicide,"Cases involving the unlawful killing of an individual, including murder and attempted murder.",homicide,homicide.png
+5,1,Fraud,"Incidents of deception or financial scams intended to gain property or money illicitly.",fraud,fraud.png
+6,2,Vehicle Collision,"Incidents where two or more vehicles collide, often resulting in property damage or injuries.",vehicle_collision,single_vehicle_accident.png
+7,2,Pedestrian Involvement,"Accidents that include pedestrians being struck or endangered by vehicles.",pedestrian_nvolvement,pedestrian_nvolvement.png
+8,2,Hit-and-Run,"Accidents in which the driver responsible leaves the scene without providing assistance or identification.",hit_and_run,hit_and_run.png
+9,2,Multi-Vehicle Pileup,"Large-scale collisions involving several vehicles, typically resulting in complex traffic disruptions.",multi_vehicle_ileup,traffic_accident.png
+10,3,Cardiac Arrest,"Situations where an individual's heart stops functioning effectively, requiring immediate intervention.",cardiac_arrest,medical_emergency.png
+11,3,Stroke,"Emergencies where blood flow to the brain is interrupted, leading to potential brain damage.",stroke,medical_emergency.png
+12,3,Trauma/Injury,"Accidents or incidents resulting in physical injuries or significant bodily harm.",trauma_Injury,medical_emergency.png
+13,3,Overdose/Poisoning,"Cases involving excessive intake of substances or exposure to toxic materials.",overdose_poisoning,medical_emergency.png
+14,3,Other Medical Emergency,"Any urgent medical situation that does not fall under the above categories.",other_medical_emergency,other_medical_emergency.png
+15,4,Building Fire,"Fires occurring in homes or residential buildings, posing immediate danger to inhabitants.",residential_fire,building_fire.png
+16,4,Wildfire,"Large, uncontrolled fires that spread across forests, grasslands, or rural areas.",wildfire,wildfire.png
+17,4,Vehicle Fire,"Fires involving cars or other types of vehicles, often requiring specialized response.",vehicle_fire,vehicle_fire.png
+18,4,Other Fire Incident,"Fire-related incidents that do not fit into the standard categories listed above.",other_fire_incident,fire_incident.png
+19,5,Graffiti,"Unauthorized painting, tagging, or markings on public or private property.",graffiti,graffiti.png
+20,5,Vehicle Vandalism,"Acts of vandalism specifically targeting vehicles, such as keying or breaking windows.",vehicle_vandalism,vehicle_vandalism.png
+21,5,Public Property Damage,"Damage to public assets like parks, monuments, or street furniture.",public_property_damage,public_property_damage.png
+22,6,Suspicious Person,"Observations of individuals exhibiting unusual or concerning behavior that may warrant further attention.",suspicious_person,suspicious_person.png
+23,6,Suspicious Vehicle,"Vehicles acting in an odd or unexplained manner, which could indicate potential criminal activity.",suspicious_vehicle,suspicious_vehicle.png
+24,6,Unusual Behavior,"Any behavior that deviates from the norm and raises concerns for safety or security.",unusual_behavior,unusual_behavior.png
+25,6,Other Suspicious Activity,"Any other behavior or situation that appears out of place and may require further investigation.",other_suspicious_activity,other_suspicious_activity.png
+26,7,Road Damage/Potholes,"Damage to road surfaces, such as potholes or cracks, that may affect driving safety.",road_damage_potholes,road_damage_potholes.png
+27,7,Streetlight/Traffic Signal Failure,"Malfunctions or outages in public lighting or traffic control systems.",streetlight_traffic_signal_failure,streetlight_traffic_signal_failure.png
+28,7,Sidewalk/Pathway Damage,"Deterioration or hazards on pedestrian pathways and sidewalks.",sidewalk_pathway_damage,sidewalk_pathway_damage.png
+29,7,Public Utility Issues,"Problems affecting essential public services like water, electricity, or gas supply.",public_utility_issues,public_utility_issues.png
+30,7,Structural Damage,"Damage to critical infrastructure, such as bridges, public buildings, or monuments.",structural_damage,structural_damage.png
+31,8,Heavy Rain/Flooding,"Incidents of intense rainfall that result in flooding or water accumulation on streets.",heavy_rain_flooding,heavy_rain_flooding.png
+32,8,Snow Storm,"Severe winter weather conditions characterized by heavy snowfall and reduced visibility.",snow_storm,snow_storm.png
+33,8,Icy Road Conditions,"Hazardous conditions on roadways due to ice formation, increasing the risk of accidents.",icy_roads,icy_roads.png
+34,8,High Winds/Tornado,"Events involving extremely strong winds or tornado formation that can cause significant damage.",high_winds_tornado,high_winds_tornado.png
+35,8,Extreme Heat,"Periods of unusually high temperatures that may pose health risks and strain resources.",extreme_heat,extreme_heat.png
+36,8,Hail/Severe Storm,"Storms that produce large hail or other severe weather phenomena leading to property damage or hazards.",hail_severe_storm,hail_severe_storm.png
+37,9,Festival/Fair,"Organized community celebrations, festivals, or fairs that bring people together.",festival_fair,festival_fair.png
+38,9,Public Gathering/Rally,"Large-scale meetings, rallies, or protests that involve community participation.",public_gathering_rally,public_gathering_rally.png
+39,9,Concert/Performance,"Public musical or performance events, either outdoor or in community venues.",concert_performance,concert_performance.png
+40,9,Community Meeting/Block Party,"Neighborhood gatherings or block parties designed to foster community interaction.",community_meeting_block_party,community_meeting_block_party.png
+41,9,Sporting Event,"Organized sports matches or community athletic events that engage local residents.",sporting_event,sporting_event.png
+42,10,Moose,"Sightings of moose, a common and sometimes unpredictable species in Canada.",moose,moose.png
+43,10,Cougar,"Observations of cougars, which may pose a risk in certain areas.",cougar,cougar.png
+44,10,Bear,"Reports of bear sightings, including grizzlies and black bears.",bear,bear.png
+45,10,Wolf,"Encounters with wolves, common in some regions of Canada.",wolf,wolf.png
+46,10,Coyotes,"Sightings of coyotes, which are prevalent in urban and rural settings.",coyotes,coyotes.png
+47,10,Bigfoot,"Unverified sightings that could be attributed to local folklore.",bigfoot,bigfoot.png
+48,11,Good Samaritan Acts,"Reports of individuals who step in to help others during emergencies or crises without expecting anything in return.",good_samaritan_acts,good_samaritan_acts.png
+49,11,Community Service,"Instances of organized or spontaneous volunteer efforts that benefit the community at large.",community_service,community_service.png
+50,11,Environmental Stewardship,"Actions aimed at protecting or enhancing the local environment, such as community cleanups or tree plantings.",environmental_stewardship,environmental_stewardship.png
+51,11,Neighborly Assistance,"Examples of neighbors or community members helping each other with everyday tasks or in times of need.",neighborly_assistance,neighborly_assistance.png
+52,11,Random Acts of Kindness,"Spontaneous and unexpected gestures that spread positivity and support throughout the community.",random_acts_of_kindness,random_acts_of_kindness.png
+53,12,Dog,"Lost or found dog. Please provide breed, color, and distinctive features.",lost_dog,lost_dog.png
+54,12,Cat,"Lost or found cat. Please provide details such as color, size, and any identifying marks.",lost_cat,lost_cat.png
+55,12,Bird,"Lost or found bird. Include species if known and description of plumage.",lost_bird,lost_bird.png
+56,12,Reptile,"Lost or found reptile. Include details about the species and any unique markings.",lost_reptile,lost_reptile.png
+57,12,Other,"Lost or found pet that does not fit into the above categories. Please provide additional details.",lost_other,lost_other.png

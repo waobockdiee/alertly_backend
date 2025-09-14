@@ -1,0 +1,11 @@
+version = 0.1
+[default.deploy.parameters]
+stack_name = "alertly-production-oregon"
+resolve_s3 = true
+s3_prefix = "alertly-production-oregon"
+region = "us-west-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+disable_rollback = true
+parameter_overrides = "DBUser=\"adminalertly\" DBHost=\"alertly-production-db.cluster-c3qmq4y86s84.us-west-2.rds.amazonaws.com\" DBPort=\"3306\" DBName=\"alertly\" GinMode=\"release\" ImageBaseURL=\"https://cdn.alertly.ca\""
+image_repositories = ["alertlyapifunction=129158986318.dkr.ecr.us-west-2.amazonaws.com/alertlyproductionoregon3799f4cd/alertlyapifunctionf43c51a1repo", "alertlycronjobfunction=129158986318.dkr.ecr.us-west-2.amazonaws.com/alertlyproductionoregon3799f4cd/alertlycronjobfunction7b9a33acrepo"]

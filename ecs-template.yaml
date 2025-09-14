@@ -1,0 +1,387 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Alertly ECS Fargate - High Performance API'
+
+Parameters:
+  DBUser:
+    Type: String
+    Description: Database username
+    Default: adminalertly
+  
+  DBPass:
+    Type: String
+    Description: Database password
+    NoEcho: true
+  
+  DBHost:
+    Type: String
+    Description: Database host
+    Default: alertly-production-db.cluster-c3qmq4y86s84.us-west-2.rds.amazonaws.com
+  
+  DBPort:
+    Type: String
+    Description: Database port
+    Default: '3306'
+  
+  DBName:
+    Type: String
+    Description: Database name
+    Default: alertly
+  
+  ImageBaseURL:
+    Type: String
+    Description: Base URL for images
+    Default: https://cdn.alertly.ca
+
+Resources:
+  # VPC y Networking
+  AlertlyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: AlertlyVPC
+
+  # Internet Gateway
+  AlertlyIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: AlertlyIGW
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref AlertlyVPC
+      InternetGatewayId: !Ref AlertlyIGW
+
+  # Subnets públicas
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AlertlyVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AlertlyVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet2
+
+  # Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref AlertlyVPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTable
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref AlertlyIGW
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # Security Groups
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ALB
+      VpcId: !Ref AlertlyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: ALBSecurityGroup
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ECS tasks
+      VpcId: !Ref AlertlyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+      Tags:
+        - Key: Name
+          Value: ECSSecurityGroup
+
+  # Application Load Balancer
+  AlertlyALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: alertly-alb
+      Scheme: internet-facing
+      Type: application
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Tags:
+        - Key: Name
+          Value: AlertlyALB
+
+  # Target Group
+  AlertlyTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: alertly-targets
+      Port: 8080
+      Protocol: HTTP
+      VpcId: !Ref AlertlyVPC
+      TargetType: ip
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: 200
+
+  # ALB Listener
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref AlertlyTargetGroup
+      LoadBalancerArn: !Ref AlertlyALB
+      Port: 80
+      Protocol: HTTP
+
+  # ECS Cluster
+  AlertlyCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: alertly-cluster
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+        - CapacityProvider: FARGATE_SPOT
+          Weight: 1
+
+  # ECR Repository (using existing one)
+  # AlertlyECR:
+  #   Type: AWS::ECR::Repository
+  #   Properties:
+  #     RepositoryName: alertly-api
+
+  # ECS Task Execution Role
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: ECRAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: '*'
+
+  # ECS Task Role
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:PutObjectAcl
+                Resource: 
+                  - arn:aws:s3:::alertly-images-production/*
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: 
+                  - arn:aws:s3:::alertly-images-production
+
+  # ECS Task Definition
+  AlertlyTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: alertly-api
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 512
+      Memory: 1024
+      ExecutionRoleArn: !Ref ECSTaskExecutionRole
+      TaskRoleArn: !Ref ECSTaskRole
+      ContainerDefinitions:
+        - Name: alertly-api
+          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/alertly-api:latest'
+          PortMappings:
+            - ContainerPort: 8080
+              Protocol: tcp
+          Environment:
+            - Name: DB_USER
+              Value: !Ref DBUser
+            - Name: DB_PASS
+              Value: !Ref DBPass
+            - Name: DB_HOST
+              Value: !Ref DBHost
+            - Name: DB_PORT
+              Value: !Ref DBPort
+            - Name: DB_NAME
+              Value: !Ref DBName
+            - Name: GIN_MODE
+              Value: release
+            - Name: IMAGE_BASE_URL
+              Value: !Ref ImageBaseURL
+            - Name: PORT
+              Value: '8080'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref AlertlyLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - 'curl -f http://localhost:8080/health || exit 1'
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+
+  # CloudWatch Log Group
+  AlertlyLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/alertly-api
+      RetentionInDays: 30
+
+  # ECS Service - COMENTADO TEMPORALMENTE PARA PRIMERA FASE
+  # AlertlyService:
+  #   Type: AWS::ECS::Service
+  #   DependsOn: ALBListener
+  #   Properties:
+  #     ServiceName: alertly-api-service
+  #     Cluster: !Ref AlertlyCluster
+  #     TaskDefinition: !Ref AlertlyTaskDefinition
+  #     DesiredCount: 2
+  #     LaunchType: FARGATE
+  #     NetworkConfiguration:
+  #       AwsvpcConfiguration:
+  #         AssignPublicIp: ENABLED
+  #         Subnets:
+  #           - !Ref PublicSubnet1
+  #           - !Ref PublicSubnet2
+  #         SecurityGroups:
+  #           - !Ref ECSSecurityGroup
+  #     LoadBalancers:
+  #       - ContainerName: alertly-api
+  #         ContainerPort: 8080
+  #         TargetGroupArn: !Ref AlertlyTargetGroup
+  #     HealthCheckGracePeriodSeconds: 120
+
+  # Auto Scaling - COMENTADO TEMPORALMENTE
+  # ServiceScalingTarget:
+  #   Type: AWS::ApplicationAutoScaling::ScalableTarget
+  #   Properties:
+  #     MaxCapacity: 10
+  #     MinCapacity: 2
+  #     ResourceId: !Sub service/${AlertlyCluster}/${AlertlyService.Name}
+  #     RoleARN: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService
+  #     ScalableDimension: ecs:service:DesiredCount
+  #     ServiceNamespace: ecs
+
+  # ServiceScalingPolicy:
+  #   Type: AWS::ApplicationAutoScaling::ScalingPolicy
+  #   Properties:
+  #     PolicyName: AlertlyAPIScalingPolicy
+  #     PolicyType: TargetTrackingScaling
+  #     ScalingTargetId: !Ref ServiceScalingTarget
+  #     TargetTrackingScalingPolicyConfiguration:
+  #       PredefinedMetricSpecification:
+  #         PredefinedMetricType: ECSServiceAverageCPUUtilization
+  #       TargetValue: 70.0
+
+Outputs:
+  LoadBalancerURL:
+    Description: Load Balancer URL
+    Value: !Sub 'http://${AlertlyALB.DNSName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-LoadBalancerURL'
+  
+  ECRRepository:
+    Description: ECR Repository URI
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/alertly-api'
+    Export:
+      Name: !Sub '${AWS::StackName}-ECRRepository'
+  
+  ClusterName:
+    Description: ECS Cluster Name
+    Value: !Ref AlertlyCluster
+    Export:
+      Name: !Sub '${AWS::StackName}-ClusterName'

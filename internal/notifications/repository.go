@@ -33,6 +33,7 @@ type NotificationDelivery struct {
 	NotiID      int64           `db:"noti_id" json:"noti_id"`
 	Title       string          `db:"title" json:"title"`
 	Message     string          `db:"message" json:"message"`
+	ReferenceID sql.NullInt64   `db:"reference_id" json:"reference_id"`
 }
 
 // IsReadBool retorna el valor booleano del campo IsRead
@@ -42,6 +43,10 @@ func (nd *NotificationDelivery) IsReadBool() bool {
 
 // MarshalJSON implementa la serialización JSON personalizada
 func (nd *NotificationDelivery) MarshalJSON() ([]byte, error) {
+	var referenceID *int64
+	if nd.ReferenceID.Valid {
+		referenceID = &nd.ReferenceID.Int64
+	}
 	return json.Marshal(map[string]interface{}{
 		"node_id":       nd.NodeID,
 		"created_at":    nd.CreatedAt,
@@ -50,6 +55,7 @@ func (nd *NotificationDelivery) MarshalJSON() ([]byte, error) {
 		"noti_id":       nd.NotiID,
 		"title":         nd.Title,
 		"message":       nd.Message,
+		"reference_id":  referenceID,
 	})
 }
 
@@ -112,8 +118,10 @@ func (r *mysqlRepository) GetNotifications(accountID int64, limit, offset int) (
 			nd.to_account_id,
 			nd.noti_id,
 			nd.title,
-			nd.message
+			nd.message,
+			n.reference_id
 		FROM notification_deliveries nd
+		LEFT JOIN notifications n ON nd.noti_id = n.noti_id
 		WHERE nd.to_account_id = ?
 		ORDER BY nd.created_at DESC
 		LIMIT ? OFFSET ?
@@ -137,6 +145,7 @@ func (r *mysqlRepository) GetNotifications(accountID int64, limit, offset int) (
 			&nd.NotiID,
 			&nd.Title,
 			&nd.Message,
+			&nd.ReferenceID,
 		)
 		if err != nil {
 			log.Printf("Error scanning notification: %v", err)
@@ -145,9 +154,9 @@ func (r *mysqlRepository) GetNotifications(accountID int64, limit, offset int) (
 
 		// Convertir sql.NullTime a common.NullTime
 		if createdAt.Valid {
-			nd.CreatedAt = common.NullTime{sql.NullTime{Time: createdAt.Time, Valid: true}}
+			nd.CreatedAt = common.NullTime{NullTime: sql.NullTime{Time: createdAt.Time, Valid: true}}
 		} else {
-			nd.CreatedAt = common.NullTime{sql.NullTime{Time: time.Time{}, Valid: false}}
+			nd.CreatedAt = common.NullTime{NullTime: sql.NullTime{Time: time.Time{}, Valid: false}}
 		}
 
 		notifications = append(notifications, nd)

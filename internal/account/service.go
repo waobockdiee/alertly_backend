@@ -1,6 +1,9 @@
 package account
 
 import (
+	"alertly/internal/database"
+	"alertly/internal/myplaces"
+	"log"
 	"time"
 )
 
@@ -12,7 +15,7 @@ type Service interface {
 	DeleteAccount(accountID int64) error
 	GetCounterHistories(accountID int64) (Counter, error)
 	SaveLastRequest(accountID int64, ip string) error
-	SetHasFinishedTutorial(accountID int64) error
+	SetHasFinishedTutorial(accountID int64, latitude, longitude *float32) error
 	UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error
 }
 
@@ -52,8 +55,52 @@ func (s *service) SaveLastRequest(accountID int64, ip string) error {
 	return s.repo.SaveLastRequest(accountID, ip)
 }
 
-func (s *service) SetHasFinishedTutorial(accountID int64) error {
-	return s.repo.SetHasFinishedTutorial(accountID)
+func (s *service) SetHasFinishedTutorial(accountID int64, latitude, longitude *float32) error {
+	// 1. Mark tutorial as finished (main operation)
+	if err := s.repo.SetHasFinishedTutorial(accountID); err != nil {
+		return err
+	}
+
+	// 2. Create initial place if coordinates are provided (optional - don't fail tutorial if this fails)
+	if latitude != nil && longitude != nil && *latitude != 0 && *longitude != 0 {
+		if err := s.createInitialPlace(accountID, *latitude, *longitude); err != nil {
+			log.Printf("Could not create initial place for user %d: %v", accountID, err)
+			// Continue - tutorial completion is more important than place creation
+		}
+	}
+
+	return nil
+}
+
+func (s *service) createInitialPlace(accountID int64, latitude, longitude float32) error {
+	myPlace := myplaces.MyPlaces{
+		AccountId:                 accountID,
+		Title:                     "My Place",
+		Latitude:                  latitude,
+		Longitude:                 longitude,
+		City:                      "", // Will be empty - skip reverse geocoding for simplicity
+		Province:                  "",
+		PostalCode:                "",
+		Status:                    true,
+		Crime:                     true,
+		TrafficAccident:           true,
+		MedicalEmergency:          true,
+		FireIncident:              true,
+		Vandalism:                 true,
+		SuspiciousActivity:        true,
+		InfrastructureIssues:      true,
+		ExtremeWeather:            true,
+		CommunityEvents:           true,
+		DangerousWildlifeSighting: true,
+		PositiveActions:           true,
+		LostPet:                   true,
+		Radius:                    5000, // 5km fixed radius
+	}
+
+	// Create myplaces repository and add the place
+	myplacesRepo := myplaces.NewRepository(database.DB)
+	_, err := myplacesRepo.Add(myPlace)
+	return err
 }
 
 func (s *service) UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error {

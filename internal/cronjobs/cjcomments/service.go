@@ -97,10 +97,24 @@ func (s *Service) Run() {
 				message = message[:197] + "..."
 			}
 
+			// Data para navegación
+			pushData := map[string]interface{}{
+				"screen": "ViewIncidentScreen",
+				"inclId": fmt.Sprintf("%d", commentDetails.ClusterID),
+			}
+
 			err := common.SendPush(
-				common.ExpoPushMessage{Title: title, Body: message},
+				common.ExpoPushMessage{
+					Title: title,
+					Body:  message,
+					Data:  pushData,
+				},
 				recipient.DeviceToken,
-				payload.NewPayload().AlertTitle(title).AlertBody(message),
+				payload.NewPayload().
+					AlertTitle(title).
+					AlertBody(message).
+					Custom("screen", "ViewIncidentScreen").
+					Custom("inclId", commentDetails.ClusterID),
 			)
 			if err != nil {
 				log.Printf("cjcomments: Error sending push to account %d (%s): %v", recipient.AccountID, recipient.DeviceToken, err)

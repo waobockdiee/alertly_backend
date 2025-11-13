@@ -19,12 +19,19 @@ Comentado porque aun no esta definida la logica final y esta me esta dando un er
 */
 func SaveNotification(dbExec DBExecutor, nType string, accountID int64, referenceID int64, customContent ...string) error {
 	query := `INSERT INTO notifications(owner_account_id, title, message, type, link, must_send_as_notification_push, must_send_as_notification, must_be_processed, error_message, reference_id)
-	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	n := HandleNotification(nType, accountID, referenceID, customContent...)
+
+	// DEBUG: Log notification details
+	fmt.Printf("💾 Saving notification: type=%s, must_be_processed=%v, reference_id=%d, account_id=%d\n",
+		n.Type, n.MustBeProcessed, n.ReferenceID, n.AccountID)
+
 	_, err := dbExec.Exec(query, n.AccountID, n.Title, n.Message, n.Type, n.Link, n.MustSendPush, n.MustSendInApp, n.MustBeProcessed, n.ErrorMessage, n.ReferenceID)
 	if err != nil {
+		fmt.Printf("❌ Error saving notification: %v\n", err)
 		return fmt.Errorf("failed to save notification: %w", err)
 	}
+	fmt.Printf("✅ Notification saved successfully for type=%s, reference_id=%d\n", n.Type, n.ReferenceID)
 	return nil
 }
 

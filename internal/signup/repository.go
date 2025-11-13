@@ -19,9 +19,16 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (repo *mysqlRepository) InsertUser(user User) (int64, error) {
+	// Calcular días de trial según si tiene código de referral
+	trialDays := 7 // Por defecto: 7 días
+	if user.ReferralCode != "" {
+		trialDays = 14 // Con código de referral: 14 días
+	}
+
 	query := `
-		INSERT INTO account (email, first_name, last_name,  password, activation_code, nickname)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO account (email, first_name, last_name, password, activation_code, nickname,
+		                     is_premium, premium_expired_date)
+		VALUES (?, ?, ?, ?, ?, ?, 1, DATE_ADD(NOW(), INTERVAL ? DAY))
 	`
 	result, err := repo.db.Exec(query,
 		user.Email,
@@ -30,6 +37,7 @@ func (repo *mysqlRepository) InsertUser(user User) (int64, error) {
 		user.Password,
 		user.ActivationCode,
 		user.Nickname,
+		trialDays,
 	)
 	if err != nil {
 		return 0, err
@@ -38,7 +46,11 @@ func (repo *mysqlRepository) InsertUser(user User) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	fmt.Printf("Usuario insertado con ID: %d\n", id)
+	if user.ReferralCode != "" {
+		fmt.Printf("✅ Usuario insertado con ID: %d (con código de referral: %s, trial: %d días)\n", id, user.ReferralCode, trialDays)
+	} else {
+		fmt.Printf("Usuario insertado con ID: %d (sin código de referral, trial: %d días)\n", id, trialDays)
+	}
 	return id, nil
 }
 

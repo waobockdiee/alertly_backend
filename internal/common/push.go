@@ -102,6 +102,11 @@ func SendAPNsPush(n APNsNotification) error {
 		Topic:       apnsTopic,
 		Payload:     n.Payload,
 	}
+
+	// DEBUG: Log payload
+	payloadJSON, _ := n.Payload.MarshalJSON()
+	log.Printf("📤 Sending APNs push to %s... with payload: %s", n.DeviceToken[:20], string(payloadJSON))
+
 	res, err := APNSClient.Push(notification)
 	if err != nil {
 		return fmt.Errorf("APNs push error: %w", err)
@@ -109,22 +114,33 @@ func SendAPNsPush(n APNsNotification) error {
 	if !res.Sent() {
 		return fmt.Errorf("APNs push failed: %v", res.Reason)
 	}
+	log.Printf("✅ APNs push sent successfully to %s...", n.DeviceToken[:20])
 	return nil
 }
 
-// SendPush selecciona entre Expo o APNs según configuración
+// SendPush selecciona entre Expo o APNs según el tipo de token
 // - expoMsg: argumentos para Expo Push Service
-// - deviceToken: token de destino (igual para ambos servicios)
-// - apnsPayload: payload para APNs directo
+// - deviceToken: token de destino
+// - apnsPayload: payload para APNs directo (solo para tokens nativos)
 func SendPush(expoMsg ExpoPushMessage, deviceToken string, apnsPayload *payload.Payload) error {
 	// Inyecta el token en la petición Expo
 	expoMsg.To = deviceToken
 
-	// Si estamos en producción y APNSClient listo, enviamos por APNs
+	// ✅ DETECCIÓN DE TIPO DE TOKEN:
+	// - ExponentPushToken[...] = Token de Expo → Usar Expo Push Service
+	// - Token hex de 64 chars = Token nativo iOS → Usar APNs directo
+	isExpoToken := len(deviceToken) > 18 && deviceToken[:18] == "ExponentPushToken["
+
+	// Si es un token de Expo, SIEMPRE usar Expo Push Service
+	if isExpoToken {
+		return SendExpoPush(expoMsg)
+	}
+
+	// Si es un token nativo de iOS Y estamos en producción con APNs configurado
 	if os.Getenv("APNS_ENV") == "production" && APNSClient != nil {
 		return SendAPNsPush(APNsNotification{DeviceToken: deviceToken, Payload: apnsPayload})
 	}
 
-	// En cualquier otro caso, enviamos por Expo
+	// Fallback: intentar enviar por Expo
 	return SendExpoPush(expoMsg)
 }

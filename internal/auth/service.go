@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -28,7 +29,14 @@ func NewService(repo Repository) Service {
 
 // RegisterUser registra un nuevo usuario: inserta el registro y lo retorna con el ID asignado.
 func (s *service) GenerateSessionToken(user User) (TokenResponse, error) {
-	expirationTime := time.Now().Add(72 * time.Hour)
+	// Configuración de duración del token (90 días por defecto)
+	expHours := 90 * 24 // 90 días = 2160 horas
+	if envHours := os.Getenv("JWT_EXPIRATION_HOURS"); envHours != "" {
+		if hours, err := strconv.Atoi(envHours); err == nil && hours > 0 {
+			expHours = hours
+		}
+	}
+	expirationTime := time.Now().Add(time.Duration(expHours) * time.Hour)
 	claims := &Claims{
 		AccountID: user.AccountID,
 		Email:     user.Email,
@@ -56,6 +64,12 @@ func (s *service) AuthenticateUser(email, password string) (User, error) {
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 		return User{}, errors.New("invalid credentials")
 	}
+
+	// Verificar que la cuenta esté activada
+	if user.Status != "active" {
+		return User{}, errors.New("your account is not activated yet. Please check your email for the activation code")
+	}
+
 	return user, nil
 }
 

@@ -1,14 +1,20 @@
 package notifications
 
 import (
+	"alertly/internal/common"
+	"alertly/internal/cronjobs/shared"
+	"fmt"
 	"log"
 	"sync"
+
+	"github.com/sideshow/apns2/payload"
 )
 
 type Service interface {
 	ProcessNotifications()
 	processWelcomeToApp(n Notification) error
 	processBadgeEarned(n Notification) error
+	processIncidentResult(n Notification) error
 }
 
 type service struct {
@@ -41,6 +47,8 @@ func (s *service) ProcessNotifications() {
 					err = s.processWelcomeToApp(n)
 				case "badge_earned":
 					err = s.processBadgeEarned(n)
+				case "incident_result_win", "incident_result_loss":
+					err = s.processIncidentResult(n)
 				default:
 					log.Printf("Acción no definida para el tipo de notificación: %s", n.Type)
 				}
@@ -96,11 +104,44 @@ func (s *service) processBadgeEarned(n Notification) error {
 	// Para badge_earned, creamos una notificación directa al usuario específico
 	// No necesitamos buscar múltiples cuentas como en welcome_to_app
 
+	// Obtener device tokens del usuario
+	deviceTokens, err := shared.GetDeviceTokensForAccount(s.repo.GetDB(), n.AccountID)
+	if err != nil {
+		log.Printf("badge_earned: Error getting device tokens for account %d: %v", n.AccountID, err)
+		// Continuar de todos modos para guardar la notificación in-app
+	}
+
+	// Enviar push notification con screen ProfileScreen
+	pushData := map[string]interface{}{
+		"screen": "ProfileScreen",
+	}
+
+	for _, token := range deviceTokens {
+		err := common.SendPush(
+			common.ExpoPushMessage{
+				Title: n.Title,
+				Body:  n.Message,
+				Data:  pushData,
+			},
+			token,
+			payload.NewPayload().
+				AlertTitle(n.Title).
+				AlertBody(n.Message).
+				Custom("screen", "ProfileScreen"),
+		)
+		if err != nil {
+			log.Printf("badge_earned: Error sending push to token %s: %v", token[:20], err)
+			// Continuar con otros tokens
+		} else {
+			log.Printf("✅ badge_earned push sent to account %d", n.AccountID)
+		}
+	}
+
 	delivery := NotificationDelivery{
-		ToAccountID: n.AccountID, // Usar AccountID del modelo
+		ToAccountID: n.AccountID,
 		NotiID:      n.NotiID,
-		Title:       n.Title,   // Usar título personalizado del cronjob
-		Message:     n.Message, // Usar mensaje personalizado del cronjob
+		Title:       n.Title,
+		Message:     n.Message,
 	}
 
 	// Guardar la delivery individual
@@ -116,5 +157,66 @@ func (s *service) processBadgeEarned(n Notification) error {
 	}
 
 	log.Printf("Successfully processed badge_earned notification ID %d for account %d", n.NotiID, n.AccountID)
+	return nil
+}
+
+func (s *service) processIncidentResult(n Notification) error {
+	// incident_result_win y incident_result_loss deben enviar al ViewIncidentScreen con inclId
+
+	// Obtener device tokens del usuario
+	deviceTokens, err := shared.GetDeviceTokensForAccount(s.repo.GetDB(), n.AccountID)
+	if err != nil {
+		log.Printf("incident_result: Error getting device tokens for account %d: %v", n.AccountID, err)
+		// Continuar de todos modos para guardar la notificación in-app
+	}
+
+	// Enviar push notification con screen ViewIncidentScreen + inclId
+	pushData := map[string]interface{}{
+		"screen": "ViewIncidentScreen",
+		"inclId": fmt.Sprintf("%d", n.ReferenceID),
+	}
+
+	for _, token := range deviceTokens {
+		err := common.SendPush(
+			common.ExpoPushMessage{
+				Title: n.Title,
+				Body:  n.Message,
+				Data:  pushData,
+			},
+			token,
+			payload.NewPayload().
+				AlertTitle(n.Title).
+				AlertBody(n.Message).
+				Custom("screen", "ViewIncidentScreen").
+				Custom("inclId", n.ReferenceID),
+		)
+		if err != nil {
+			log.Printf("incident_result: Error sending push to token %s: %v", token[:20], err)
+			// Continuar con otros tokens
+		} else {
+			log.Printf("✅ incident_result push sent to account %d for incident %d", n.AccountID, n.ReferenceID)
+		}
+	}
+
+	delivery := NotificationDelivery{
+		ToAccountID: n.AccountID,
+		NotiID:      n.NotiID,
+		Title:       n.Title,
+		Message:     n.Message,
+	}
+
+	// Guardar la delivery individual
+	if err := s.repo.SaveNotificationDelivery(delivery); err != nil {
+		log.Printf("Error saving notification delivery for incident_result ID %d: %v", n.NotiID, err)
+		return err
+	}
+
+	// Marcar la notificación como procesada
+	if err := s.repo.UpdateNotificationAsProcessed(n.NotiID); err != nil {
+		log.Printf("Error marcando processed incident_result noti %d: %v", n.NotiID, err)
+		return err
+	}
+
+	log.Printf("Successfully processed incident_result notification ID %d for account %d", n.NotiID, n.AccountID)
 	return nil
 }

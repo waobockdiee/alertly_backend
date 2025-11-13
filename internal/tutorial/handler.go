@@ -9,6 +9,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type CompleteRequest struct {
+	Latitude  *float32 `json:"latitude"`
+	Longitude *float32 `json:"longitude"`
+}
+
 func CompleteHandler(c *gin.Context) {
 	accountID, err := auth.GetUserFromContext(c)
 	if err != nil {
@@ -16,10 +21,14 @@ func CompleteHandler(c *gin.Context) {
 		return
 	}
 
+	var req CompleteRequest
+	// Parse JSON, but don't fail if empty or malformed - coordinates are optional
+	c.BindJSON(&req)
+
 	repo := NewRepository(database.DB)
 	service := NewService(repo)
 
-	if err := service.FinishTutorial(accountID); err != nil {
+	if err := service.FinishTutorial(accountID, req.Latitude, req.Longitude); err != nil {
 		response.Send(c, http.StatusInternalServerError, true, "Could not update tutorial status", err.Error())
 		return
 	}

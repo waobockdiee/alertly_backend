@@ -3,6 +3,7 @@ package cjnewcluster
 import (
 	"alertly/internal/cronjobs/shared"
 	"database/sql"
+	"log"
 )
 
 // SubscribedUser representa un usuario que debe ser notificado
@@ -24,12 +25,17 @@ func NewRepository(db *sql.DB) *Repository {
 
 // FetchPending obtiene notificaciones no procesadas en batch
 func (r *Repository) FetchPending(limit int64) ([]Notification, error) {
-	rows, err := r.db.Query(
-		`SELECT noti_id, reference_id, created_at FROM notifications
+	query := `SELECT noti_id, reference_id, created_at FROM notifications
          WHERE type = 'new_cluster' AND must_be_processed = 1
          ORDER BY created_at
-         LIMIT ?`, limit)
+         LIMIT ?`
+
+	// DEBUG: Log the query
+	log.Printf("🔍 Executing query: %s (limit=%d)", query, limit)
+
+	rows, err := r.db.Query(query, limit)
 	if err != nil {
+		log.Printf("❌ Query error: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -38,10 +44,13 @@ func (r *Repository) FetchPending(limit int64) ([]Notification, error) {
 	for rows.Next() {
 		var n Notification
 		if err := rows.Scan(&n.ID, &n.ClusterID, &n.CreatedAt); err != nil {
+			log.Printf("❌ Scan error: %v", err)
 			return nil, err
 		}
+		log.Printf("✅ Found notification: noti_id=%d, cluster_id=%d", n.ID, n.ClusterID)
 		list = append(list, n)
 	}
+	log.Printf("📋 Total notifications found: %d", len(list))
 	return list, nil
 }
 

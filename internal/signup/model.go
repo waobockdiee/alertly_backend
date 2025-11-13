@@ -9,6 +9,7 @@ type User struct {
 	BirthYear      string `json:"birth_year"`
 	BirthMonth     string `json:"birth_month"`
 	BirthDay       string `json:"birth_day"`
+	ReferralCode   string `json:"referral_code"` // Código de referral (opcional)
 	ActivationCode string
 	Nickname       string
 }

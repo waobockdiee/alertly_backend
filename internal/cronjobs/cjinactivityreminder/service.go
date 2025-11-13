@@ -51,12 +51,25 @@ func (s *Service) Run() {
 
 		// Enviar cada push y acumular deliveries
 		title := "We miss you at Alertly"
-		body := "It’s been a while! Come back and see what’s new today."
+		body := "It's been a while! Come back and see what's new today."
+
+		// Data para navegación a HomeScreen
+		pushData := map[string]interface{}{
+			"screen": "HomeScreen",
+		}
+
 		for _, n := range notis {
 			if err := common.SendPush(
-				common.ExpoPushMessage{Title: title, Body: body},
+				common.ExpoPushMessage{
+					Title: title,
+					Body:  body,
+					Data:  pushData,
+				},
 				n.DeviceToken,
-				payload.NewPayload().AlertTitle(title).AlertBody(body),
+				payload.NewPayload().
+					AlertTitle(title).
+					AlertBody(body).
+					Custom("screen", "HomeScreen"),
 			); err != nil {
 				log.Printf("[Inactivity] error push acct %d: %v", n.AccountID, err)
 				continue

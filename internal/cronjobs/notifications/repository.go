@@ -12,6 +12,7 @@ type Repository interface {
 	SaveNotificationDelivery(nd NotificationDelivery) error
 	UpdateNotificationAsProcessed(notiID int64) error
 	GetProcessWelcomeToAppAccounts(n Notification) ([]Account, error)
+	GetDB() *sql.DB
 }
 
 type mysqlRepository struct {
@@ -128,4 +129,9 @@ func (r *mysqlRepository) GetProcessWelcomeToAppAccounts(n Notification) ([]Acco
 		accounts = append(accounts, account)
 	}
 	return accounts, nil
+}
+
+// GetDB returns the database connection
+func (r *mysqlRepository) GetDB() *sql.DB {
+	return r.db
 }

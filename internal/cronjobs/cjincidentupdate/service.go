@@ -102,10 +102,24 @@ func (s *Service) Run() {
 				message = message[:197] + "..."
 			}
 
+			// Data para navegación
+			pushData := map[string]interface{}{
+				"screen": "ViewIncidentScreen",
+				"inclId": fmt.Sprintf("%d", notif.ClusterID),
+			}
+
 			err := common.SendPush(
-				common.ExpoPushMessage{Title: title, Body: message},
+				common.ExpoPushMessage{
+					Title: title,
+					Body:  message,
+					Data:  pushData,
+				},
 				recipient.DeviceToken,
-				payload.NewPayload().AlertTitle(title).AlertBody(message),
+				payload.NewPayload().
+					AlertTitle(title).
+					AlertBody(message).
+					Custom("screen", "ViewIncidentScreen").
+					Custom("inclId", notif.ClusterID),
 			)
 			if err != nil {
 				log.Printf("cjincidentupdate: Error sending push to account %d (%s): %v", recipient.AccountID, recipient.DeviceToken, err)
@@ -139,4 +153,3 @@ func (s *Service) Run() {
 
 	log.Printf("cjincidentupdate: Processed %d incident update notifications.", len(notifs))
 }
-

@@ -23,17 +23,21 @@ import (
 	"alertly/internal/health"
 	"alertly/internal/invitefriend"
 	"alertly/internal/logging"
+	"alertly/internal/media"
 	"alertly/internal/middleware"
 	"alertly/internal/myplaces"
 	"alertly/internal/newincident"
 	"alertly/internal/notifications"
 	"alertly/internal/profile"
+	"alertly/internal/referrals"
 	"alertly/internal/reportincident"
 	"alertly/internal/saveclusteraccount"
+	"alertly/internal/scheduler"
 	"alertly/internal/signup"
 	"alertly/internal/tutorial"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -41,7 +45,7 @@ import (
 )
 
 func main() {
-	log.Println("🚀 Starting Alertly Backend...")
+	log.Println("Starting Alertly Backend...")
 
 	// --- AWS Lambda Refactor ---
 	// Directly read configuration from environment variables.
@@ -57,65 +61,64 @@ func main() {
 		port = "8080" // Default port if not set
 	}
 
-	// ✅ Inicializar el cliente de AWS SES
+	// Inicializar el cliente de AWS SES
 	emails.InitSES()
 
-	// ✅ Configurar logging para producción
+	// Configurar logging para producción
 	logging.SetupProductionLogging()
 
-	// ✅ Construir el DSN (Data Source Name) de forma robusta
+	// Construir el DSN (Data Source Name) de forma robusta
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
 		dbUser, dbPass, dbHost, dbPort, dbName)
 
-	log.Printf("🗄️ Connecting to database at %s:%s...", dbHost, dbPort)
+	log.Printf("Connecting to database at %s:%s...", dbHost, dbPort)
 	database.InitDB(dsn)
-	log.Println("✅ Database connected successfully")
+	log.Println("Database connected successfully")
 	defer database.DB.Close()
 
-	// ✅ Initialize database schema if needed
+	// Initialize database schema if needed
 	if err := database.CheckAndInitDatabase(database.DB); err != nil {
 		log.Printf("⚠️ Warning: Could not initialize database schema: %v", err)
 		// Continue anyway, the app might still work with existing tables
 	}
 
-	// ✅ Fix schema discrepancies
-	if err := database.FixSchema(database.DB); err != nil {
-		log.Printf("⚠️ Warning: Could not fix schema: %v", err)
-	}
-
-	// ✅ OPTIMIZACIÓN: Iniciar cache cleanup
+	// OPTIMIZACIÓN: Iniciar cache cleanup
 	common.StartCacheCleanup()
-	log.Println("✅ Cache cleanup started")
+	log.Println("Cache cleanup started")
+
+	// PUSH NOTIFICATIONS: Iniciar cronjobs internos
+	scheduler.StartCronjobs()
+	log.Println("Cronjob scheduler started")
 
 	router := gin.Default()
 
-	// ✅ PRODUCCIÓN: Configurar middlewares de seguridad
+	// PRODUCCIÓN: Configurar middlewares de seguridad
 	// The GIN_MODE check is kept to ensure these are only applied in a production-like environment.
 	if os.Getenv("GIN_MODE") == "release" {
-		// ✅ Logging optimizado para producción
+		// Logging optimizado para producción
 		router.Use(logging.ProductionLogger())
 
-		// ✅ Security headers para producción
+		// Security headers para producción
 		router.Use(middleware.SecurityHeadersMiddleware())
 
-		// ✅ Rate limit headers informativos
+		// Rate limit headers informativos
 		router.Use(middleware.RateLimitHeadersMiddleware())
 	}
 
-	// ✅ CORS optimizado con SafeCORSMiddleware (O(1) lookup, misma funcionalidad)
+	// CORS optimizado con SafeCORSMiddleware (O(1) lookup, misma funcionalidad)
 	router.Use(middleware.SafeCORSMiddleware())
 
-	// ✅ IMÁGENES AHORA SE SIRVEN DESDE S3
+	// IMÁGENES AHORA SE SIRVEN DESDE S3
 	// Ya no necesitamos servir archivos estáticos locales
-	log.Println("✅ Images served from S3: alertly-images-production")
+	log.Println("Images served from S3: alertly-images-production")
 
-	// ✅ HEALTH CHECKS: Endpoints de monitoreo (sin rate limiting)
+	// HEALTH CHECKS: Endpoints de monitoreo (sin rate limiting)
 	router.GET("/health", health.HealthHandler(database.DB))
 	router.GET("/health/ready", health.ReadinessHandler(database.DB))
 	router.GET("/health/live", health.LivenessHandler())
-	log.Println("✅ Health check endpoints configured")
+	log.Println("Health check endpoints configured")
 
-	// ✅ OPTIMIZACIÓN: Rate limiting para endpoints públicos
+	// OPTIMIZACIÓN: Rate limiting para endpoints públicos
 	router.Use(middleware.RateLimitMiddleware())
 
 	router.POST("/account/signup", signup.RegisterUserHandler)
@@ -124,14 +127,14 @@ func main() {
 
 	api := router.Group("/api")
 	api.Use(middleware.TokenAuthMiddleware())
-	// ✅ OPTIMIZACIÓN: Rate limiting más estricto para endpoints autenticados
+	// OPTIMIZACIÓN: Rate limiting más estricto para endpoints autenticados
 	api.Use(middleware.RateLimitMiddlewareStrict())
 
 	api.GET("/account/validate", auth.ValidateSession)
 	router.GET("/category/get_all", getcategories.GetCategories)
 	router.GET("/category/getsubcategoriesbycategoryid/:id", getsubcategoriesbycategoryid.GetSubcategoriesByCategoryId)
 
-	// ✅ PÚBLICO: Endpoint para landing pages web (con rate limiting estricto)
+	// PÚBLICO: Endpoint para landing pages web (con rate limiting estricto)
 	publicRoutes := router.Group("/public")
 	publicRoutes.Use(middleware.RateLimitMiddlewarePublic()) // Rate limiting más estricto
 	publicRoutes.GET("/cluster/getbyid/:incl_id", getclusterby.ViewPublic)
@@ -158,13 +161,16 @@ func main() {
 	api.POST("/account/clear_history", account.ClearHistory)
 	api.POST("/account/delete_account", account.DeleteAccount)
 	api.POST("/account/check_password", auth.CheckPasswordMatch)
-	api.POST("/account/myplaces/add", myplaces.Add)
-	api.GET("/account/myplaces/get", myplaces.GetByAccountId)
-	api.GET("/account/myplaces/get_by_id/:afl_id", myplaces.GetById)
-	api.POST("/account/myplaces/update", myplaces.Update)
+
+	// Premium-protected: Multiple alert locations feature (Saved Places)
+	premiumMW := middleware.PremiumMiddleware(database.DB)
+	api.POST("/account/myplaces/add", premiumMW, myplaces.Add)
+	api.GET("/account/myplaces/get", premiumMW, myplaces.GetByAccountId)
+	api.GET("/account/myplaces/get_by_id/:afl_id", premiumMW, myplaces.GetById)
+	api.POST("/account/myplaces/update", premiumMW, myplaces.Update)
 	api.POST("account/set_has_finished_tutorial", account.SetHasFinishedTutorial)
-	api.POST("/account/myplaces/full_update", myplaces.FullUpdate)
-	api.GET("/account/myplaces/delete/:afl_id", myplaces.Delete)
+	api.POST("/account/myplaces/full_update", premiumMW, myplaces.FullUpdate)
+	api.GET("/account/myplaces/delete/:afl_id", premiumMW, myplaces.Delete)
 	api.GET("/account/profile/get_by_id/:account_id", profile.GetById)
 	api.GET("/account/cluster/toggle_save/:incl_id", saveclusteraccount.ToggleSaveClusterAccount)
 	api.POST("/cluster/send_comment", middleware.ProfanityFilterMiddleware(), comments.SaveClusterComment)
@@ -173,6 +179,7 @@ func main() {
 	api.POST("/account/report/:account_id", profile.ReportAccount)
 	api.GET("/account/get_my_info", account.GetMyInfo)
 	api.POST("/purchase/apple/validate", account.ValidateAppleReceipt)
+	api.POST("/account/update_premium_status", account.UpdatePremiumStatusHandler)
 	api.POST("/send_feedback", feedback.SendFeedback)
 	api.POST("/send_invitation", invitefriend.Save)
 	api.POST("report_incident", reportincident.ReportIncident)
@@ -187,6 +194,43 @@ func main() {
 	api.GET("/analytics/predictions", analyticsHandler.GetSimplePredictions)
 	api.GET("/analytics/test", analyticsHandler.TestAnalytics)
 
+	// ==================================================
+	// REFERRAL SYSTEM ENDPOINTS
+	// ==================================================
+	// Inicializar el sistema de referrals
+	referralsRepo := referrals.NewRepository(database.DB)
+	referralsService := referrals.NewService(referralsRepo)
+	referralsHandler := referrals.NewHandler(referralsService)
+
+	// Grupo de endpoints de referrals v1
+	referralV1 := router.Group("/api/v1")
+	{
+		// ENDPOINT 1: Validar código de referral (PÚBLICO - sin autenticación)
+		// Usado por la app móvil durante el signup
+		referralV1.POST("/referral/validate", referralsHandler.ValidateReferralCode)
+
+		// Endpoints protegidos con API Key (backend web los consume)
+		referralV1Protected := referralV1.Group("")
+		referralV1Protected.Use(middleware.ReferralAPIKeyMiddleware())
+		{
+			// ENDPOINT 2: Registrar conversión de registro
+			referralV1Protected.POST("/referral/conversion", referralsHandler.RegisterConversion)
+
+			// ENDPOINT 3: Registrar conversión premium
+			referralV1Protected.POST("/referral/premium-conversion", referralsHandler.RegisterPremiumConversion)
+
+			// ENDPOINT 4: Obtener métricas de influencer individual
+			referralV1Protected.GET("/referrals/metrics", referralsHandler.GetInfluencerMetrics)
+
+			// ENDPOINT 5: Obtener métricas agregadas
+			referralV1Protected.GET("/referrals/aggregate", referralsHandler.GetAggregateMetrics)
+
+			// ENDPOINT 6: Sincronizar influencer desde backend web
+			referralV1Protected.POST("/referral/sync-influencer", referralsHandler.SyncInfluencer)
+		}
+	}
+	log.Println("✅ Referral system endpoints registered")
+
 	// Cronjob endpoints (for manual execution and monitoring)
 	api.POST("/cronjob/premium/expire", cronjob.RunPremiumExpirationCheck)
 	api.GET("/cronjob/premium/stats", cronjob.GetPremiumStats)
@@ -194,7 +238,7 @@ func main() {
 	api.GET("/analytics/location", analyticsHandler.GetLocationAnalytics)
 
 	// comunitacions with apple APN (to send push notifications)
-	// ✅ MOVIDO: Endpoints de device tokens sin rate limiting estricto
+	// MOVIDO: Endpoints de device tokens sin rate limiting estricto
 	router.POST("/api/device_tokens", middleware.TokenAuthMiddleware(), notifications.SaveDeviceToken)
 	router.DELETE("/api/device_tokens", middleware.TokenAuthMiddleware(), notifications.DeleteDeviceToken)
 
@@ -208,15 +252,29 @@ func main() {
 	// TESTING
 	api.POST("/test_push", notifications.TestPushHandler)
 
-	// ✅ PRODUCCIÓN: Iniciar servidor con configuración segura
-	serverPort := ":" + port
-	log.Printf("🚀 Alertly Backend starting on port %s", port)
-	log.Printf("🌍 Environment: %s", os.Getenv("GIN_MODE"))
-	log.Printf("🔗 Health check: http://localhost%s/health", serverPort)
+	// Premium middleware test endpoint - Use this to verify premium validation works
+	api.GET("/test_premium", middleware.PremiumMiddleware(database.DB), func(c *gin.Context) {
+		accountID, _ := c.Get("AccountId")
+		c.JSON(http.StatusOK, gin.H{
+			"message":    "✅ Premium validation successful",
+			"account_id": accountID,
+			"is_premium": true,
+		})
+	})
 
-	log.Println("🚦 Starting Gin router...")
+	// MEDIA PROCESSING: Endpoints para procesamiento de imágenes con pixelado
+	api.POST("/media/reprocess/:incl_id", media.ReprocessImageHandler)
+	api.POST("/media/test_pixelation", media.TestPixelationHandler)
+
+	// PRODUCCIÓN: Iniciar servidor con configuración segura
+	serverPort := ":" + port
+	log.Printf("Alertly Backend starting on port %s", port)
+	log.Printf("Environment: %s", os.Getenv("GIN_MODE"))
+	log.Printf("Health check: http://localhost%s/health", serverPort)
+
+	log.Println("Starting Gin router...")
 	if err := router.Run(serverPort); err != nil {
-		log.Fatalf("❌ Failed to start server: %v", err)
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
 

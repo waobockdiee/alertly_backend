@@ -36,6 +36,7 @@ func (s *Service) Run() {
 		log.Printf("cjnewcluster fetch pending: %v", err)
 		return
 	}
+	log.Printf("📬 cjnewcluster found %d pending notifications", len(notifs))
 	if len(notifs) == 0 {
 		return
 	}
@@ -50,23 +51,44 @@ func (s *Service) Run() {
 			log.Printf("cjnewcluster find users for cluster %d: %v", n.ClusterID, err)
 			continue // Skip to next notification on error
 		}
+		log.Printf("👥 cjnewcluster cluster %d has %d subscribed users", n.ClusterID, len(users))
 
 		// 3. Send pushes and prepare deliveries
 		for _, u := range users {
 			title := "New Incident Near You"
 			body := fmt.Sprintf("A new '%s' incident has been reported near your saved location: '%s'.", u.SubcategoryName, u.LocationTitle)
 
+			// Agregar data para navegación al hacer clic
+			pushData := map[string]interface{}{
+				"screen": "ViewIncidentScreen",
+				"inclId": fmt.Sprintf("%d", n.ClusterID),
+			}
+
 			err := common.SendPush(
-				common.ExpoPushMessage{Title: title, Body: body},
+				common.ExpoPushMessage{
+					Title: title,
+					Body:  body,
+					Data:  pushData,
+				},
 				u.DeviceToken,
-				payload.NewPayload().AlertTitle(title).AlertBody(body),
+				payload.NewPayload().
+					AlertTitle(title).
+					AlertBody(body).
+					Custom("screen", "ViewIncidentScreen").
+					Custom("inclId", n.ClusterID),
 			)
 			if err != nil {
 				log.Printf("cjnewcluster expo push to %s error: %v", u.DeviceToken, err)
 				continue
 			}
-			// Queue delivery record
-			allDeliveries = append(allDeliveries, shared.Delivery{NotificationID: n.ID, AccountID: u.AccountID})
+			log.Printf("✅ Push sent to user %d (token: %s...)", u.AccountID, u.DeviceToken[:20])
+			// Queue delivery record with title and message
+			allDeliveries = append(allDeliveries, shared.Delivery{
+				NotificationID: n.ID,
+				AccountID:      u.AccountID,
+				Title:          title,
+				Message:        body,
+			})
 		}
 		processedNotifIDs = append(processedNotifIDs, n.ID)
 	}

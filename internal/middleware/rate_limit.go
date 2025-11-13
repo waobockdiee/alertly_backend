@@ -43,8 +43,8 @@ func (rl *RateLimiter) getLimiter(ip string) *rate.Limiter {
 
 // RateLimitMiddleware crea un middleware de rate limiting
 func RateLimitMiddleware() gin.HandlerFunc {
-	// ✅ Configuración: 10 requests por segundo por IP
-	rl := NewRateLimiter(rate.Every(time.Second), 10)
+	// ✅ Configuración: 50 requests por segundo por IP (más permisivo para apps interactivas)
+	rl := NewRateLimiter(rate.Every(time.Second/50), 100)
 
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
@@ -64,8 +64,8 @@ func RateLimitMiddleware() gin.HandlerFunc {
 
 // RateLimitMiddlewareStrict crea un rate limiter más estricto para endpoints críticos
 func RateLimitMiddlewareStrict() gin.HandlerFunc {
-	// ✅ Configuración más estricta: 5 requests por segundo por IP
-	rl := NewRateLimiter(rate.Every(time.Second), 5)
+	// ✅ Configuración más estricta: 20 requests por segundo por IP
+	rl := NewRateLimiter(rate.Every(time.Second/20), 40)
 
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
@@ -89,11 +89,11 @@ func RateLimitMiddlewarePublic() gin.HandlerFunc {
 	var rateLimiter *RateLimiter
 
 	if os.Getenv("GIN_MODE") == "release" {
-		// ✅ PRODUCCIÓN: Más estricto - 3 requests por minuto, burst de 2
-		rateLimiter = NewRateLimiter(rate.Every(20*time.Second), 2)
+		// ✅ PRODUCCIÓN: 10 requests por segundo, burst de 20 (para mapas interactivos)
+		rateLimiter = NewRateLimiter(rate.Every(time.Second/10), 20)
 	} else {
-		// ✅ DESARROLLO: Más permisivo - 10 requests por minuto, burst de 5
-		rateLimiter = NewRateLimiter(rate.Every(6*time.Second), 5)
+		// ✅ DESARROLLO: 20 requests por segundo, burst de 40
+		rateLimiter = NewRateLimiter(rate.Every(time.Second/20), 40)
 	}
 
 	return func(c *gin.Context) {
@@ -101,14 +101,9 @@ func RateLimitMiddlewarePublic() gin.HandlerFunc {
 		limiter := rateLimiter.getLimiter(ip)
 
 		if !limiter.Allow() {
-			retryAfter := "20 seconds"
-			if os.Getenv("GIN_MODE") != "release" {
-				retryAfter = "6 seconds"
-			}
-
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"error":       "Public API rate limit exceeded. Please wait before making another request.",
-				"retry_after": retryAfter,
+				"error":       "Too many requests. Please slow down.",
+				"retry_after": "1 second",
 				"remaining":   "0",
 			})
 			return

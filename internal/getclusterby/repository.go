@@ -297,15 +297,23 @@ func (r *mysqlRepository) createClusterFromIndividualIncident(inclId int64) (Clu
 	var incidents []Incident
 	for rows.Next() {
 		var incident Incident
+		var createdAt sql.NullTime
 
 		err := rows.Scan(
 			&incident.InreId, &incident.MediaUrl, &incident.Description, &incident.EventType,
 			&incident.IsAnonymous, &incident.SubcategortyName, &incident.AccountId, &incident.Nickname,
 			&incident.FirstName, &incident.LastName, &incident.IsPrivateProfile, &incident.ThumbnailUrl,
-			&incident.Score, &incident.CreatedAt, &incident.InclID, &incident.Status,
+			&incident.Score, &createdAt, &incident.InclID, &incident.Status,
 		)
 		if err != nil {
 			return cluster, fmt.Errorf("error scanning incident for fallback: %w", err)
+		}
+
+		// ✅ Convertir sql.NullTime a common.CustomTime
+		if createdAt.Valid {
+			incident.CreatedAt = common.CustomTime{Time: createdAt.Time}
+		} else {
+			incident.CreatedAt = common.CustomTime{Time: time.Time{}}
 		}
 
 		// ✅ FIX: Calcular time_diff manualmente (función común no existe)

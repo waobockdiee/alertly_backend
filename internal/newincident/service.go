@@ -45,6 +45,7 @@ func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
 			return IncidentReport{}, fmt.Errorf("updating cluster location: %w", err)
 		}
 		// después seguimos a grabar el report
+		// ✅ FIX: Asegurar que el InclId se mantiene para la respuesta
 	} else {
 		// 3) Lógica habitual de NUEVO CLUSTER o VOTO bayesiano
 		cluster, err := s.repo.CheckAndGetIfClusterExist(incident)
@@ -125,6 +126,10 @@ func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
 		// nos aseguramos de fijar el clusterId para el report
 		incident.InclId = cluster.InclId
 	}
+
+	// ✅ FIX: Asegurar que InclId esté asignado en TODOS los paths
+	// En el path de "update de posición", incident.InclId ya viene del frontend
+	// En el path de "nuevo cluster", se asigna desde cluster.InclId arriba
 
 	// 4) Ahora grabamos siempre el incident_report con dirección temporal
 	incident.MediaUrl = incident.Media.Uri

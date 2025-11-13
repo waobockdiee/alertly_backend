@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -136,6 +137,11 @@ func GetCounterHistories(c *gin.Context) {
 	response.Send(c, http.StatusOK, false, "success", counter)
 }
 
+type SetTutorialRequest struct {
+	Latitude  *float32 `json:"latitude"`
+	Longitude *float32 `json:"longitude"`
+}
+
 func SetHasFinishedTutorial(c *gin.Context) {
 	var accountID int64
 	var err error
@@ -148,10 +154,14 @@ func SetHasFinishedTutorial(c *gin.Context) {
 		return
 	}
 
+	var req SetTutorialRequest
+	// Parse JSON, but don't fail if empty or malformed - coordinates are optional
+	c.BindJSON(&req)
+
 	repo := NewRepository(database.DB)
 	service := NewService(repo)
 
-	err = service.SetHasFinishedTutorial(accountID)
+	err = service.SetHasFinishedTutorial(accountID, req.Latitude, req.Longitude)
 
 	if err != nil {
 		log.Printf("Error: %v", err)
@@ -220,10 +230,10 @@ type AppleReceipt struct {
 
 // AppleLatestReceiptInfo contains details about a specific transaction
 type AppleLatestReceiptInfo struct {
-	ProductID       string `json:"product_id"`
-	TransactionID   string `json:"transaction_id"`
-	ExpiresDateMS   string `json:"expires_date_ms"`
-	IsTrialPeriod   string `json:"is_trial_period"`
+	ProductID              string `json:"product_id"`
+	TransactionID          string `json:"transaction_id"`
+	ExpiresDateMS          string `json:"expires_date_ms"`
+	IsTrialPeriod          string `json:"is_trial_period"`
 	OriginalPurchaseDateMS string `json:"original_purchase_date_ms"`
 }
 
@@ -387,4 +397,90 @@ func (e *AppleValidationError) Error() string {
 		return e.Message
 	}
 	return "apple receipt validation failed with status " + strconv.Itoa(e.StatusCode)
+}
+
+// --- Update Premium Status (RevenueCat Integration) ---
+
+// UpdatePremiumStatusRequest is the request body from frontend after RevenueCat purchase
+type UpdatePremiumStatusRequest struct {
+	IsPremium        bool   `json:"is_premium" binding:"required"`
+	SubscriptionType string `json:"subscription_type" binding:"required"`
+	PurchaseDate     string `json:"purchase_date" binding:"required"`
+	Platform         string `json:"platform"`
+}
+
+// UpdatePremiumStatusHandler handles premium status updates from frontend after RevenueCat purchase
+// This endpoint is called by the frontend when a user completes a purchase through RevenueCat
+func UpdatePremiumStatusHandler(c *gin.Context) {
+	var accountID int64
+	var err error
+	var req UpdatePremiumStatusRequest
+
+	// 1. Get user from JWT token
+	accountID, err = auth.GetUserFromContext(c)
+	if err != nil {
+		log.Printf("Error getting user from context: %v", err)
+		response.Send(c, http.StatusUnauthorized, true, "Unauthorized", nil)
+		return
+	}
+
+	// 2. Bind JSON request from client
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("Error binding JSON: %v", err)
+		response.Send(c, http.StatusBadRequest, true, "Invalid request body", nil)
+		return
+	}
+
+	// 3. Calculate expiration date based on subscription type
+	var expirationDate *time.Time
+	if req.IsPremium {
+		purchaseTime, err := time.Parse(time.RFC3339, req.PurchaseDate)
+		if err != nil {
+			log.Printf("Error parsing purchase date: %v, using current time", err)
+			purchaseTime = time.Now()
+		}
+
+		var expiration time.Time
+		subscriptionLower := strings.ToLower(req.SubscriptionType)
+
+		if strings.Contains(subscriptionLower, "monthly") {
+			expiration = purchaseTime.AddDate(0, 1, 0) // +1 month
+		} else if strings.Contains(subscriptionLower, "yearly") || strings.Contains(subscriptionLower, "annual") {
+			expiration = purchaseTime.AddDate(1, 0, 0) // +1 year
+		} else {
+			// Default to 1 month if unclear
+			log.Printf("Unknown subscription type: %s, defaulting to monthly", req.SubscriptionType)
+			expiration = purchaseTime.AddDate(0, 1, 0)
+		}
+
+		expirationDate = &expiration
+	}
+
+	// 4. Update premium status in database
+	repo := NewRepository(database.DB)
+	service := NewService(repo)
+
+	err = service.UpdatePremiumStatus(
+		accountID,
+		req.IsPremium,
+		req.SubscriptionType,
+		expirationDate,
+		req.Platform,
+	)
+
+	if err != nil {
+		log.Printf("Error updating premium status for account %d: %v", accountID, err)
+		response.Send(c, http.StatusInternalServerError, true, "Error updating premium status", nil)
+		return
+	}
+
+	log.Printf("✅ Premium status updated for account %d: is_premium=%v, type=%s, expires=%v",
+		accountID, req.IsPremium, req.SubscriptionType, expirationDate)
+
+	response.Send(c, http.StatusOK, false, "Premium status updated successfully", gin.H{
+		"is_premium":        req.IsPremium,
+		"subscription_type": req.SubscriptionType,
+		"expires_at":        expirationDate,
+		"account_id":        accountID,
+	})
 }

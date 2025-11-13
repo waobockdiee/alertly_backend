@@ -3,9 +3,11 @@ package newincident
 import (
 	"alertly/internal/common"
 	"alertly/internal/database"
+	"alertly/internal/media"
 	"alertly/internal/profile"
 	"database/sql"
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -146,9 +148,13 @@ func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
 	}
 	incident.InreId = inreId
 
-	// 5) Actualizamos contador de perfil
-	profSvc := profile.NewService(profile.NewRepository(database.DB))
-	_ = profSvc.UpdateTotalIncidents(incident.AccountId)
+	// ⚡ OPTIMIZACIÓN: UpdateTotalIncidents asíncrono (no bloquea respuesta)
+	go func(accountID int64) {
+		profSvc := profile.NewService(profile.NewRepository(database.DB))
+		if err := profSvc.UpdateTotalIncidents(accountID); err != nil {
+			fmt.Printf("⚠️ Error updating total incidents for account %d: %v\n", accountID, err)
+		}
+	}(incident.AccountId)
 
 	// ✅ OPTIMIZACIÓN: Geocoding asíncrono en background
 	go func() {
@@ -178,6 +184,44 @@ func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
 			fmt.Printf("✅ Geocoding completed for incident %d: %s, %s\n", inreId, realAddr, realCity)
 		}
 	}()
+
+	// ⚡ OPTIMIZACIÓN: Procesamiento de imágenes asíncrono
+	// Si hay un archivo temporal pendiente, procesarlo en background
+	if incident.TmpFilePath != "" {
+		go func(tmpPath string, inreId int64, inclId int64) {
+			defer func() {
+				// Eliminar archivo temporal al finalizar (éxito o error)
+				if err := os.Remove(tmpPath); err != nil {
+					fmt.Printf("⚠️ Failed to remove temp file %s: %v\n", tmpPath, err)
+				}
+			}()
+
+			fmt.Printf("🖼️ Starting async image processing for incident %d...\n", inreId)
+
+			// Procesar imagen (detección de rostros, pixelado, resize, upload a S3)
+			s3URL, err := media.ProcessImage(tmpPath, "incidents")
+			if err != nil {
+				fmt.Printf("⚠️ Failed to process image for incident %d: %v\n", inreId, err)
+				return
+			}
+
+			// Actualizar URL en incident_reports
+			if err := s.repo.UpdateIncidentMediaPath(inreId, s3URL); err != nil {
+				fmt.Printf("⚠️ Failed to update incident media URL for %d: %v\n", inreId, err)
+			} else {
+				fmt.Printf("✅ Image processed and updated for incident %d: %s\n", inreId, s3URL)
+			}
+
+			// Actualizar URL en incident_clusters si corresponde
+			if inclId != 0 {
+				if err := s.repo.UpdateClusterMediaPath(inclId, s3URL); err != nil {
+					fmt.Printf("⚠️ Failed to update cluster media URL for %d: %v\n", inclId, err)
+				} else {
+					fmt.Printf("✅ Image processed and updated for cluster %d: %s\n", inclId, s3URL)
+				}
+			}
+		}(incident.TmpFilePath, inreId, incident.InclId)
+	}
 
 	return incident, nil
 }

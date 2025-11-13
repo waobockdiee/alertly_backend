@@ -96,28 +96,27 @@ func (r *mysqlRepository) Save(incident IncidentReport) (int64, error) {
 		return 0, fmt.Errorf("failed to get last insert id: %w", err)
 	}
 
-	// ----------------------CITIZEN SCORE-----------------------
-	// -- Save to DB
-	err = common.SaveScore(r.db, incident.AccountId, 20)
-	if err != nil {
-		fmt.Println("error saving score") // It's not necesary to stop the server
-	}
-	// ----------------------NOTIFICATION-----------------------
-	// -- Save to DB
-	// Si el incident tiene incl_id != 0, significa que se está agregando a un cluster existente
-	if incident.InclId != 0 {
-		// Es un update/report adicional a un cluster existente
-		err = common.SaveNotification(r.db, "new_incident_cluster", incident.AccountId, incident.InclId)
-		if err != nil {
-			fmt.Println("error saving notification on incident cluster update event")
+	// ⚡ OPTIMIZACIÓN: SaveScore y SaveNotification asíncronos (no bloquean respuesta)
+	go func(accountID int64, inclID int64, reportID int64) {
+		// ----------------------CITIZEN SCORE-----------------------
+		if err := common.SaveScore(r.db, accountID, 20); err != nil {
+			fmt.Printf("⚠️ Error saving score for account %d: %v\n", accountID, err)
 		}
-	} else {
-		// Es un cluster completamente nuevo
-		err = common.SaveNotification(r.db, "new_cluster", incident.AccountId, id)
-		if err != nil {
-			fmt.Println("error saving notification on createincident event")
+
+		// ----------------------NOTIFICATION-----------------------
+		// Si el incident tiene incl_id != 0, significa que se está agregando a un cluster existente
+		if inclID != 0 {
+			// Es un update/report adicional a un cluster existente
+			if err := common.SaveNotification(r.db, "new_incident_cluster", accountID, inclID); err != nil {
+				fmt.Printf("⚠️ Error saving notification (cluster update) for account %d: %v\n", accountID, err)
+			}
+		} else {
+			// Es un cluster completamente nuevo
+			if err := common.SaveNotification(r.db, "new_cluster", accountID, reportID); err != nil {
+				fmt.Printf("⚠️ Error saving notification (new cluster) for account %d: %v\n", accountID, err)
+			}
 		}
-	}
+	}(incident.AccountId, incident.InclId, id)
 
 	return id, nil
 }
@@ -136,6 +135,18 @@ func (r *mysqlRepository) SaveCluster(cluster Cluster, accountID int64) (int64, 
 		}
 	}()
 
+	// ⚡ OPTIMIZACIÓN: Obtener credibilidad UNA sola vez (en lugar de 3 subconsultas)
+	var credibility float64
+	err = tx.QueryRow("SELECT credibility FROM account WHERE account_id = ?", accountID).Scan(&credibility)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get account credibility: %w", err)
+	}
+
+	// Calcular valores en Go (mucho más eficiente que en SQL)
+	scoreTrue := credibility
+	scoreFalse := 10 - credibility
+
+	// ✅ INSERT optimizado sin subconsultas
 	query := `
 	INSERT INTO incident_clusters (
 		created_at,
@@ -162,13 +173,10 @@ func (r *mysqlRepository) SaveCluster(cluster Cluster, accountID int64) (int64, 
 		credibility
 	  )
 	  VALUES (
-		?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,
-		(SELECT a.credibility      FROM account a WHERE a.account_id = ?),
-		(10 - (SELECT a.credibility FROM account a WHERE a.account_id = ?)),
-		(SELECT a.credibility      FROM account a WHERE a.account_id = ?)
+		?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?
 	  );
 	`
-	result, err := r.db.Exec(query,
+	result, err := tx.Exec(query,
 		cluster.CreatedAt,
 		cluster.StartTime,
 		cluster.EndTime,
@@ -188,9 +196,9 @@ func (r *mysqlRepository) SaveCluster(cluster Cluster, accountID int64) (int64, 
 		cluster.SubcategoryCode,
 		accountID, // account_id del creador del cluster
 		1,         // is_active = 1 (activo)
-		accountID, // para calcular score_true
-		accountID, // para calcular score_false
-		accountID, // para calcular credibility
+		scoreTrue,    // ✅ Valor calculado directamente
+		scoreFalse,   // ✅ Valor calculado directamente
+		credibility,  // ✅ Valor obtenido con 1 sola query
 	)
 
 	if err != nil {
@@ -202,19 +210,21 @@ func (r *mysqlRepository) SaveCluster(cluster Cluster, accountID int64) (int64, 
 		return 0, err
 	}
 
-	// ----------------------CITIZEN SCORE-----------------------
-	// -- Save to DB
-	err = common.SaveScore(tx, accountID, 20)
-	if err != nil {
-		fmt.Println("error saving score") // It's not necesary to stop the server
-	}
-	// ----------------------NOTIFICATION-----------------------
-	// -- Save to DB
-	err = common.SaveNotification(tx, "new_cluster", accountID, id)
+	// ⚡ OPTIMIZACIÓN: SaveScore y SaveNotification asíncronos
+	// Nota: Se ejecutan fuera de la transacción para no bloquear el commit
+	go func(accountID int64, clusterID int64) {
+		// ----------------------CITIZEN SCORE-----------------------
+		if err := common.SaveScore(r.db, accountID, 20); err != nil {
+			fmt.Printf("⚠️ Error saving score for account %d: %v\n", accountID, err)
+		}
 
-	if err != nil {
-		fmt.Println("error saving notification on createincident event")
-	}
+		// ----------------------NOTIFICATION-----------------------
+		if err := common.SaveNotification(r.db, "new_cluster", accountID, clusterID); err != nil {
+			fmt.Printf("⚠️ Error saving notification for cluster %d: %v\n", clusterID, err)
+		}
+
+		fmt.Printf("✅ Score and notification saved for cluster %d\n", clusterID)
+	}(accountID, id)
 
 	fmt.Printf("incidente creado con ID: %d\n", id)
 	return id, nil

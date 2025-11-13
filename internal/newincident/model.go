@@ -29,6 +29,7 @@ type IncidentReport struct {
 	CategoryCode       string  `form:"category_code"    json:"category_code"`
 	Vote               *bool   `form:"vote,omitempty"   json:"vote,omitempty"`
 	Credibility        float32 `form:"credibility"      json:"credibility"`
+	TmpFilePath        string  `form:"-"                json:"-"` // ⚡ Path temporal para procesamiento asíncrono
 }
 
 type Cluster struct {

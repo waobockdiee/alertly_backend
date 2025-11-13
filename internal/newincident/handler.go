@@ -3,7 +3,6 @@ package newincident
 import (
 	"alertly/internal/auth"
 	"alertly/internal/database"
-	"alertly/internal/media"
 	"alertly/internal/response"
 	"io"
 	"log"
@@ -78,17 +77,10 @@ func Create(c *gin.Context) {
 	}
 	tmpFile.Close()
 
-	// Procesar la imagen directamente y obtener la URL de S3
-	s3Folder := "incidents"
-	s3URL, err := media.ProcessImage(tmpFilePath, s3Folder)
-	if err != nil {
-		log.Printf("Error processing image: %v", err)
-		response.Send(c, http.StatusInternalServerError, true, "Error processing file", err.Error())
-		return
-	}
-
-	// Usar la URL de S3 directamente para guardarla en la base de datos
-	incident.Media.Uri = s3URL
+	// ⚡ RESPUESTA RÁPIDA: Usar placeholder temporal y procesar en background
+	// La imagen se procesará asincrónicamente después de guardar el incidente
+	incident.Media.Uri = "processing"
+	incident.TmpFilePath = tmpFilePath // Guardar path para procesamiento asíncrono
 
 	// Continuar con la lógica original de guardado en la base de datos
 	repo := NewRepository(database.DB)
@@ -102,8 +94,7 @@ func Create(c *gin.Context) {
 		return
 	}
 
-	// Eliminar el archivo temporal después de que todo ha sido procesado
-	defer os.Remove(tmpFilePath)
+	// ⚡ NOTA: El archivo temporal se eliminará automáticamente después del procesamiento asíncrono
 
 	log.Printf("success: %v", result)
 	response.Send(c, http.StatusOK, false, "Thank you for your report! We've received your incident and will review it shortly.", result)

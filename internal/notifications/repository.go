@@ -33,6 +33,7 @@ type NotificationDelivery struct {
 	NotiID      int64           `db:"noti_id" json:"noti_id"`
 	Title       string          `db:"title" json:"title"`
 	Message     string          `db:"message" json:"message"`
+	Type        string          `db:"type" json:"type"`
 	ReferenceID sql.NullInt64   `db:"reference_id" json:"reference_id"`
 }
 
@@ -55,6 +56,7 @@ func (nd *NotificationDelivery) MarshalJSON() ([]byte, error) {
 		"noti_id":       nd.NotiID,
 		"title":         nd.Title,
 		"message":       nd.Message,
+		"type":          nd.Type,
 		"reference_id":  referenceID,
 	})
 }
@@ -111,7 +113,7 @@ func (r *mysqlRepository) DeleteDeviceToken(accountID int64, deviceToken string)
 // GetNotifications obtiene las notificaciones del usuario con paginación
 func (r *mysqlRepository) GetNotifications(accountID int64, limit, offset int) ([]NotificationDelivery, error) {
 	query := `
-		SELECT 
+		SELECT
 			nd.node_id,
 			nd.created_at,
 			nd.is_read,
@@ -119,6 +121,7 @@ func (r *mysqlRepository) GetNotifications(accountID int64, limit, offset int) (
 			nd.noti_id,
 			nd.title,
 			nd.message,
+			n.type,
 			n.reference_id
 		FROM notification_deliveries nd
 		LEFT JOIN notifications n ON nd.noti_id = n.noti_id
@@ -145,6 +148,7 @@ func (r *mysqlRepository) GetNotifications(accountID int64, limit, offset int) (
 			&nd.NotiID,
 			&nd.Title,
 			&nd.Message,
+			&nd.Type,
 			&nd.ReferenceID,
 		)
 		if err != nil {

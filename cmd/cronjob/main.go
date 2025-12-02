@@ -4,6 +4,7 @@ import (
 	"alertly/internal/cronjobs/cjbadgeearn"
 	"alertly/internal/cronjobs/cjblockincident"
 	"alertly/internal/cronjobs/cjblockuser"
+	"alertly/internal/cronjobs/cjbot_creator"
 	"alertly/internal/cronjobs/cjcomments"
 	"alertly/internal/cronjobs/cjinactivityreminder"
 	"alertly/internal/cronjobs/cjincidentexpiration"
@@ -86,6 +87,29 @@ func HandleRequest(ctx context.Context, event Event) (string, error) {
 		repo := cjincidentexpiration.NewRepository(database.DB)
 		svc := cjincidentexpiration.NewService(repo)
 		svc.Run()
+
+	// Bot Creator - Data Seeder Tasks
+	case "bot_creator_tps":
+		repo := cjbot_creator.NewRepository(database.DB)
+		svc := cjbot_creator.NewService(repo)
+		svc.RunTPS()
+	case "bot_creator_tfs":
+		repo := cjbot_creator.NewRepository(database.DB)
+		svc := cjbot_creator.NewService(repo)
+		svc.RunTFS()
+	case "bot_creator_ttc":
+		repo := cjbot_creator.NewRepository(database.DB)
+		svc := cjbot_creator.NewService(repo)
+		svc.RunTTC()
+	case "bot_creator_hydro":
+		repo := cjbot_creator.NewRepository(database.DB)
+		svc := cjbot_creator.NewService(repo)
+		svc.RunHydro()
+	case "bot_creator_weather":
+		repo := cjbot_creator.NewRepository(database.DB)
+		svc := cjbot_creator.NewService(repo)
+		svc.RunWeather()
+
 	default:
 		log.Printf("Unknown task: %s", event.Task)
 		return fmt.Sprintf("Unknown task: %s", event.Task), nil

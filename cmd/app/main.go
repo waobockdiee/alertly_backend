@@ -3,6 +3,7 @@ package main
 import (
 	"alertly/internal/account"
 	"alertly/internal/activate"
+	"alertly/internal/achievements"
 	"alertly/internal/analytics"
 	"alertly/internal/auth"
 	"alertly/internal/comments"
@@ -193,6 +194,13 @@ func main() {
 	api.GET("/analytics/summary", analyticsHandler.GetAnalyticsSummary)
 	api.GET("/analytics/predictions", analyticsHandler.GetSimplePredictions)
 	api.GET("/analytics/test", analyticsHandler.TestAnalytics)
+
+	// Achievements endpoints (badges, ranks, citizen score)
+	achievementsRepo := achievements.NewRepository(database.DB)
+	achievementsService := achievements.NewService(achievementsRepo)
+	achievementsHandler := achievements.NewHandler(achievementsService)
+	api.GET("/achievements/pending", achievementsHandler.GetPending)
+	api.PUT("/achievements/:id/mark-shown", achievementsHandler.MarkAsShown)
 
 	// ==================================================
 	// REFERRAL SYSTEM ENDPOINTS

@@ -10,6 +10,7 @@ import (
 
 type Service interface {
 	GetIncidentBy(inclId, accountID int64) (Cluster, error)
+	GetIncidentByPublic(inclId, accountID int64) (Cluster, error)
 }
 
 type service struct {
@@ -21,10 +22,27 @@ func NewService(repo Repository) Service {
 }
 
 func (s *service) GetIncidentBy(inclId, accountID int64) (Cluster, error) {
-	result, err := s.repo.GetIncidentBy(inclId)
+	return s.getIncidentByInternal(inclId, accountID, false)
+}
+
+func (s *service) GetIncidentByPublic(inclId, accountID int64) (Cluster, error) {
+	return s.getIncidentByInternal(inclId, accountID, true)
+}
+
+func (s *service) getIncidentByInternal(inclId, accountID int64, isPublic bool) (Cluster, error) {
+	var result Cluster
+	var err error
+
+	if isPublic {
+		result, err = s.repo.GetIncidentByPublic(inclId)
+	} else {
+		result, err = s.repo.GetIncidentBy(inclId)
+	}
+
 	if err != nil {
 		return Cluster{}, err
 	}
+
 	result.CredibilityPercent = calculateCredibilityPercent(result.CounterTotalVotesTrue, result.CounterTotalVotesFalse)
 	result.GetAccountAlreadyVoted, _ = s.repo.GetAccountAlreadyVoted(result.InclId, accountID)
 	result.GetAccountAlreadySaved, _ = s.repo.GetAccountAlreadySaved(result.InclId, accountID)

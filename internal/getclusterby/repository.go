@@ -10,6 +10,7 @@ import (
 
 type Repository interface {
 	GetIncidentBy(inclId int64) (Cluster, error)
+	GetIncidentByPublic(inclId int64) (Cluster, error)
 	GetAccountAlreadyVoted(inclID, AccountID int64) (bool, error)
 	GetAccountAlreadySaved(inclID, AccountID int64) (bool, error)
 	GetUserVote(inclID, AccountID int64) (int, error)
@@ -25,10 +26,25 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *mysqlRepository) GetIncidentBy(inclId int64) (Cluster, error) {
+	return r.getIncidentByWithActiveFilter(inclId, true)
+}
+
+// GetIncidentByPublic obtiene un incidente sin filtrar por is_active (para endpoint público)
+func (r *mysqlRepository) GetIncidentByPublic(inclId int64) (Cluster, error) {
+	return r.getIncidentByWithActiveFilter(inclId, false)
+}
+
+// getIncidentByWithActiveFilter es el método base que permite filtrar opcionalmente por is_active
+func (r *mysqlRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly bool) (Cluster, error) {
 	// ✅ SEGURIDAD: Primero verificar si existe cluster o solo incident_report
 	// 1. Query principal del cluster (más eficiente)
-	clusterQuery := `
-    SELECT 
+	activeFilter := ""
+	if activeOnly {
+		activeFilter = "AND c.is_active = 1"
+	}
+
+	clusterQuery := fmt.Sprintf(`
+    SELECT
     c.incl_id,
     c.address,
     c.center_latitude,
@@ -58,8 +74,8 @@ func (r *mysqlRepository) GetIncidentBy(inclId int64) (Cluster, error) {
     c.credibility,
     c.account_id
   FROM incident_clusters c
-  WHERE c.incl_id = ? AND c.is_active = 1;
-  `
+  WHERE c.incl_id = ? %s;
+  `, activeFilter)
 
 	var cluster Cluster
 	err := r.db.QueryRow(clusterQuery, inclId).Scan(
@@ -76,7 +92,7 @@ func (r *mysqlRepository) GetIncidentBy(inclId int64) (Cluster, error) {
 		// ✅ FALLBACK: Si no hay cluster, intentar crear uno temporal desde incident_report
 		if err == sql.ErrNoRows {
 			log.Printf("No cluster found for incl_id %d, attempting fallback to individual incident", inclId)
-			return r.createClusterFromIndividualIncident(inclId)
+			return r.createClusterFromIndividualIncident(inclId, activeOnly)
 		}
 		return cluster, fmt.Errorf("error scanning cluster: %w", err)
 	}
@@ -200,12 +216,17 @@ func (r *mysqlRepository) SaveAccountHistory(accountID, inclID int64) error {
 }
 
 // ✅ FALLBACK: Crear cluster temporal desde incident_report individual
-func (r *mysqlRepository) createClusterFromIndividualIncident(inclId int64) (Cluster, error) {
-	log.Printf("Creating temporary cluster from individual incident %d", inclId)
+func (r *mysqlRepository) createClusterFromIndividualIncident(inclId int64, activeOnly bool) (Cluster, error) {
+	log.Printf("Creating temporary cluster from individual incident %d (activeOnly: %v)", inclId, activeOnly)
 
 	// Query para obtener datos del incident_report individual
-	individualQuery := `
-		SELECT 
+	statusFilter := ""
+	if activeOnly {
+		statusFilter = "AND r.status = 'active'"
+	}
+
+	individualQuery := fmt.Sprintf(`
+		SELECT
 			r.incl_id,
 			COALESCE(r.address, 'Unknown Location') as address,
 			COALESCE(r.latitude, 0) as latitude,
@@ -222,9 +243,9 @@ func (r *mysqlRepository) createClusterFromIndividualIncident(inclId int64) (Clu
 			r.insu_id
 		FROM incident_reports r
 		LEFT JOIN subcategories sc ON r.subcategory_code = sc.subcategory_code
-		WHERE r.incl_id = ? AND r.status = 'active'
+		WHERE r.incl_id = ? %s
 		LIMIT 1
-	`
+	`, statusFilter)
 
 	var cluster Cluster
 	err := r.db.QueryRow(individualQuery, inclId).Scan(
@@ -264,8 +285,8 @@ func (r *mysqlRepository) createClusterFromIndividualIncident(inclId int64) (Clu
 	log.Printf("✅ Temporary cluster created for incident %d", inclId)
 
 	// Ahora obtener los incident_reports (será solo uno en este caso)
-	incidentsQuery := `
-        SELECT 
+	incidentsQuery := fmt.Sprintf(`
+        SELECT
             r.inre_id,
             r.media_url,
             r.description,
@@ -284,9 +305,9 @@ func (r *mysqlRepository) createClusterFromIndividualIncident(inclId int64) (Clu
             r.status
         FROM incident_reports r
         LEFT JOIN account a ON r.account_id = a.account_id
-        WHERE r.incl_id = ? AND r.status = 'active'
+        WHERE r.incl_id = ? %s
         ORDER BY r.created_at DESC
-    `
+    `, statusFilter)
 
 	rows, err := r.db.Query(incidentsQuery, inclId)
 	if err != nil {

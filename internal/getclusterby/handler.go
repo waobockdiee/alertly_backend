@@ -42,6 +42,8 @@ func View(c *gin.Context) {
 }
 
 // ViewPublic - Endpoint público para landing pages web (sin autenticación)
+// IMPORTANTE: Este endpoint muestra TODOS los incidentes (activos e inactivos/expirados)
+// para permitir que las landing pages web compartan URLs permanentes
 func ViewPublic(c *gin.Context) {
 	idStr := c.Param("incl_id")
 
@@ -63,9 +65,11 @@ func ViewPublic(c *gin.Context) {
 	repo := NewRepository(database.DB)
 	service := NewService(repo)
 
-	// ✅ SEGURIDAD: Para endpoint público, usamos accountID = 0 (sin usuario autenticado)
-	// Esto significa que NO se incluirán datos sensibles como get_account_already_voted, etc.
-	result, err := service.GetIncidentBy(inclId, 0)
+	// ✅ PÚBLICO: Usar método GetIncidentByPublic que NO filtra por is_active
+	// Esto permite mostrar incidentes expirados en landing pages web
+	// ✅ SEGURIDAD: accountID = 0 (sin usuario autenticado)
+	// NO se incluirán datos sensibles como get_account_already_voted, etc.
+	result, err := service.GetIncidentByPublic(inclId, 0)
 	if err != nil {
 		log.Printf("error fetching incident for public view (ID: %d): %v", inclId, err)
 

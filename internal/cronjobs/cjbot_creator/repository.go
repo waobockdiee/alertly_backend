@@ -1,6 +1,7 @@
 package cjbot_creator
 
 import (
+	"alertly/internal/common"
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
@@ -10,7 +11,7 @@ import (
 )
 
 const (
-	BOT_USER_ID = 1 // System Bot account ID
+	BOT_USER_ID = 16 // System Bot account ID - "Alertly Official" (official@alertly.ca)
 )
 
 type Repository struct {
@@ -188,7 +189,8 @@ func (r *Repository) SaveBotIncident(incident NormalizedIncident) (int64, error)
 	}
 
 	// Step 2: If no cluster found, create one
-	if clusterID == 0 {
+	isNewCluster := clusterID == 0
+	if isNewCluster {
 		clusterID, err = r.CreateCluster(incident, insuID)
 		if err != nil {
 			return 0, fmt.Errorf("creating cluster: %w", err)
@@ -239,7 +241,23 @@ func (r *Repository) SaveBotIncident(incident NormalizedIncident) (int64, error)
 		return 0, err
 	}
 
-	return result.LastInsertId()
+	reportID, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	// 🔔 Create notification when joining existing cluster (async)
+	if !isNewCluster {
+		go func(accountID int64, inclID int64, reportID int64) {
+			if err := common.SaveNotification(r.db, "new_incident_cluster", accountID, inclID); err != nil {
+				log.Printf("⚠️ [Bot] Error saving notification for cluster update %d: %v\n", inclID, err)
+			} else {
+				log.Printf("✅ [Bot] Notification created for cluster update %d (report %d)\n", inclID, reportID)
+			}
+		}(BOT_USER_ID, clusterID, reportID)
+	}
+
+	return reportID, nil
 }
 
 // getClusteringRadius returns appropriate radius for category (in meters)
@@ -336,7 +354,21 @@ func (r *Repository) CreateCluster(incident NormalizedIncident, insuID int64) (i
 		return 0, err
 	}
 
-	return result.LastInsertId()
+	clusterID, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	// 🔔 Create notification for new cluster (async to not block bot processing)
+	go func(accountID int64, clusterID int64) {
+		if err := common.SaveNotification(r.db, "new_cluster", accountID, clusterID); err != nil {
+			log.Printf("⚠️ [Bot] Error saving notification for cluster %d: %v\n", clusterID, err)
+		} else {
+			log.Printf("✅ [Bot] Notification created for cluster %d\n", clusterID)
+		}
+	}(BOT_USER_ID, clusterID)
+
+	return clusterID, nil
 }
 
 // getSubcategoryDuration retrieves duration for a subcategory (defaults to 24h)

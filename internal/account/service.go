@@ -3,8 +3,11 @@ package account
 import (
 	"alertly/internal/database"
 	"alertly/internal/myplaces"
+	"errors"
 	"log"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Service interface {
@@ -13,6 +16,7 @@ type Service interface {
 	GetViewedIncidentIds(accountID int64) ([]int64, error)
 	ClearHistory(accountID int64) error
 	DeleteAccount(accountID int64) error
+	ValidatePasswordForDeletion(accountID int64, password string) error
 	GetCounterHistories(accountID int64) (Counter, error)
 	SaveLastRequest(accountID int64, ip string) error
 	SetHasFinishedTutorial(accountID int64, latitude, longitude *float32) error
@@ -44,6 +48,21 @@ func (s *service) ClearHistory(accountID int64) error {
 }
 
 func (s *service) DeleteAccount(accountID int64) error {
+	return s.repo.DeleteAccount(accountID)
+}
+
+func (s *service) ValidatePasswordForDeletion(accountID int64, password string) error {
+	hashedPassword, err := s.repo.GetAccountPassword(accountID)
+	if err != nil {
+		log.Printf("Error getting password for account %d: %v", accountID, err)
+		return errors.New("error validating password")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)); err != nil {
+		log.Printf("Invalid password for account deletion %d: %v", accountID, err)
+		return errors.New("incorrect password")
+	}
+
 	return nil
 }
 

@@ -105,7 +105,46 @@ func ClearHistory(c *gin.Context) {
 }
 
 func DeleteAccount(c *gin.Context) {
-	response.Send(c, http.StatusOK, false, "success", nil)
+	var accountID int64
+	var err error
+	var req DeleteAccountRequest
+
+	// 1. Get user from JWT token
+	accountID, err = auth.GetUserFromContext(c)
+	if err != nil {
+		log.Printf("Error getting user from context: %v", err)
+		response.Send(c, http.StatusUnauthorized, true, "Unauthorized", nil)
+		return
+	}
+
+	// 2. Bind JSON request from client
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("Error binding JSON: %v", err)
+		response.Send(c, http.StatusBadRequest, true, "Password is required", nil)
+		return
+	}
+
+	repo := NewRepository(database.DB)
+	service := NewService(repo)
+
+	// 3. Validate password before deletion
+	err = service.ValidatePasswordForDeletion(accountID, req.Password)
+	if err != nil {
+		log.Printf("Password validation failed for account %d: %v", accountID, err)
+		response.Send(c, http.StatusUnauthorized, true, "Incorrect password. Please try again.", nil)
+		return
+	}
+
+	// 4. Delete account and all related data
+	err = service.DeleteAccount(accountID)
+	if err != nil {
+		log.Printf("Error deleting account %d: %v", accountID, err)
+		response.Send(c, http.StatusInternalServerError, true, "We couldn't delete your account. Please try again later.", nil)
+		return
+	}
+
+	log.Printf("✅ Account %d successfully deleted", accountID)
+	response.Send(c, http.StatusOK, false, "Your account has been permanently deleted. We're sorry to see you go.", nil)
 }
 
 func GetCounterHistories(c *gin.Context) {

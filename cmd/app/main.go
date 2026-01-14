@@ -270,6 +270,22 @@ func main() {
 		})
 	})
 
+	// Test premium expiration cronjob (no auth required for testing)
+	router.GET("/test_premium_expiration", func(c *gin.Context) {
+		svc := cronjob.NewPremiumExpirationService(database.DB)
+		err := svc.CheckAndExpirePremiumAccounts()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Error running premium expiration",
+				"message": err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message": "✅ Premium expiration cronjob executed successfully",
+		})
+	})
+
 	// MEDIA PROCESSING: Endpoints para procesamiento de imágenes con pixelado
 	api.POST("/media/reprocess/:incl_id", media.ReprocessImageHandler)
 	api.POST("/media/test_pixelation", media.TestPixelationHandler)

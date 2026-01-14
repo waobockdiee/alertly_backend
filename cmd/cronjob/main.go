@@ -1,6 +1,7 @@
 package main
 
 import (
+	"alertly/internal/cronjob"
 	"alertly/internal/cronjobs/cjbadgeearn"
 	"alertly/internal/cronjobs/cjblockincident"
 	"alertly/internal/cronjobs/cjblockuser"
@@ -87,6 +88,12 @@ func HandleRequest(ctx context.Context, event Event) (string, error) {
 		repo := cjincidentexpiration.NewRepository(database.DB)
 		svc := cjincidentexpiration.NewService(repo)
 		svc.Run()
+	case "premium_expiration":
+		svc := cronjob.NewPremiumExpirationService(database.DB)
+		err := svc.CheckAndExpirePremiumAccounts()
+		if err != nil {
+			log.Printf("Error in premium_expiration cronjob: %v", err)
+		}
 
 	// Bot Creator - Data Seeder Tasks
 	case "bot_creator_tps":

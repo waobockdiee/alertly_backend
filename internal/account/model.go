@@ -25,3 +25,7 @@ type History struct {
 type Counter struct {
 	Counter int `json:"counter"`
 }
+
+type DeleteAccountRequest struct {
+	Password string `json:"password" binding:"required"`
+}

@@ -11,8 +11,8 @@ import (
 	"os"
 
 	"github.com/sideshow/apns2"
-	"github.com/sideshow/apns2/certificate"
 	"github.com/sideshow/apns2/payload"
+	"github.com/sideshow/apns2/token"
 )
 
 // ExpoPushMessage representa el payload para Expo Push Service
@@ -35,32 +35,41 @@ var (
 func init() {
 	// Carga configuración de entorno
 	env := os.Getenv("APNS_ENV") // "production" o "development"
-	p12Pass := os.Getenv("APNS_P12_PASS")
 	apnsTopic = os.Getenv("APNS_TOPIC")
 
 	// Inicializa APNs solo en producción
 	if env == "production" {
-		// ✅ AWS Lambda: Usar certificado desde variable de entorno base64
-		p12Base64 := os.Getenv("APNS_P12_BASE64")
-		if p12Base64 == "" || p12Pass == "" || apnsTopic == "" {
-			log.Printf("⚠️ APNs disabled: missing APNS_P12_BASE64, APNS_P12_PASS or APNS_TOPIC")
+		// ✅ Usar APNs Auth Key (.p8) - más robusto y no expira
+		authKeyBase64 := os.Getenv("APNS_AUTH_KEY")
+		keyID := os.Getenv("APNS_KEY_ID")
+		teamID := os.Getenv("APNS_TEAM_ID")
+
+		if authKeyBase64 == "" || keyID == "" || teamID == "" || apnsTopic == "" {
+			log.Printf("⚠️ APNs disabled: missing APNS_AUTH_KEY, APNS_KEY_ID, APNS_TEAM_ID or APNS_TOPIC")
 			return
 		}
 
-		// Decodificar certificado de base64
-		certData, err := base64.StdEncoding.DecodeString(p12Base64)
+		// Decodificar auth key de base64
+		authKeyData, err := base64.StdEncoding.DecodeString(authKeyBase64)
 		if err != nil {
-			log.Printf("⚠️ APNs cert decode error: %v", err)
+			log.Printf("⚠️ APNs auth key decode error: %v", err)
 			return
 		}
 
-		cert, err := certificate.FromP12Bytes(certData, p12Pass)
+		authKey, err := token.AuthKeyFromBytes(authKeyData)
 		if err != nil {
-			log.Printf("⚠️ APNs cert load error: %v", err)
+			log.Printf("⚠️ APNs auth key load error: %v", err)
 			return
 		}
-		APNSClient = apns2.NewClient(cert).Production()
-		log.Println("✅ APNs client initialized in Production mode")
+
+		apnsToken := &token.Token{
+			AuthKey: authKey,
+			KeyID:   keyID,
+			TeamID:  teamID,
+		}
+
+		APNSClient = apns2.NewTokenClient(apnsToken).Production()
+		log.Printf("✅ APNs client initialized in Production mode (Key ID: %s, Team ID: %s)", keyID, teamID)
 		return
 	}
 

@@ -12,6 +12,7 @@ type Repository interface {
 	GetViewedIncidentIds(accountID int64) ([]int64, error)
 	ClearHistory(accountID int64) error
 	DeleteAccount(accountID int64) error
+	GetAccountPassword(accountID int64) (string, error)
 	GetCounterHistories(accountID int64) (Counter, error)
 	SaveLastRequest(AccountID int64, ip string) error
 	SetHasFinishedTutorial(accountID int64) error
@@ -122,7 +123,131 @@ func (r *mysqlRepository) ClearHistory(accountID int64) error {
 	return nil
 }
 
+func (r *mysqlRepository) GetAccountPassword(accountID int64) (string, error) {
+	var password string
+	query := "SELECT password FROM account WHERE account_id = ?"
+	err := r.db.QueryRow(query, accountID).Scan(&password)
+
+	if err != nil {
+		log.Printf("Error fetching password for account %d: %v", accountID, err)
+		return "", err
+	}
+
+	return password, nil
+}
+
 func (r *mysqlRepository) DeleteAccount(accountID int64) error {
+	// Start a transaction to ensure all deletions succeed or fail together
+	tx, err := r.db.Begin()
+	if err != nil {
+		log.Printf("Error starting transaction for account deletion: %v", err)
+		return err
+	}
+	defer tx.Rollback()
+
+	// Get user's thumbnail URL before deletion (to delete from S3 later)
+	var thumbnailURL sql.NullString
+	queryThumbnail := "SELECT thumbnail_url FROM account WHERE account_id = ?"
+	err = tx.QueryRow(queryThumbnail, accountID).Scan(&thumbnailURL)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("Error fetching thumbnail for account %d: %v", accountID, err)
+		return err
+	}
+
+	// 1. Delete account history
+	_, err = tx.Exec("DELETE FROM account_history WHERE account_id = ?", accountID)
+	if err != nil {
+		log.Printf("Error deleting account_history for account %d: %v", accountID, err)
+		return err
+	}
+
+	// 2. Delete saved clusters
+	_, err = tx.Exec("DELETE FROM saved_clusters_account WHERE account_id = ?", accountID)
+	if err != nil {
+		log.Printf("Error deleting saved_clusters_account for account %d: %v", accountID, err)
+		return err
+	}
+
+	// 3. Delete notification deliveries
+	_, err = tx.Exec("DELETE FROM notification_deliveries WHERE account_id = ?", accountID)
+	if err != nil {
+		log.Printf("Error deleting notification_deliveries for account %d: %v", accountID, err)
+		return err
+	}
+
+	// 4. Delete notifications
+	_, err = tx.Exec("DELETE FROM notifications WHERE account_id = ?", accountID)
+	if err != nil {
+		log.Printf("Error deleting notifications for account %d: %v", accountID, err)
+		return err
+	}
+
+	// 5. Delete device tokens
+	_, err = tx.Exec("DELETE FROM account_device_tokens WHERE account_id = ?", accountID)
+	if err != nil {
+		log.Printf("Error deleting account_device_tokens for account %d: %v", accountID, err)
+		return err
+	}
+
+	// 6. Delete session history
+	_, err = tx.Exec("DELETE FROM account_session_history WHERE account_id = ?", accountID)
+	if err != nil {
+		log.Printf("Error deleting account_session_history for account %d: %v", accountID, err)
+		return err
+	}
+
+	// 7. Delete premium payment history
+	_, err = tx.Exec("DELETE FROM account_premium_payment_history WHERE account_id = ?", accountID)
+	if err != nil {
+		log.Printf("Error deleting account_premium_payment_history for account %d: %v", accountID, err)
+		return err
+	}
+
+	// 8. Delete favorite locations (my places)
+	_, err = tx.Exec("DELETE FROM account_favorite_locations WHERE account_id = ?", accountID)
+	if err != nil {
+		log.Printf("Error deleting account_favorite_locations for account %d: %v", accountID, err)
+		return err
+	}
+
+	// 9. Delete incident reports created by this user
+	// NOTE: We're deleting the user's incident_reports, but NOT the incident_clusters
+	// because clusters may contain reports from multiple users
+	_, err = tx.Exec("DELETE FROM incident_reports WHERE account_id = ?", accountID)
+	if err != nil {
+		log.Printf("Error deleting incident_reports for account %d: %v", accountID, err)
+		return err
+	}
+
+	// 10. Delete achievement progress
+	_, err = tx.Exec("DELETE FROM achievement_progress WHERE account_id = ?", accountID)
+	if err != nil {
+		log.Printf("Error deleting achievement_progress for account %d: %v", accountID, err)
+		return err
+	}
+
+	// 11. Finally, delete the account itself
+	_, err = tx.Exec("DELETE FROM account WHERE account_id = ?", accountID)
+	if err != nil {
+		log.Printf("Error deleting account %d: %v", accountID, err)
+		return err
+	}
+
+	// Commit the transaction
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("Error committing account deletion transaction for account %d: %v", accountID, err)
+		return err
+	}
+
+	log.Printf("✅ Successfully deleted account %d and all related data", accountID)
+
+	// TODO: Delete user's images from S3 (thumbnail and incident photos)
+	// This should be done asynchronously after the transaction commits
+	// if thumbnailURL.Valid && thumbnailURL.String != "" {
+	//     go deleteFromS3(thumbnailURL.String)
+	// }
+
 	return nil
 }
 

@@ -1,0 +1,9 @@
+# Railway/Nixpacks configuration
+# This tells Railway to only build the main application package
+# and ignore test/debug files in the root directory
+
+[phases.build]
+cmds = ["go build -o out ./cmd/app"]
+
+[start]
+cmd = "./out"

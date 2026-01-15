@@ -38,7 +38,7 @@ func (r *pgRepository) GetReel(inputs Inputs, accountID int64) ([]getclusterby.C
                   ST_MakePoint(f.longitude, f.latitude)
                 ) <= $6
         )
-	AND c.is_active = 1
+	AND c.is_active = true
     ORDER BY RANDOM()
     LIMIT 20
     `

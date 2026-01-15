@@ -192,7 +192,7 @@ func (r *pgRepository) SaveCluster(cluster Cluster, accountID int64) (int64, err
 		cluster.CategoryCode,
 		cluster.SubcategoryCode,
 		accountID, // account_id del creador del cluster
-		1,         // is_active = 1 (activo)
+		true,      // is_active (activo)
 		scoreTrue,    // ✅ Valor calculado directamente
 		scoreFalse,   // ✅ Valor calculado directamente
 		credibility,  // ✅ Valor obtenido con 1 sola query

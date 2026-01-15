@@ -168,7 +168,7 @@ type LocationDataQuality struct {
 
 // getTotalIncidents returns total number of incidents
 func (ba *BasicAnalytics) getTotalIncidents() (int, error) {
-	query := `SELECT COUNT(*) FROM incident_reports WHERE is_active = 1`
+	query := `SELECT COUNT(*) FROM incident_reports WHERE is_active = true`
 	var count int
 	err := ba.db.QueryRow(query).Scan(&count)
 	return count, err
@@ -214,9 +214,9 @@ func (ba *BasicAnalytics) getTopCategories() ([]CategoryStats, error) {
 		SELECT 
 			category_code,
 			COUNT(*) as count,
-			(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM incident_reports WHERE is_active = 1)) as percentage
+			(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM incident_reports WHERE is_active = true)) as percentage
 		FROM incident_reports 
-		WHERE is_active = 1 
+		WHERE is_active = true 
 		GROUP BY category_code 
 		ORDER BY count DESC 
 		LIMIT 5
@@ -430,7 +430,7 @@ func (ba *BasicAnalytics) getIncidentsInArea(lat, lon float64, radiusMeters int)
 	query := `
 		SELECT COUNT(*)
 		FROM incident_reports
-		WHERE is_active = 1
+		WHERE is_active = true
 		AND ST_DistanceSphere(
 			ST_MakePoint(longitude, latitude),
 			ST_MakePoint($1, $2)
@@ -502,14 +502,14 @@ func (ba *BasicAnalytics) getTopCategoriesInArea(lat, lon float64, radiusMeters 
 			(COUNT(*) * 100.0 / (
 				SELECT COUNT(*)
 				FROM incident_reports ir2
-				WHERE ir2.is_active = 1
+				WHERE ir2.is_active = true
 				AND ST_DistanceSphere(
 					ST_MakePoint(ir2.longitude, ir2.latitude),
 					ST_MakePoint($1, $2)
 				) <= $3
 			)) as percentage
 		FROM incident_reports ir
-		WHERE ir.is_active = 1
+		WHERE ir.is_active = true
 		AND ST_DistanceSphere(
 			ST_MakePoint(ir.longitude, ir.latitude),
 			ST_MakePoint($4, $5)

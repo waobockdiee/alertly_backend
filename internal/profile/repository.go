@@ -12,38 +12,38 @@ type Repository interface {
 	ReportAccount(report ReportAccountInput) error
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) GetById(accountID int64) (Profile, error) {
+func (r *pgRepository) GetById(accountID int64) (Profile, error) {
 	query := `
-		SELECT 
-			a.account_id, 
-			a.nickname, 
-			a.first_name, 
-			a.last_name, 
-			a.phone_number, 
-			a.status, 
-			a.credibility, 
-			a.is_private_profile, 
-			a.score, 
-			a.is_premium, 
-			a.counter_total_incidents_created, 
-			a.counter_total_votes_made, 
-			a.counter_total_comments_made, 
-			a.counter_total_locations, 
-			a.counter_total_flags, 
-			a.counter_total_medals, 
-			COALESCE(a.birth_year, '') as birth_year, 
-			COALESCE(a.birth_month, '') as birth_month, 
-			COALESCE(a.birth_day, '') as birth_day, 
-			a.has_finished_tutorial, 
-			a.has_watch_new_incident_tutorial, 
+		SELECT
+			a.account_id,
+			a.nickname,
+			a.first_name,
+			a.last_name,
+			a.phone_number,
+			a.status,
+			a.credibility,
+			a.is_private_profile,
+			a.score,
+			a.is_premium,
+			a.counter_total_incidents_created,
+			a.counter_total_votes_made,
+			a.counter_total_comments_made,
+			a.counter_total_locations,
+			a.counter_total_flags,
+			a.counter_total_medals,
+			COALESCE(a.birth_year, '') as birth_year,
+			COALESCE(a.birth_month, '') as birth_month,
+			COALESCE(a.birth_day, '') as birth_day,
+			a.has_finished_tutorial,
+			a.has_watch_new_incident_tutorial,
 			COALESCE(a.thumbnail_url, '') as thumbnail_url,
 			a.crime,
 			a.traffic_accident,
@@ -58,10 +58,10 @@ func (r *mysqlRepository) GetById(accountID int64) (Profile, error) {
 			a.positive_actions,
 			a.lost_pet,
 			a.incident_as_update,
-			IFNULL(
+			COALESCE(
 				(
-				SELECT JSON_ARRAYAGG(
-					JSON_OBJECT(
+				SELECT JSON_AGG(
+					JSON_BUILD_OBJECT(
 					'inre_id', i.inre_id,
 					'media_url', i.media_url,
 					'description', i.description,
@@ -74,15 +74,15 @@ func (r *mysqlRepository) GetById(accountID int64) (Profile, error) {
 					)
 				)
 				FROM incident_reports i
-				INNER JOIN incident_clusters ic 
+				INNER JOIN incident_clusters ic
 					ON i.incl_id = ic.incl_id
 				WHERE i.account_id = a.account_id
 				ORDER BY i.created_at DESC
 				),
-				JSON_ARRAY()
+				'[]'::json
 			) AS incidents
 		FROM account a
-		WHERE a.account_id = ?
+		WHERE a.account_id = $1
 		`
 	var stc Profile
 	var rawIncidents string
@@ -142,8 +142,8 @@ func (r *mysqlRepository) GetById(accountID int64) (Profile, error) {
 	return stc, nil
 }
 
-func (r *mysqlRepository) UpdateTotalIncidents(accountID int64) error {
-	query := `UPDATE account SET counter_total_incidents_created = counter_total_incidents_created + 1 WHERE account_id = ?`
+func (r *pgRepository) UpdateTotalIncidents(accountID int64) error {
+	query := `UPDATE account SET counter_total_incidents_created = counter_total_incidents_created + 1 WHERE account_id = $1`
 	_, err := r.db.Exec(query, accountID)
 	if err != nil {
 		return fmt.Errorf("error updating total incidents %w", err)
@@ -152,8 +152,8 @@ func (r *mysqlRepository) UpdateTotalIncidents(accountID int64) error {
 	return nil
 }
 
-func (r *mysqlRepository) ReportAccount(report ReportAccountInput) error {
-	query := `INSERT INTO account_reports(account_id_whos_reporting, account_id, message) VALUES(?, ? ,?)`
+func (r *pgRepository) ReportAccount(report ReportAccountInput) error {
+	query := `INSERT INTO account_reports(account_id_whos_reporting, account_id, message) VALUES($1, $2 ,$3)`
 	_, err := r.db.Exec(query, report.AccountIDWhosReporting, report.AccountID, report.Message)
 	return err
 }

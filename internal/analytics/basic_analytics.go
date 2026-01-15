@@ -185,9 +185,9 @@ func (ba *BasicAnalytics) getTotalUsers() (int, error) {
 // getActiveUsers returns users active in last 30 days
 func (ba *BasicAnalytics) getActiveUsers() (int, error) {
 	query := `
-		SELECT COUNT(DISTINCT account_id) 
-		FROM incident_reports 
-		WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+		SELECT COUNT(DISTINCT account_id)
+		FROM incident_reports
+		WHERE created_at >= NOW() - INTERVAL '30 days'
 	`
 	var count int
 	err := ba.db.QueryRow(query).Scan(&count)
@@ -244,12 +244,12 @@ func (ba *BasicAnalytics) getTopCategories() ([]CategoryStats, error) {
 // getRecentActivity returns recent activity (last 7 days)
 func (ba *BasicAnalytics) getRecentActivity() ([]RecentActivity, error) {
 	query := `
-		SELECT 
+		SELECT
 			DATE(created_at) as date,
 			COUNT(*) as incident_count,
 			COUNT(DISTINCT account_id) as user_count
-		FROM incident_reports 
-		WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+		FROM incident_reports
+		WHERE created_at >= NOW() - INTERVAL '7 days'
 		GROUP BY DATE(created_at)
 		ORDER BY date DESC
 	`
@@ -351,12 +351,12 @@ func (ba *BasicAnalytics) GetSimplePredictions() (map[string]interface{}, error)
 // getTimePatterns returns basic time-based patterns
 func (ba *BasicAnalytics) getTimePatterns() (map[string]interface{}, error) {
 	query := `
-		SELECT 
-			HOUR(created_at) as hour,
+		SELECT
+			EXTRACT(HOUR FROM created_at)::int as hour,
 			COUNT(*) as count
-		FROM incident_reports 
-		WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-		GROUP BY HOUR(created_at)
+		FROM incident_reports
+		WHERE created_at >= NOW() - INTERVAL '30 days'
+		GROUP BY EXTRACT(HOUR FROM created_at)
 		ORDER BY count DESC
 		LIMIT 3
 	`
@@ -386,14 +386,14 @@ func (ba *BasicAnalytics) getTimePatterns() (map[string]interface{}, error) {
 // getHotspots returns basic geographic hotspots
 func (ba *BasicAnalytics) getHotspots() (map[string]interface{}, error) {
 	query := `
-		SELECT 
-			ROUND(center_latitude, 2) as lat,
-			ROUND(center_longitude, 2) as lng,
+		SELECT
+			ROUND(CAST(center_latitude AS numeric), 2) as lat,
+			ROUND(CAST(center_longitude AS numeric), 2) as lng,
 			COUNT(*) as count
-		FROM incident_clusters 
-		WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-		GROUP BY ROUND(center_latitude, 2), ROUND(center_longitude, 2)
-		HAVING count > 1
+		FROM incident_clusters
+		WHERE created_at >= NOW() - INTERVAL '30 days'
+		GROUP BY ROUND(CAST(center_latitude AS numeric), 2), ROUND(CAST(center_longitude AS numeric), 2)
+		HAVING COUNT(*) > 1
 		ORDER BY count DESC
 		LIMIT 3
 	`
@@ -428,13 +428,13 @@ func (ba *BasicAnalytics) getHotspots() (map[string]interface{}, error) {
 // getIncidentsInArea returns incidents within a specific radius
 func (ba *BasicAnalytics) getIncidentsInArea(lat, lon float64, radiusMeters int) (int, error) {
 	query := `
-		SELECT COUNT(*) 
-		FROM incident_reports 
-		WHERE is_active = 1 
-		AND ST_Distance_Sphere(
-			POINT(longitude, latitude),
-			POINT(?, ?)
-		) <= ?
+		SELECT COUNT(*)
+		FROM incident_reports
+		WHERE is_active = 1
+		AND ST_DistanceSphere(
+			ST_MakePoint(longitude, latitude),
+			ST_MakePoint($1, $2)
+		) <= $3
 	`
 	var count int
 	err := ba.db.QueryRow(query, lon, lat, radiusMeters).Scan(&count)
@@ -444,13 +444,13 @@ func (ba *BasicAnalytics) getIncidentsInArea(lat, lon float64, radiusMeters int)
 // getActiveUsersInArea returns active users within a specific radius
 func (ba *BasicAnalytics) getActiveUsersInArea(lat, lon float64, radiusMeters int) (int, error) {
 	query := `
-		SELECT COUNT(DISTINCT ir.account_id) 
+		SELECT COUNT(DISTINCT ir.account_id)
 		FROM incident_reports ir
-		WHERE ir.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-		AND ST_Distance_Sphere(
-			POINT(ir.longitude, ir.latitude),
-			POINT(?, ?)
-		) <= ?
+		WHERE ir.created_at >= NOW() - INTERVAL '30 days'
+		AND ST_DistanceSphere(
+			ST_MakePoint(ir.longitude, ir.latitude),
+			ST_MakePoint($1, $2)
+		) <= $3
 	`
 	var count int
 	err := ba.db.QueryRow(query, lon, lat, radiusMeters).Scan(&count)
@@ -460,16 +460,16 @@ func (ba *BasicAnalytics) getActiveUsersInArea(lat, lon float64, radiusMeters in
 // getRecentActivityInArea returns recent activity within a specific radius
 func (ba *BasicAnalytics) getRecentActivityInArea(lat, lon float64, radiusMeters int) ([]RecentActivity, error) {
 	query := `
-		SELECT 
+		SELECT
 			DATE(ir.created_at) as date,
 			COUNT(*) as incident_count,
 			COUNT(DISTINCT ir.account_id) as user_count
 		FROM incident_reports ir
-		WHERE ir.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-		AND ST_Distance_Sphere(
-			POINT(ir.longitude, ir.latitude),
-			POINT(?, ?)
-		) <= ?
+		WHERE ir.created_at >= NOW() - INTERVAL '7 days'
+		AND ST_DistanceSphere(
+			ST_MakePoint(ir.longitude, ir.latitude),
+			ST_MakePoint($1, $2)
+		) <= $3
 		GROUP BY DATE(ir.created_at)
 		ORDER BY date DESC
 	`
@@ -496,26 +496,26 @@ func (ba *BasicAnalytics) getRecentActivityInArea(lat, lon float64, radiusMeters
 // getTopCategoriesInArea returns top categories within a specific radius
 func (ba *BasicAnalytics) getTopCategoriesInArea(lat, lon float64, radiusMeters int) ([]CategoryStats, error) {
 	query := `
-		SELECT 
+		SELECT
 			ir.category_code,
 			COUNT(*) as count,
 			(COUNT(*) * 100.0 / (
-				SELECT COUNT(*) 
-				FROM incident_reports ir2 
-				WHERE ir2.is_active = 1 
-				AND ST_Distance_Sphere(
-					POINT(ir2.longitude, ir2.latitude),
-					POINT(?, ?)
-				) <= ?
+				SELECT COUNT(*)
+				FROM incident_reports ir2
+				WHERE ir2.is_active = 1
+				AND ST_DistanceSphere(
+					ST_MakePoint(ir2.longitude, ir2.latitude),
+					ST_MakePoint($1, $2)
+				) <= $3
 			)) as percentage
 		FROM incident_reports ir
-		WHERE ir.is_active = 1 
-		AND ST_Distance_Sphere(
-			POINT(ir.longitude, ir.latitude),
-			POINT(?, ?)
-		) <= ?
-		GROUP BY ir.category_code 
-		ORDER BY count DESC 
+		WHERE ir.is_active = 1
+		AND ST_DistanceSphere(
+			ST_MakePoint(ir.longitude, ir.latitude),
+			ST_MakePoint($4, $5)
+		) <= $6
+		GROUP BY ir.category_code
+		ORDER BY count DESC
 		LIMIT 5
 	`
 

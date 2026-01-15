@@ -10,15 +10,15 @@ type Repository interface {
 	GetNewAlertsCount(accountID int64) (int64, error)
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) GetAlerts(accountID int64) ([]Alert, error) {
+func (r *pgRepository) GetAlerts(accountID int64) ([]Alert, error) {
 	tx, err := r.db.Begin()
 	var alerts []Alert
 
@@ -34,7 +34,7 @@ func (r *mysqlRepository) GetAlerts(accountID int64) ([]Alert, error) {
 		}
 	}()
 
-	queryGetLastNotificationsDate := `SELECT last_notifications_view FROM account WHERE account_id = ? `
+	queryGetLastNotificationsDate := `SELECT last_notifications_view FROM account WHERE account_id = $1`
 
 	var lastDate time.Time
 	err = tx.QueryRow(queryGetLastNotificationsDate, accountID).Scan(&lastDate)
@@ -43,8 +43,8 @@ func (r *mysqlRepository) GetAlerts(accountID int64) ([]Alert, error) {
 		return alerts, err
 	}
 
-	query := `SELECT * 
-	FROM account_notifications t1 INNER JOIN account  
+	query := `SELECT *
+	FROM account_notifications t1 INNER JOIN account
 	LIMIT 20`
 	rows, err := tx.Query(query, accountID, &lastDate)
 
@@ -63,7 +63,7 @@ func (r *mysqlRepository) GetAlerts(accountID int64) ([]Alert, error) {
 		alerts = append(alerts, alert)
 	}
 
-	updateQuery := `UPDATE account SET last_notifications_view = NOW() WHERE account_id = ? `
+	updateQuery := `UPDATE account SET last_notifications_view = NOW() WHERE account_id = $1`
 	_, err = tx.Exec(updateQuery, accountID)
 
 	if err != nil {
@@ -74,7 +74,7 @@ func (r *mysqlRepository) GetAlerts(accountID int64) ([]Alert, error) {
 
 }
 
-func (r *mysqlRepository) GetNewAlertsCount(accountID int64) (int64, error) {
+func (r *pgRepository) GetNewAlertsCount(accountID int64) (int64, error) {
 	tx, err := r.db.Begin()
 
 	if err != nil {
@@ -88,7 +88,7 @@ func (r *mysqlRepository) GetNewAlertsCount(accountID int64) (int64, error) {
 			_ = tx.Commit()
 		}
 	}()
-	queryGetLastNotificationsDate := `SELECT last_notifications_view FROM account WHERE account_id = ? `
+	queryGetLastNotificationsDate := `SELECT last_notifications_view FROM account WHERE account_id = $1`
 
 	var lastDate time.Time
 	err = tx.QueryRow(queryGetLastNotificationsDate, accountID).Scan(&lastDate)
@@ -97,7 +97,7 @@ func (r *mysqlRepository) GetNewAlertsCount(accountID int64) (int64, error) {
 		return 0, err
 	}
 
-	query := `SELECT COUNT(*) FROM account_notifications t1 WHERE created_at > ? `
+	query := `SELECT COUNT(*) FROM account_notifications t1 WHERE created_at > $1`
 
 	var counter int64
 

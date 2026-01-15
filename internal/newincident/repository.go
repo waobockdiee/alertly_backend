@@ -24,23 +24,23 @@ type Repository interface {
 	GetDurationForSubcategory(subcategoryCode string) (int, error)
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) CheckAndGetIfClusterExist(incident IncidentReport) (Cluster, error) {
-	query := `SELECT incl_id FROM incident_clusters WHERE insu_id = ? 
-	  AND category_code = ?
-	  AND subcategory_code = ?
-	  AND ST_Distance_Sphere(
-		POINT(center_longitude, center_latitude),
-		POINT(?, ?)
-	  ) < ?
-	  AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR);`
+func (r *pgRepository) CheckAndGetIfClusterExist(incident IncidentReport) (Cluster, error) {
+	query := `SELECT incl_id FROM incident_clusters WHERE insu_id = $1
+	  AND category_code = $2
+	  AND subcategory_code = $3
+	  AND ST_DistanceSphere(
+		ST_MakePoint(center_longitude, center_latitude),
+		ST_MakePoint($4, $5)
+	  ) < $6
+	  AND created_at >= NOW() - INTERVAL '24 hours';`
 
 	row := r.db.QueryRow(query, incident.InsuId, incident.CategoryCode, incident.SubcategoryCode, incident.Longitude, incident.Latitude, incident.DefaultCircleRange)
 	var cluster Cluster
@@ -52,7 +52,7 @@ func (r *mysqlRepository) CheckAndGetIfClusterExist(incident IncidentReport) (Cl
 /*
 Guarda un incidente del cluster. Basicamente es una actualizacion del seguimiento del cluster de una persona que ya ha votado o haya creado el cluster.
 */
-func (r *mysqlRepository) Save(incident IncidentReport) (int64, error) {
+func (r *pgRepository) Save(incident IncidentReport) (int64, error) {
 
 	// Determinar el valor del voto para la base de datos
 	var voteValue interface{}
@@ -66,8 +66,9 @@ func (r *mysqlRepository) Save(incident IncidentReport) (int64, error) {
 		voteValue = nil // No es un voto
 	}
 
-	query := "INSERT INTO incident_reports(account_id, insu_id, incl_id, description, event_type, address, city, province, postal_code, latitude, longitude, subcategory_name, is_anonymous, media_url, subcategory_code, category_code, vote, created_at) VALUES( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())"
-	result, err := r.db.Exec(query,
+	query := "INSERT INTO incident_reports(account_id, insu_id, incl_id, description, event_type, address, city, province, postal_code, latitude, longitude, subcategory_name, is_anonymous, media_url, subcategory_code, category_code, vote, created_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW()) RETURNING inre_id"
+	var id int64
+	err := r.db.QueryRow(query,
 		incident.AccountId,
 		incident.InsuId,
 		incident.InclId,
@@ -85,15 +86,10 @@ func (r *mysqlRepository) Save(incident IncidentReport) (int64, error) {
 		incident.SubcategoryCode,
 		incident.CategoryCode,
 		voteValue,
-	)
+	).Scan(&id)
 
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert incident report: %w", err)
-	}
-
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("failed to get last insert id: %w", err)
 	}
 
 	// ⚡ OPTIMIZACIÓN: SaveScore y SaveNotification asíncronos (no bloquean respuesta)
@@ -121,7 +117,7 @@ func (r *mysqlRepository) Save(incident IncidentReport) (int64, error) {
 	return id, nil
 }
 
-func (r *mysqlRepository) SaveCluster(cluster Cluster, accountID int64) (int64, error) {
+func (r *pgRepository) SaveCluster(cluster Cluster, accountID int64) (int64, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return 0, fmt.Errorf("failed to begin transaction: %w", err)
@@ -137,7 +133,7 @@ func (r *mysqlRepository) SaveCluster(cluster Cluster, accountID int64) (int64, 
 
 	// ⚡ OPTIMIZACIÓN: Obtener credibilidad UNA sola vez (en lugar de 3 subconsultas)
 	var credibility float64
-	err = tx.QueryRow("SELECT credibility FROM account WHERE account_id = ?", accountID).Scan(&credibility)
+	err = tx.QueryRow("SELECT credibility FROM account WHERE account_id = $1", accountID).Scan(&credibility)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get account credibility: %w", err)
 	}
@@ -173,10 +169,11 @@ func (r *mysqlRepository) SaveCluster(cluster Cluster, accountID int64) (int64, 
 		credibility
 	  )
 	  VALUES (
-		?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?,  ?
-	  );
+		$1,  $2,  $3,  $4,  $5,  $6,  $7,  $8,  $9,  $10,  $11,  $12,  $13,  $14,  $15,  $16,  $17,  $18,  $19,  $20,  $21,  $22
+	  ) RETURNING incl_id;
 	`
-	result, err := tx.Exec(query,
+	var id int64
+	err = tx.QueryRow(query,
 		cluster.CreatedAt,
 		cluster.StartTime,
 		cluster.EndTime,
@@ -199,13 +196,8 @@ func (r *mysqlRepository) SaveCluster(cluster Cluster, accountID int64) (int64, 
 		scoreTrue,    // ✅ Valor calculado directamente
 		scoreFalse,   // ✅ Valor calculado directamente
 		credibility,  // ✅ Valor obtenido con 1 sola query
-	)
+	).Scan(&id)
 
-	if err != nil {
-		return 0, err
-	}
-
-	id, err := result.LastInsertId()
 	if err != nil {
 		return 0, err
 	}
@@ -231,47 +223,45 @@ func (r *mysqlRepository) SaveCluster(cluster Cluster, accountID int64) (int64, 
 }
 
 // -- Actualiza la localizacion del cluster cuando se crea un incidente nuevo del cluster. Ya que el incidente nuevo no necesariamente tiene que esta ubicada en las coordenadas exactas del cluster. Por eso actualiza.
-func (r *mysqlRepository) UpdateClusterAsTrue(inclId int64, accountID int64, latitude, longitude float32) (sql.Result, error) {
+func (r *pgRepository) UpdateClusterAsTrue(inclId int64, accountID int64, latitude, longitude float32) (sql.Result, error) {
 	query := `
 	UPDATE incident_clusters ic
-	JOIN account a ON a.account_id = ?
 	SET
-	ic.center_latitude      = (ic.center_latitude + ?) / 2,
-	ic.center_longitude     = (ic.center_longitude + ?) / 2,
-	ic.counter_total_votes  = ic.counter_total_votes + 1,
-	ic.score_true           = ic.score_true + a.credibility,
-	ic.score_false          = ic.score_false + (10 - a.credibility),
-	ic.credibility          = ic.score_true
+	center_latitude      = (ic.center_latitude + $2) / 2,
+	center_longitude     = (ic.center_longitude + $3) / 2,
+	counter_total_votes  = ic.counter_total_votes + 1,
+	score_true           = ic.score_true + (SELECT credibility FROM account WHERE account_id = $1),
+	score_false          = ic.score_false + (10 - (SELECT credibility FROM account WHERE account_id = $1)),
+	credibility          = ic.score_true
 								/ GREATEST(ic.score_true + ic.score_false, 1)
 								* 10
-	WHERE ic.incl_id = ?;
+	WHERE ic.incl_id = $4;
 	`
 
 	result, err := r.db.Exec(query, accountID, latitude, longitude, inclId)
 	return result, err
 }
 
-func (r *mysqlRepository) UpdateClusterAsFalse(inclId int64, accountID int64, latitude, longitude float32) (sql.Result, error) {
+func (r *pgRepository) UpdateClusterAsFalse(inclId int64, accountID int64, latitude, longitude float32) (sql.Result, error) {
 	query := `
 	UPDATE incident_clusters ic
-	JOIN account a ON a.account_id = ?
 	SET
-	ic.center_latitude      = (ic.center_latitude + ?) / 2,
-	ic.center_longitude     = (ic.center_longitude + ?) / 2,
-	ic.counter_total_votes  = ic.counter_total_votes + 1,
-	ic.score_true           = ic.score_true + (10 - a.credibility),
-	ic.score_false          = ic.score_false + a.credibility,
-	ic.credibility          = ic.score_true
+	center_latitude      = (ic.center_latitude + $2) / 2,
+	center_longitude     = (ic.center_longitude + $3) / 2,
+	counter_total_votes  = ic.counter_total_votes + 1,
+	score_true           = ic.score_true + (10 - (SELECT credibility FROM account WHERE account_id = $1)),
+	score_false          = ic.score_false + (SELECT credibility FROM account WHERE account_id = $1),
+	credibility          = ic.score_true
 								/ GREATEST(ic.score_true + ic.score_false, 1)
 								* 10
-	WHERE ic.incl_id = ?;
+	WHERE ic.incl_id = $4;
 	`
 
 	result, err := r.db.Exec(query, accountID, latitude, longitude, inclId)
 	return result, err
 }
 
-// func (r *mysqlRepository) SaveAsUpdate(incident IncidentReport) error {
+// func (r *pgRepository) SaveAsUpdate(incident IncidentReport) error {
 // 	tx, err := r.db.Begin()
 
 // 	if err != nil {
@@ -348,14 +338,14 @@ func (r *mysqlRepository) UpdateClusterAsFalse(inclId int64, accountID int64, la
 
 func UpdateClusterOnNewIncidentCluster(tx *sql.Tx, InclID int64, vote bool) error {
 
-	query := `UPDATE incident_clusters 
-	SET counter_total_votes = counter_total_incidents_created + 1, counter_total_votes_true = counter_total_votes_true + 1 
-	WHERE incl_id = ?`
+	query := `UPDATE incident_clusters
+	SET counter_total_votes = counter_total_incidents_created + 1, counter_total_votes_true = counter_total_votes_true + 1
+	WHERE incl_id = $1`
 
 	if vote != true {
-		query = `UPDATE incident_clusters 
-		SET counter_total_votes = counter_total_incidents_created + 1, counter_total_votes_false = counter_total_votes_false + 1 
-		WHERE incl_id = ?`
+		query = `UPDATE incident_clusters
+		SET counter_total_votes = counter_total_incidents_created + 1, counter_total_votes_false = counter_total_votes_false + 1
+		WHERE incl_id = $1`
 	}
 	_, err := tx.Exec(query, InclID)
 	if err != nil {
@@ -365,7 +355,7 @@ func UpdateClusterOnNewIncidentCluster(tx *sql.Tx, InclID int64, vote bool) erro
 }
 
 func UpdateCounterIncidentsAccount(tx *sql.Tx, accountID int64) error {
-	query := `UPDATE account SET counter_total_incidents_created = counter_total_incidents_created+1  WHERE account_id = ?`
+	query := `UPDATE account SET counter_total_incidents_created = counter_total_incidents_created+1  WHERE account_id = $1`
 	_, err := tx.Exec(query, accountID)
 	if err != nil {
 		return fmt.Errorf("failed to update score: %w", err)
@@ -373,10 +363,10 @@ func UpdateCounterIncidentsAccount(tx *sql.Tx, accountID int64) error {
 	return nil
 }
 
-func (r *mysqlRepository) HasAccountVoted(inclID, accountID int64) (bool, bool, error) {
+func (r *pgRepository) HasAccountVoted(inclID, accountID int64) (bool, bool, error) {
 	var voteVal sql.NullInt64
 	err := r.db.QueryRow(
-		`SELECT vote FROM incident_reports WHERE incl_id = ? AND account_id = ? AND vote IS NOT NULL LIMIT 1`,
+		`SELECT vote FROM incident_reports WHERE incl_id = $1 AND account_id = $2 AND vote IS NOT NULL LIMIT 1`,
 		inclID, accountID,
 	).Scan(&voteVal)
 	if err == sql.ErrNoRows {
@@ -392,43 +382,43 @@ func (r *mysqlRepository) HasAccountVoted(inclID, accountID int64) (bool, bool, 
 	return true, voteVal.Int64 == 1, nil
 }
 
-func (r *mysqlRepository) UpdateClusterLocation(inclId int64, latitude, longitude float32) (sql.Result, error) {
+func (r *pgRepository) UpdateClusterLocation(inclId int64, latitude, longitude float32) (sql.Result, error) {
 	query := `
-    UPDATE incident_clusters 
-    SET 
-      center_latitude  = (center_latitude  + ?) / 2,
-      center_longitude = (center_longitude + ?) / 2
-    WHERE incl_id = ?;
+    UPDATE incident_clusters
+    SET
+      center_latitude  = (center_latitude  + $1) / 2,
+      center_longitude = (center_longitude + $2) / 2
+    WHERE incl_id = $3;
 	`
 	return r.db.Exec(query, latitude, longitude, inclId)
 }
 
 // ✅ NUEVOS MÉTODOS: Para geocoding asíncrono
 
-func (r *mysqlRepository) UpdateClusterAddress(inclId int64, address, city, province, postalCode string) error {
+func (r *pgRepository) UpdateClusterAddress(inclId int64, address, city, province, postalCode string) error {
 	query := `
-    UPDATE incident_clusters 
-    SET 
-      address = ?,
-      city = ?,
-      province = ?,
-      postal_code = ?
-    WHERE incl_id = ?;
+    UPDATE incident_clusters
+    SET
+      address = $1,
+      city = $2,
+      province = $3,
+      postal_code = $4
+    WHERE incl_id = $5;
 	`
 
 	_, err := r.db.Exec(query, address, city, province, postalCode, inclId)
 	return err
 }
 
-func (r *mysqlRepository) UpdateIncidentAddress(inreId int64, address, city, province, postalCode string) error {
+func (r *pgRepository) UpdateIncidentAddress(inreId int64, address, city, province, postalCode string) error {
 	query := `
-    UPDATE incident_reports 
-    SET 
-      address = ?,
-      city = ?,
-      province = ?,
-      postal_code = ?
-    WHERE inre_id = ?;
+    UPDATE incident_reports
+    SET
+      address = $1,
+      city = $2,
+      province = $3,
+      postal_code = $4
+    WHERE inre_id = $5;
 	`
 
 	_, err := r.db.Exec(query, address, city, province, postalCode, inreId)
@@ -437,34 +427,34 @@ func (r *mysqlRepository) UpdateIncidentAddress(inreId int64, address, city, pro
 
 // ✅ NUEVOS MÉTODOS: Para procesamiento asíncrono de imágenes
 
-func (r *mysqlRepository) UpdateIncidentMediaPath(inreId int64, mediaPath string) error {
+func (r *pgRepository) UpdateIncidentMediaPath(inreId int64, mediaPath string) error {
 	query := `
-    UPDATE incident_reports 
-    SET 
-      media_url = ?
-    WHERE inre_id = ?;
+    UPDATE incident_reports
+    SET
+      media_url = $1
+    WHERE inre_id = $2;
 	`
 
 	_, err := r.db.Exec(query, mediaPath, inreId)
 	return err
 }
 
-func (r *mysqlRepository) UpdateClusterMediaPath(inclId int64, mediaPath string) error {
+func (r *pgRepository) UpdateClusterMediaPath(inclId int64, mediaPath string) error {
 	query := `
-    UPDATE incident_clusters 
-    SET 
-      media_url = ?
-    WHERE incl_id = ?;
+    UPDATE incident_clusters
+    SET
+      media_url = $1
+    WHERE incl_id = $2;
 	`
 
 	_, err := r.db.Exec(query, mediaPath, inclId)
 	return err
 }
 
-func (r *mysqlRepository) GetDurationForSubcategory(subcategoryCode string) (int, error) {
+func (r *pgRepository) GetDurationForSubcategory(subcategoryCode string) (int, error) {
 	var duration int
 	// Usamos el nombre de tabla correcto: incident_subcategories
-	query := "SELECT default_duration_hours FROM incident_subcategories WHERE code = ?"
+	query := "SELECT default_duration_hours FROM incident_subcategories WHERE code = $1"
 	err := r.db.QueryRow(query, subcategoryCode).Scan(&duration)
 
 	// Si no se encuentra una subcategoría (caso raro), devolvemos 48h por seguridad.

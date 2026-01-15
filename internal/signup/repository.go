@@ -10,15 +10,15 @@ type Repository interface {
 	GetUserByID(id int64) (User, error)
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (repo *mysqlRepository) InsertUser(user User) (int64, error) {
+func (repo *pgRepository) InsertUser(user User) (int64, error) {
 	// Calcular días de trial según si tiene código de referral
 	trialDays := 7 // Por defecto: 7 días
 	if user.ReferralCode != "" {
@@ -28,9 +28,11 @@ func (repo *mysqlRepository) InsertUser(user User) (int64, error) {
 	query := `
 		INSERT INTO account (email, first_name, last_name, password, activation_code, nickname,
 		                     is_premium, premium_expired_date)
-		VALUES (?, ?, ?, ?, ?, ?, 1, DATE_ADD(NOW(), INTERVAL ? DAY))
+		VALUES ($1, $2, $3, $4, $5, $6, 1, NOW() + INTERVAL '1 day' * $7)
+		RETURNING account_id
 	`
-	result, err := repo.db.Exec(query,
+	var id int64
+	err := repo.db.QueryRow(query,
 		user.Email,
 		user.FirstName,
 		user.LastName,
@@ -38,11 +40,7 @@ func (repo *mysqlRepository) InsertUser(user User) (int64, error) {
 		user.ActivationCode,
 		user.Nickname,
 		trialDays,
-	)
-	if err != nil {
-		return 0, err
-	}
-	id, err := result.LastInsertId()
+	).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -54,10 +52,10 @@ func (repo *mysqlRepository) InsertUser(user User) (int64, error) {
 	return id, nil
 }
 
-func (repo *mysqlRepository) GetUserByID(id int64) (User, error) {
+func (repo *pgRepository) GetUserByID(id int64) (User, error) {
 	query := `
 		SELECT account_id, email, password, activation_code, first_name
-		FROM account WHERE account_id = ?
+		FROM account WHERE account_id = $1
 	`
 	row := repo.db.QueryRow(query, id)
 	var user User

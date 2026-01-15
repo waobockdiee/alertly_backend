@@ -19,18 +19,18 @@ type Repository interface {
 	UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) GetMyInfo(accountID int64) (MyInfo, error) {
+func (r *pgRepository) GetMyInfo(accountID int64) (MyInfo, error) {
 	var myInfo MyInfo
 
-	query := `SELECT account_id, email, is_premium, status, has_finished_tutorial FROM account WHERE account_id = ?`
+	query := `SELECT account_id, email, is_premium, status, has_finished_tutorial FROM account WHERE account_id = $1`
 	err := r.db.QueryRow(query, accountID).Scan(&myInfo.AccountID, &myInfo.Email, &myInfo.IsPremium, &myInfo.Status, &myInfo.HasFinishedTutorial)
 
 	if err != nil {
@@ -41,11 +41,11 @@ func (r *mysqlRepository) GetMyInfo(accountID int64) (MyInfo, error) {
 	return myInfo, nil
 }
 
-func (r *mysqlRepository) GetHistory(accountID int64) ([]History, error) {
+func (r *pgRepository) GetHistory(accountID int64) ([]History, error) {
 	query := `SELECT
 	t1.his_id, t1.account_id, t1.incl_id, t1.created_at, t2.address, t2.description
 	FROM account_history t1 INNER JOIN incident_clusters t2 ON t1.incl_id = t2.incl_id
-	WHERE t1.account_id = ? ORDER BY t1.his_id DESC LIMIT 1000`
+	WHERE t1.account_id = $1 ORDER BY t1.his_id DESC LIMIT 1000`
 	rows, err := r.db.Query(query, accountID)
 
 	if err != nil {
@@ -79,8 +79,8 @@ func (r *mysqlRepository) GetHistory(accountID int64) ([]History, error) {
 	return histories, nil
 }
 
-func (r *mysqlRepository) GetViewedIncidentIds(accountID int64) ([]int64, error) {
-	query := `SELECT incl_id FROM account_history WHERE account_id = ? ORDER BY created_at DESC`
+func (r *pgRepository) GetViewedIncidentIds(accountID int64) ([]int64, error) {
+	query := `SELECT incl_id FROM account_history WHERE account_id = $1 ORDER BY created_at DESC`
 	rows, err := r.db.Query(query, accountID)
 
 	if err != nil {
@@ -102,9 +102,9 @@ func (r *mysqlRepository) GetViewedIncidentIds(accountID int64) ([]int64, error)
 	return incidentIds, nil
 }
 
-func (r *mysqlRepository) GetCounterHistories(accountID int64) (Counter, error) {
+func (r *pgRepository) GetCounterHistories(accountID int64) (Counter, error) {
 	var counter Counter
-	query := "SELECT COUNT(*) AS counter FROM account_history WHERE account_id = ?"
+	query := "SELECT COUNT(*) AS counter FROM account_history WHERE account_id = $1"
 	err := r.db.QueryRow(query, accountID).Scan(&counter.Counter)
 
 	if err != nil {
@@ -113,8 +113,8 @@ func (r *mysqlRepository) GetCounterHistories(accountID int64) (Counter, error) 
 	return counter, err
 }
 
-func (r *mysqlRepository) ClearHistory(accountID int64) error {
-	query := `DELETE FROM account_history WHERE account_id = ?`
+func (r *pgRepository) ClearHistory(accountID int64) error {
+	query := `DELETE FROM account_history WHERE account_id = $1`
 	_, err := r.db.Exec(query, accountID)
 
 	if err != nil {
@@ -123,9 +123,9 @@ func (r *mysqlRepository) ClearHistory(accountID int64) error {
 	return nil
 }
 
-func (r *mysqlRepository) GetAccountPassword(accountID int64) (string, error) {
+func (r *pgRepository) GetAccountPassword(accountID int64) (string, error) {
 	var password string
-	query := "SELECT password FROM account WHERE account_id = ?"
+	query := "SELECT password FROM account WHERE account_id = $1"
 	err := r.db.QueryRow(query, accountID).Scan(&password)
 
 	if err != nil {
@@ -136,7 +136,7 @@ func (r *mysqlRepository) GetAccountPassword(accountID int64) (string, error) {
 	return password, nil
 }
 
-func (r *mysqlRepository) DeleteAccount(accountID int64) error {
+func (r *pgRepository) DeleteAccount(accountID int64) error {
 	// Start a transaction to ensure all deletions succeed or fail together
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -147,7 +147,7 @@ func (r *mysqlRepository) DeleteAccount(accountID int64) error {
 
 	// Get user's thumbnail URL before deletion (to delete from S3 later)
 	var thumbnailURL sql.NullString
-	queryThumbnail := "SELECT thumbnail_url FROM account WHERE account_id = ?"
+	queryThumbnail := "SELECT thumbnail_url FROM account WHERE account_id = $1"
 	err = tx.QueryRow(queryThumbnail, accountID).Scan(&thumbnailURL)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("Error fetching thumbnail for account %d: %v", accountID, err)
@@ -155,56 +155,56 @@ func (r *mysqlRepository) DeleteAccount(accountID int64) error {
 	}
 
 	// 1. Delete account history
-	_, err = tx.Exec("DELETE FROM account_history WHERE account_id = ?", accountID)
+	_, err = tx.Exec("DELETE FROM account_history WHERE account_id = $1", accountID)
 	if err != nil {
 		log.Printf("Error deleting account_history for account %d: %v", accountID, err)
 		return err
 	}
 
 	// 2. Delete saved clusters
-	_, err = tx.Exec("DELETE FROM saved_clusters_account WHERE account_id = ?", accountID)
+	_, err = tx.Exec("DELETE FROM saved_clusters_account WHERE account_id = $1", accountID)
 	if err != nil {
 		log.Printf("Error deleting saved_clusters_account for account %d: %v", accountID, err)
 		return err
 	}
 
 	// 3. Delete notification deliveries
-	_, err = tx.Exec("DELETE FROM notification_deliveries WHERE account_id = ?", accountID)
+	_, err = tx.Exec("DELETE FROM notification_deliveries WHERE account_id = $1", accountID)
 	if err != nil {
 		log.Printf("Error deleting notification_deliveries for account %d: %v", accountID, err)
 		return err
 	}
 
 	// 4. Delete notifications
-	_, err = tx.Exec("DELETE FROM notifications WHERE account_id = ?", accountID)
+	_, err = tx.Exec("DELETE FROM notifications WHERE account_id = $1", accountID)
 	if err != nil {
 		log.Printf("Error deleting notifications for account %d: %v", accountID, err)
 		return err
 	}
 
 	// 5. Delete device tokens
-	_, err = tx.Exec("DELETE FROM account_device_tokens WHERE account_id = ?", accountID)
+	_, err = tx.Exec("DELETE FROM account_device_tokens WHERE account_id = $1", accountID)
 	if err != nil {
 		log.Printf("Error deleting account_device_tokens for account %d: %v", accountID, err)
 		return err
 	}
 
 	// 6. Delete session history
-	_, err = tx.Exec("DELETE FROM account_session_history WHERE account_id = ?", accountID)
+	_, err = tx.Exec("DELETE FROM account_session_history WHERE account_id = $1", accountID)
 	if err != nil {
 		log.Printf("Error deleting account_session_history for account %d: %v", accountID, err)
 		return err
 	}
 
 	// 7. Delete premium payment history
-	_, err = tx.Exec("DELETE FROM account_premium_payment_history WHERE account_id = ?", accountID)
+	_, err = tx.Exec("DELETE FROM account_premium_payment_history WHERE account_id = $1", accountID)
 	if err != nil {
 		log.Printf("Error deleting account_premium_payment_history for account %d: %v", accountID, err)
 		return err
 	}
 
 	// 8. Delete favorite locations (my places)
-	_, err = tx.Exec("DELETE FROM account_favorite_locations WHERE account_id = ?", accountID)
+	_, err = tx.Exec("DELETE FROM account_favorite_locations WHERE account_id = $1", accountID)
 	if err != nil {
 		log.Printf("Error deleting account_favorite_locations for account %d: %v", accountID, err)
 		return err
@@ -213,21 +213,21 @@ func (r *mysqlRepository) DeleteAccount(accountID int64) error {
 	// 9. Delete incident reports created by this user
 	// NOTE: We're deleting the user's incident_reports, but NOT the incident_clusters
 	// because clusters may contain reports from multiple users
-	_, err = tx.Exec("DELETE FROM incident_reports WHERE account_id = ?", accountID)
+	_, err = tx.Exec("DELETE FROM incident_reports WHERE account_id = $1", accountID)
 	if err != nil {
 		log.Printf("Error deleting incident_reports for account %d: %v", accountID, err)
 		return err
 	}
 
 	// 10. Delete achievement progress
-	_, err = tx.Exec("DELETE FROM achievement_progress WHERE account_id = ?", accountID)
+	_, err = tx.Exec("DELETE FROM achievement_progress WHERE account_id = $1", accountID)
 	if err != nil {
 		log.Printf("Error deleting achievement_progress for account %d: %v", accountID, err)
 		return err
 	}
 
 	// 11. Finally, delete the account itself
-	_, err = tx.Exec("DELETE FROM account WHERE account_id = ?", accountID)
+	_, err = tx.Exec("DELETE FROM account WHERE account_id = $1", accountID)
 	if err != nil {
 		log.Printf("Error deleting account %d: %v", accountID, err)
 		return err
@@ -251,14 +251,14 @@ func (r *mysqlRepository) DeleteAccount(accountID int64) error {
 	return nil
 }
 
-func (r *mysqlRepository) SaveLastRequest(AccountID int64, ip string) error {
-	query := `INSERT INTO account_session_history (account_id, ip) VALUES(?, ?)`
+func (r *pgRepository) SaveLastRequest(AccountID int64, ip string) error {
+	query := `INSERT INTO account_session_history (account_id, ip) VALUES($1, $2)`
 	_, err := r.db.Exec(query, AccountID, ip)
 
 	return err
 }
-func (r *mysqlRepository) SetHasFinishedTutorial(accountID int64) error {
-	query := "UPDATE account SET has_finished_tutorial = 1 WHERE account_id = ?"
+func (r *pgRepository) SetHasFinishedTutorial(accountID int64) error {
+	query := "UPDATE account SET has_finished_tutorial = 1 WHERE account_id = $1"
 	_, err := r.db.Exec(query, accountID)
 	if err != nil {
 		log.Printf("Error actualizando notificación (ID: %d) como procesada: %v", accountID, err)
@@ -267,7 +267,7 @@ func (r *mysqlRepository) SetHasFinishedTutorial(accountID int64) error {
 }
 
 // UpdatePremiumStatus updates the user's premium status and logs the payment history
-func (r *mysqlRepository) UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error {
+func (r *pgRepository) UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error {
 	// Start a transaction to ensure both operations succeed or fail together
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -280,15 +280,15 @@ func (r *mysqlRepository) UpdatePremiumStatus(accountID int64, isPremium bool, s
 	var args []interface{}
 
 	if isPremium && expirationDate != nil {
-		updateAccountQuery = "UPDATE account SET is_premium = ?, premium_expired_date = ? WHERE account_id = ?"
+		updateAccountQuery = "UPDATE account SET is_premium = $1, premium_expired_date = $2 WHERE account_id = $3"
 		args = []interface{}{isPremium, expirationDate, accountID}
 	} else if !isPremium {
 		// When cancelling or expiring, set is_premium to false and clear expiration date
-		updateAccountQuery = "UPDATE account SET is_premium = ?, premium_expired_date = NULL WHERE account_id = ?"
+		updateAccountQuery = "UPDATE account SET is_premium = $1, premium_expired_date = NULL WHERE account_id = $2"
 		args = []interface{}{isPremium, accountID}
 	} else {
 		// Fallback for safety, though should not be reached in normal flow
-		updateAccountQuery = "UPDATE account SET is_premium = ? WHERE account_id = ?"
+		updateAccountQuery = "UPDATE account SET is_premium = $1 WHERE account_id = $2"
 		args = []interface{}{isPremium, accountID}
 	}
 
@@ -320,9 +320,9 @@ func (r *mysqlRepository) UpdatePremiumStatus(accountID int64, isPremium bool, s
 
 	// 4. Insert payment history record
 	insertHistoryQuery := `
-		INSERT INTO account_premium_payment_history 
-		(account_id, type_plan, description, created) 
-		VALUES (?, ?, ?, NOW())
+		INSERT INTO account_premium_payment_history
+		(account_id, type_plan, description, created)
+		VALUES ($1, $2, $3, NOW())
 	`
 	_, err = tx.Exec(insertHistoryQuery, accountID, typePlan, description)
 	if err != nil {

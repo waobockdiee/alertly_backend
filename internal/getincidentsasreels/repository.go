@@ -14,32 +14,32 @@ type Repository interface {
 	GetReel(inputs Inputs, accountID int64) ([]getclusterby.Cluster, error)
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) GetReel(inputs Inputs, accountID int64) ([]getclusterby.Cluster, error) {
+func (r *pgRepository) GetReel(inputs Inputs, accountID int64) ([]getclusterby.Cluster, error) {
 
 	idQuery := `
     SELECT c.incl_id
     FROM incident_clusters c
     WHERE
-        (c.center_latitude  BETWEEN ? AND ? AND c.center_longitude BETWEEN ? AND ?)
+        (c.center_latitude  BETWEEN $1 AND $2 AND c.center_longitude BETWEEN $3 AND $4)
         OR EXISTS (
           SELECT 1
           FROM account_favorite_locations f
-          WHERE f.account_id = ?
-            AND ST_Distance_Sphere(
-                  POINT(c.center_longitude, c.center_latitude),
-                  POINT(f.longitude, f.latitude)
-                ) <= ?
+          WHERE f.account_id = $5
+            AND ST_DistanceSphere(
+                  ST_MakePoint(c.center_longitude, c.center_latitude),
+                  ST_MakePoint(f.longitude, f.latitude)
+                ) <= $6
         )
 	AND c.is_active = 1
-    ORDER BY RAND()
+    ORDER BY RANDOM()
     LIMIT 20
     `
 	rows, err := r.db.Query(idQuery,
@@ -67,7 +67,7 @@ func (r *mysqlRepository) GetReel(inputs Inputs, accountID int64) ([]getclusterb
 	placeholders := make([]string, len(ids))
 	args := make([]interface{}, len(ids))
 	for i, id := range ids {
-		placeholders[i] = "?"
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
 		args[i] = id
 	}
 	inClause := strings.Join(placeholders, ",")
@@ -101,10 +101,10 @@ func (r *mysqlRepository) GetReel(inputs Inputs, accountID int64) ([]getclusterb
       c.counter_total_votes_true,
       c.counter_total_votes_false,
       COALESCE(c.credibility,0) AS credibility,
-      IFNULL(
+      COALESCE(
         (
-          SELECT JSON_ARRAYAGG(
-            JSON_OBJECT(
+          SELECT JSON_AGG(
+            JSON_BUILD_OBJECT(
               'inre_id',        r.inre_id,
               'media_url',      r.media_url,
               'description',    r.description,
@@ -112,12 +112,12 @@ func (r *mysqlRepository) GetReel(inputs Inputs, accountID int64) ([]getclusterb
               'is_anonymous',   r.is_anonymous,
               'subcategory_name', r.subcategory_name,
               'account_id',     a.account_id,
-              'nickname',       IF(r.is_anonymous, '', a.nickname),
-              'first_name',     IF(r.is_anonymous, '', a.first_name),
-              'last_name',      IF(r.is_anonymous, '', a.last_name),
+              'nickname',       CASE WHEN r.is_anonymous THEN '' ELSE a.nickname END,
+              'first_name',     CASE WHEN r.is_anonymous THEN '' ELSE a.first_name END,
+              'last_name',      CASE WHEN r.is_anonymous THEN '' ELSE a.last_name END,
               'is_private_profile', a.is_private_profile,
-              'thumbnail_url',  IF(r.is_anonymous, '', COALESCE(a.thumbnail_url, '')),
-              'score',          IF(r.is_anonymous, 0, COALESCE(a.score, 0)),
+              'thumbnail_url',  CASE WHEN r.is_anonymous THEN '' ELSE COALESCE(a.thumbnail_url, '') END,
+              'score',          CASE WHEN r.is_anonymous THEN 0 ELSE COALESCE(a.score, 0) END,
               'created_at',     r.created_at,
               'status',         r.status
             )
@@ -126,7 +126,7 @@ func (r *mysqlRepository) GetReel(inputs Inputs, accountID int64) ([]getclusterb
           INNER JOIN account a ON r.account_id = a.account_id
           WHERE r.incl_id = c.incl_id
         ),
-        JSON_ARRAY()
+        '[]'::json
       ) AS incidents_json
     FROM incident_clusters c
     WHERE c.incl_id IN (%s)

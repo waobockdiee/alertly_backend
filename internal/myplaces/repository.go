@@ -15,18 +15,18 @@ type Repository interface {
 	Delete(accountID, aflID int64) error
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) Get(accountId int) ([]MyPlaces, error) {
+func (r *pgRepository) Get(accountId int) ([]MyPlaces, error) {
 
 	query := `
-	SELECT afl_id, account_id, title, latitude, longitude, city, province, postal_code, status, radius FROM account_favorite_locations WHERE account_id = ? ORDER BY afl_id DESC;
+	SELECT afl_id, account_id, title, latitude, longitude, city, province, postal_code, status, radius FROM account_favorite_locations WHERE account_id = $1 ORDER BY afl_id DESC;
 	`
 	var myPlaces []MyPlaces
 
@@ -53,10 +53,11 @@ func (r *mysqlRepository) Get(accountId int) ([]MyPlaces, error) {
 	return myPlaces, nil
 }
 
-func (r *mysqlRepository) Add(myPlace MyPlaces) (int64, error) {
-	query := "INSERT INTO account_favorite_locations(account_id, title, latitude, longitude, city, province, postal_code, crime, traffic_accident, medical_emergency, fire_incident, vandalism, suspicious_activity, infrastructure_issues, extreme_weather, community_events, dangerous_wildlife_sighting, positive_actions, lost_pet, radius) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+func (r *pgRepository) Add(myPlace MyPlaces) (int64, error) {
+	query := "INSERT INTO account_favorite_locations(account_id, title, latitude, longitude, city, province, postal_code, crime, traffic_accident, medical_emergency, fire_incident, vandalism, suspicious_activity, infrastructure_issues, extreme_weather, community_events, dangerous_wildlife_sighting, positive_actions, lost_pet, radius) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING afl_id"
 
-	result, err := r.db.Exec(query,
+	var id int64
+	err := r.db.QueryRow(query,
 		myPlace.AccountId,
 		myPlace.Title,
 		myPlace.Latitude,
@@ -77,25 +78,17 @@ func (r *mysqlRepository) Add(myPlace MyPlaces) (int64, error) {
 		myPlace.PositiveActions,
 		myPlace.LostPet,
 		myPlace.Radius,
-	)
-
-	// fmt.Println("DEBUG", err)
+	).Scan(&id)
 
 	if err != nil {
 		return 0, err
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
-
-	// fmt.Printf("Saved succesfully with ID: %d\n", id)
 	return id, nil
 }
 
-func (r *mysqlRepository) Update(myPlace MyPlaces) error {
-	query := `UPDATE account_favorite_locations SET status = ? WHERE afl_id = ?`
+func (r *pgRepository) Update(myPlace MyPlaces) error {
+	query := `UPDATE account_favorite_locations SET status = $1 WHERE afl_id = $2`
 	_, err := r.db.Exec(query, myPlace.Status, myPlace.AflId)
 	if err != nil {
 		return fmt.Errorf("error updating cluster %w", err)
@@ -103,22 +96,22 @@ func (r *mysqlRepository) Update(myPlace MyPlaces) error {
 	return nil
 }
 
-func (r *mysqlRepository) FullUpdate(myPlace MyPlaces) error {
-	query := `UPDATE account_favorite_locations 
-	SET title =?,
-	crime = ?,
-	traffic_accident = ?,
-	medical_emergency = ?,
-	fire_incident = ?,
-	vandalism = ?,
-	suspicious_activity = ?,
-	infrastructure_issues = ?,
-	extreme_weather = ?,
-	community_events = ?,
-	dangerous_wildlife_sighting = ?,
-	positive_actions = ?,
-	lost_pet = ?
-	WHERE afl_id = ? AND account_id = ?`
+func (r *pgRepository) FullUpdate(myPlace MyPlaces) error {
+	query := `UPDATE account_favorite_locations
+	SET title =$1,
+	crime = $2,
+	traffic_accident = $3,
+	medical_emergency = $4,
+	fire_incident = $5,
+	vandalism = $6,
+	suspicious_activity = $7,
+	infrastructure_issues = $8,
+	extreme_weather = $9,
+	community_events = $10,
+	dangerous_wildlife_sighting = $11,
+	positive_actions = $12,
+	lost_pet = $13
+	WHERE afl_id = $14 AND account_id = $15`
 	_, err := r.db.Exec(query,
 		myPlace.Title,
 		myPlace.Crime,
@@ -142,8 +135,8 @@ func (r *mysqlRepository) FullUpdate(myPlace MyPlaces) error {
 	return nil
 }
 
-func (r *mysqlRepository) GetById(accountId, aflId int64) (MyPlaces, error) {
-	query := `SELECT afl_id, account_id, title, latitude, longitude, city, province, postal_code, status, crime, traffic_accident, medical_emergency, fire_incident, vandalism, suspicious_activity, infrastructure_issues, extreme_weather, community_events, dangerous_wildlife_sighting, positive_actions, lost_pet FROM account_favorite_locations WHERE account_id = ? AND afl_id = ?`
+func (r *pgRepository) GetById(accountId, aflId int64) (MyPlaces, error) {
+	query := `SELECT afl_id, account_id, title, latitude, longitude, city, province, postal_code, status, crime, traffic_accident, medical_emergency, fire_incident, vandalism, suspicious_activity, infrastructure_issues, extreme_weather, community_events, dangerous_wildlife_sighting, positive_actions, lost_pet FROM account_favorite_locations WHERE account_id = $1 AND afl_id = $2`
 
 	var c MyPlaces
 	err := r.db.QueryRow(query, accountId, aflId).Scan(&c.AflId,
@@ -175,8 +168,8 @@ func (r *mysqlRepository) GetById(accountId, aflId int64) (MyPlaces, error) {
 	return c, nil
 }
 
-func (r *mysqlRepository) GetByAccountId(accountId int64) ([]MyPlaces, error) {
-	query := `SELECT afl_id, account_id, title, status, city, latitude, longitude, radius FROM account_favorite_locations WHERE account_id = ? ORDER BY afl_id DESC`
+func (r *pgRepository) GetByAccountId(accountId int64) ([]MyPlaces, error) {
+	query := `SELECT afl_id, account_id, title, status, city, latitude, longitude, radius FROM account_favorite_locations WHERE account_id = $1 ORDER BY afl_id DESC`
 	rows, err := r.db.Query(query, accountId)
 	if err != nil {
 		return nil, err
@@ -207,8 +200,8 @@ func (r *mysqlRepository) GetByAccountId(accountId int64) ([]MyPlaces, error) {
 	return places, nil
 }
 
-func (r *mysqlRepository) Delete(accountID, aflID int64) error {
-	query := `DELETE FROM account_favorite_locations WHERE account_id = ? AND afl_id = ?`
+func (r *pgRepository) Delete(accountID, aflID int64) error {
+	query := `DELETE FROM account_favorite_locations WHERE account_id = $1 AND afl_id = $2`
 	_, err := r.db.Exec(query,
 		accountID,
 		aflID,

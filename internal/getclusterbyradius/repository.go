@@ -2,6 +2,7 @@ package getclusterbyradius
 
 import (
 	"database/sql"
+	"fmt"
 	"strings"
 )
 
@@ -9,15 +10,15 @@ type Repository interface {
 	GetClustersByRadius(inputs Inputs) ([]Cluster, error)
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) GetClustersByRadius(inputs Inputs) ([]Cluster, error) {
+func (r *pgRepository) GetClustersByRadius(inputs Inputs) ([]Cluster, error) {
 	// ✅ OPTIMIZACIÓN CRÍTICA: Calcular bounding box para pre-filtro eficiente
 	// Esto reduce las filas escaneadas de ~100K a ~100-500 (100x menos)
 	// Impacto: 10-15x más rápido
@@ -40,22 +41,22 @@ func (r *mysqlRepository) GetClustersByRadius(inputs Inputs) ([]Cluster, error) 
 		SELECT
 			t1.incl_id, t1.center_latitude, t1.center_longitude, t1.insu_id, t1.category_code, t1.subcategory_code
 		FROM incident_clusters t1
-		WHERE t1.center_latitude BETWEEN ? AND ?
-		  AND t1.center_longitude BETWEEN ? AND ?
-		  AND ST_Distance_Sphere(
-			point(t1.center_longitude, t1.center_latitude),
-			point(?, ?)
-		  ) <= ?
-		  AND t1.start_time <= DATE_ADD(?, INTERVAL 1 DAY)
-		  AND t1.end_time >= ?
-		  AND (? = 0 OR t1.insu_id = ?)
+		WHERE t1.center_latitude BETWEEN $1 AND $2
+		  AND t1.center_longitude BETWEEN $3 AND $4
+		  AND ST_DistanceSphere(
+			ST_MakePoint(t1.center_longitude, t1.center_latitude),
+			ST_MakePoint($5, $6)
+		  ) <= $7
+		  AND t1.start_time <= $8 + INTERVAL '1 day'
+		  AND t1.end_time >= $9
+		  AND ($10 = 0 OR t1.insu_id = $11)
 		  AND t1.is_active = 1
 	`
 
 	params := []interface{}{
 		minLat, maxLat,                                    // Bounding box latitud
 		minLng, maxLng,                                    // Bounding box longitud
-		inputs.Longitude, inputs.Latitude, inputs.Radius, // ST_Distance_Sphere
+		inputs.Longitude, inputs.Latitude, inputs.Radius, // ST_DistanceSphere
 		inputs.ToDate,                                     // Sin DATE()
 		inputs.FromDate,                                   // Sin DATE()
 		inputs.InsuID, inputs.InsuID,
@@ -65,7 +66,7 @@ func (r *mysqlRepository) GetClustersByRadius(inputs Inputs) ([]Cluster, error) 
 		cats := strings.Split(inputs.Categories, ",")
 		placeholders := make([]string, len(cats))
 		for i := range cats {
-			placeholders[i] = "?"
+			placeholders[i] = fmt.Sprintf("$%d", len(params)+i+1)
 			params = append(params, strings.TrimSpace(cats[i]))
 		}
 		query += " AND t1.category_code IN (" + strings.Join(placeholders, ",") + ")"

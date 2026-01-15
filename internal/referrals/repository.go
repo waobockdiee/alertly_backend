@@ -43,24 +43,24 @@ type Repository interface {
 	GetPlatformBreakdown() (map[string]PlatformBreakdown, error)
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 // NewRepository crea una nueva instancia del repositorio
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
 // ========================================
 // INFLUENCERS
 // ========================================
 
-func (r *mysqlRepository) GetInfluencerByCode(code string) (*Influencer, error) {
+func (r *pgRepository) GetInfluencerByCode(code string) (*Influencer, error) {
 	query := `
 		SELECT id, web_influencer_id, referral_code, name, platform, is_active, created_at, updated_at
 		FROM influencers
-		WHERE referral_code = ?
+		WHERE referral_code = $1
 	`
 	var inf Influencer
 	err := r.db.QueryRow(query, code).Scan(
@@ -76,11 +76,11 @@ func (r *mysqlRepository) GetInfluencerByCode(code string) (*Influencer, error) 
 	return &inf, nil
 }
 
-func (r *mysqlRepository) GetInfluencerByID(id int64) (*Influencer, error) {
+func (r *pgRepository) GetInfluencerByID(id int64) (*Influencer, error) {
 	query := `
 		SELECT id, web_influencer_id, referral_code, name, platform, is_active, created_at, updated_at
 		FROM influencers
-		WHERE id = ?
+		WHERE id = $1
 	`
 	var inf Influencer
 	err := r.db.QueryRow(query, id).Scan(
@@ -96,21 +96,21 @@ func (r *mysqlRepository) GetInfluencerByID(id int64) (*Influencer, error) {
 	return &inf, nil
 }
 
-func (r *mysqlRepository) UpsertInfluencer(inf *Influencer) error {
+func (r *pgRepository) UpsertInfluencer(inf *Influencer) error {
 	query := `
 		INSERT INTO influencers (web_influencer_id, referral_code, name, platform, is_active)
-		VALUES (?, ?, ?, ?, ?)
-		ON DUPLICATE KEY UPDATE
-			name = VALUES(name),
-			platform = VALUES(platform),
-			is_active = VALUES(is_active),
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (web_influencer_id) DO UPDATE SET
+			name = EXCLUDED.name,
+			platform = EXCLUDED.platform,
+			is_active = EXCLUDED.is_active,
 			updated_at = CURRENT_TIMESTAMP
 	`
 	_, err := r.db.Exec(query, inf.WebInfluencerID, inf.ReferralCode, inf.Name, inf.Platform, inf.IsActive)
 	return err
 }
 
-func (r *mysqlRepository) GetAllActiveInfluencers() ([]Influencer, error) {
+func (r *pgRepository) GetAllActiveInfluencers() ([]Influencer, error) {
 	query := `
 		SELECT id, web_influencer_id, referral_code, name, platform, is_active, created_at, updated_at
 		FROM influencers
@@ -142,20 +142,20 @@ func (r *mysqlRepository) GetAllActiveInfluencers() ([]Influencer, error) {
 // CONVERSIONS
 // ========================================
 
-func (r *mysqlRepository) CreateConversion(conv *ReferralConversion) error {
+func (r *pgRepository) CreateConversion(conv *ReferralConversion) error {
 	query := `
 		INSERT INTO referral_conversions (referral_code, user_id, registered_at, platform, earnings)
-		VALUES (?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5)
 	`
 	_, err := r.db.Exec(query, conv.ReferralCode, conv.UserID, conv.RegisteredAt, conv.Platform, conv.Earnings)
 	return err
 }
 
-func (r *mysqlRepository) GetConversionByUserID(userID int64) (*ReferralConversion, error) {
+func (r *pgRepository) GetConversionByUserID(userID int64) (*ReferralConversion, error) {
 	query := `
 		SELECT id, referral_code, user_id, registered_at, platform, earnings, created_at
 		FROM referral_conversions
-		WHERE user_id = ?
+		WHERE user_id = $1
 	`
 	var conv ReferralConversion
 	err := r.db.QueryRow(query, userID).Scan(
@@ -171,11 +171,11 @@ func (r *mysqlRepository) GetConversionByUserID(userID int64) (*ReferralConversi
 	return &conv, nil
 }
 
-func (r *mysqlRepository) GetConversionsByCode(code string) ([]ReferralConversion, error) {
+func (r *pgRepository) GetConversionsByCode(code string) ([]ReferralConversion, error) {
 	query := `
 		SELECT id, referral_code, user_id, registered_at, platform, earnings, created_at
 		FROM referral_conversions
-		WHERE referral_code = ?
+		WHERE referral_code = $1
 		ORDER BY registered_at DESC
 	`
 	rows, err := r.db.Query(query, code)
@@ -203,23 +203,23 @@ func (r *mysqlRepository) GetConversionsByCode(code string) ([]ReferralConversio
 // PREMIUM CONVERSIONS
 // ========================================
 
-func (r *mysqlRepository) CreatePremiumConversion(conv *ReferralPremiumConversion) error {
+func (r *pgRepository) CreatePremiumConversion(conv *ReferralPremiumConversion) error {
 	query := `
 		INSERT INTO referral_premium_conversions
 		(referral_code, user_id, conversion_id, subscription_type, amount, commission, commission_percentage, converted_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err := r.db.Exec(query, conv.ReferralCode, conv.UserID, conv.ConversionID, conv.SubscriptionType,
 		conv.Amount, conv.Commission, conv.CommissionPercentage, conv.ConvertedAt)
 	return err
 }
 
-func (r *mysqlRepository) GetPremiumConversionsByCode(code string) ([]ReferralPremiumConversion, error) {
+func (r *pgRepository) GetPremiumConversionsByCode(code string) ([]ReferralPremiumConversion, error) {
 	query := `
 		SELECT id, referral_code, user_id, conversion_id, subscription_type, amount,
 		       commission, commission_percentage, converted_at, created_at
 		FROM referral_premium_conversions
-		WHERE referral_code = ?
+		WHERE referral_code = $1
 		ORDER BY converted_at DESC
 	`
 	rows, err := r.db.Query(query, code)
@@ -247,68 +247,68 @@ func (r *mysqlRepository) GetPremiumConversionsByCode(code string) ([]ReferralPr
 // METRICS - Individual Influencer
 // ========================================
 
-func (r *mysqlRepository) GetTotalRegistrationsByCode(code string) (int, error) {
-	query := `SELECT COUNT(*) FROM referral_conversions WHERE referral_code = ?`
+func (r *pgRepository) GetTotalRegistrationsByCode(code string) (int, error) {
+	query := `SELECT COUNT(*) FROM referral_conversions WHERE referral_code = $1`
 	var count int
 	err := r.db.QueryRow(query, code).Scan(&count)
 	return count, err
 }
 
-func (r *mysqlRepository) GetTotalPremiumByCode(code string) (int, error) {
-	query := `SELECT COUNT(*) FROM referral_premium_conversions WHERE referral_code = ?`
+func (r *pgRepository) GetTotalPremiumByCode(code string) (int, error) {
+	query := `SELECT COUNT(*) FROM referral_premium_conversions WHERE referral_code = $1`
 	var count int
 	err := r.db.QueryRow(query, code).Scan(&count)
 	return count, err
 }
 
-func (r *mysqlRepository) GetTotalEarningsByCode(code string) (float64, error) {
+func (r *pgRepository) GetTotalEarningsByCode(code string) (float64, error) {
 	query := `
 		SELECT COALESCE(SUM(rc.earnings), 0) + COALESCE(SUM(rpc.commission), 0) as total
 		FROM referral_conversions rc
 		LEFT JOIN referral_premium_conversions rpc ON rc.referral_code = rpc.referral_code
-		WHERE rc.referral_code = ?
+		WHERE rc.referral_code = $1
 	`
 	var total float64
 	err := r.db.QueryRow(query, code).Scan(&total)
 	return total, err
 }
 
-func (r *mysqlRepository) GetCurrentMonthRegistrationsByCode(code string) (int, error) {
+func (r *pgRepository) GetCurrentMonthRegistrationsByCode(code string) (int, error) {
 	query := `
 		SELECT COUNT(*) FROM referral_conversions
-		WHERE referral_code = ? AND registered_at >= DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')
+		WHERE referral_code = $1 AND registered_at >= DATE_TRUNC('month', NOW())
 	`
 	var count int
 	err := r.db.QueryRow(query, code).Scan(&count)
 	return count, err
 }
 
-func (r *mysqlRepository) GetCurrentMonthPremiumByCode(code string) (int, error) {
+func (r *pgRepository) GetCurrentMonthPremiumByCode(code string) (int, error) {
 	query := `
 		SELECT COUNT(*) FROM referral_premium_conversions
-		WHERE referral_code = ? AND converted_at >= DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')
+		WHERE referral_code = $1 AND converted_at >= DATE_TRUNC('month', NOW())
 	`
 	var count int
 	err := r.db.QueryRow(query, code).Scan(&count)
 	return count, err
 }
 
-func (r *mysqlRepository) GetCurrentMonthEarningsByCode(code string) (float64, error) {
+func (r *pgRepository) GetCurrentMonthEarningsByCode(code string) (float64, error) {
 	startOfMonth := time.Now().AddDate(0, 0, -time.Now().Day()+1).Format("2006-01-02 00:00:00")
 	query := `
 		SELECT
 			COALESCE(SUM(rc.earnings), 0) + COALESCE(SUM(rpc.commission), 0) as total
 		FROM referral_conversions rc
 		LEFT JOIN referral_premium_conversions rpc ON rc.user_id = rpc.user_id
-		WHERE rc.referral_code = ?
-			AND (rc.registered_at >= ? OR rpc.converted_at >= ?)
+		WHERE rc.referral_code = $1
+			AND (rc.registered_at >= $2 OR rpc.converted_at >= $2)
 	`
 	var total float64
 	err := r.db.QueryRow(query, code, startOfMonth, startOfMonth).Scan(&total)
 	return total, err
 }
 
-func (r *mysqlRepository) GetDailyMetrics(code string, days int) ([]DailyMetric, error) {
+func (r *pgRepository) GetDailyMetrics(code string, days int) ([]DailyMetric, error) {
 	query := `
 		SELECT
 			DATE(registered_at) as date,
@@ -316,7 +316,7 @@ func (r *mysqlRepository) GetDailyMetrics(code string, days int) ([]DailyMetric,
 			0 as premium_conversions,
 			SUM(earnings) as earnings
 		FROM referral_conversions
-		WHERE referral_code = ? AND registered_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+		WHERE referral_code = $1 AND registered_at >= NOW() - INTERVAL '1 day' * $2
 		GROUP BY DATE(registered_at)
 		ORDER BY date DESC
 	`
@@ -351,7 +351,7 @@ func (r *mysqlRepository) GetDailyMetrics(code string, days int) ([]DailyMetric,
 			COUNT(*) as premium_conversions,
 			SUM(commission) as commission
 		FROM referral_premium_conversions
-		WHERE referral_code = ? AND converted_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+		WHERE referral_code = $1 AND converted_at >= NOW() - INTERVAL '1 day' * $2
 		GROUP BY DATE(converted_at)
 	`
 	rows2, err := r.db.Query(query2, code, days)
@@ -390,7 +390,7 @@ func (r *mysqlRepository) GetDailyMetrics(code string, days int) ([]DailyMetric,
 	return metrics, nil
 }
 
-func (r *mysqlRepository) GetInfluencerRank(code string) (int, int, error) {
+func (r *pgRepository) GetInfluencerRank(code string) (int, int, error) {
 	// Primero, obtener todos los earnings ordenados
 	query := `
 		SELECT
@@ -434,21 +434,21 @@ func (r *mysqlRepository) GetInfluencerRank(code string) (int, int, error) {
 // METRICS - Aggregate
 // ========================================
 
-func (r *mysqlRepository) GetTotalReferrals() (int, error) {
+func (r *pgRepository) GetTotalReferrals() (int, error) {
 	query := `SELECT COUNT(*) FROM referral_conversions`
 	var count int
 	err := r.db.QueryRow(query).Scan(&count)
 	return count, err
 }
 
-func (r *mysqlRepository) GetTotalPremiumConversions() (int, error) {
+func (r *pgRepository) GetTotalPremiumConversions() (int, error) {
 	query := `SELECT COUNT(*) FROM referral_premium_conversions`
 	var count int
 	err := r.db.QueryRow(query).Scan(&count)
 	return count, err
 }
 
-func (r *mysqlRepository) GetTotalEarnings() (float64, error) {
+func (r *pgRepository) GetTotalEarnings() (float64, error) {
 	query := `
 		SELECT
 			COALESCE(SUM(rc.earnings), 0) + COALESCE(SUM(rpc.commission), 0) as total
@@ -460,14 +460,14 @@ func (r *mysqlRepository) GetTotalEarnings() (float64, error) {
 	return total, err
 }
 
-func (r *mysqlRepository) GetActiveInfluencersCount() (int, error) {
+func (r *pgRepository) GetActiveInfluencersCount() (int, error) {
 	query := `SELECT COUNT(*) FROM influencers WHERE is_active = 1`
 	var count int
 	err := r.db.QueryRow(query).Scan(&count)
 	return count, err
 }
 
-func (r *mysqlRepository) GetTopPerformers(limit int) ([]TopPerformer, error) {
+func (r *pgRepository) GetTopPerformers(limit int) ([]TopPerformer, error) {
 	query := `
 		SELECT
 			i.id as influencer_id,
@@ -483,7 +483,7 @@ func (r *mysqlRepository) GetTopPerformers(limit int) ([]TopPerformer, error) {
 		WHERE i.is_active = 1
 		GROUP BY i.id, i.referral_code, i.name, i.platform
 		ORDER BY total_earnings DESC
-		LIMIT ?
+		LIMIT $1
 	`
 	rows, err := r.db.Query(query, limit)
 	if err != nil {
@@ -506,16 +506,16 @@ func (r *mysqlRepository) GetTopPerformers(limit int) ([]TopPerformer, error) {
 	return performers, nil
 }
 
-func (r *mysqlRepository) GetMonthlyTrend(months int) ([]MonthlyTrend, error) {
+func (r *pgRepository) GetMonthlyTrend(months int) ([]MonthlyTrend, error) {
 	query := `
 		SELECT
-			DATE_FORMAT(registered_at, '%Y-%m') as month,
+			TO_CHAR(registered_at, 'YYYY-MM') as month,
 			COUNT(*) as registrations,
 			0 as premium,
 			SUM(earnings) as earnings
 		FROM referral_conversions
-		WHERE registered_at >= DATE_SUB(NOW(), INTERVAL ? MONTH)
-		GROUP BY DATE_FORMAT(registered_at, '%Y-%m')
+		WHERE registered_at >= NOW() - INTERVAL '1 month' * $1
+		GROUP BY TO_CHAR(registered_at, 'YYYY-MM')
 		ORDER BY month DESC
 	`
 	rows, err := r.db.Query(query, months)
@@ -544,12 +544,12 @@ func (r *mysqlRepository) GetMonthlyTrend(months int) ([]MonthlyTrend, error) {
 	// Obtener premium conversions por mes
 	query2 := `
 		SELECT
-			DATE_FORMAT(converted_at, '%Y-%m') as month,
+			TO_CHAR(converted_at, 'YYYY-MM') as month,
 			COUNT(*) as premium,
 			SUM(commission) as commission
 		FROM referral_premium_conversions
-		WHERE converted_at >= DATE_SUB(NOW(), INTERVAL ? MONTH)
-		GROUP BY DATE_FORMAT(converted_at, '%Y-%m')
+		WHERE converted_at >= NOW() - INTERVAL '1 month' * $1
+		GROUP BY TO_CHAR(converted_at, 'YYYY-MM')
 	`
 	rows2, err := r.db.Query(query2, months)
 	if err != nil {
@@ -587,7 +587,7 @@ func (r *mysqlRepository) GetMonthlyTrend(months int) ([]MonthlyTrend, error) {
 	return trends, nil
 }
 
-func (r *mysqlRepository) GetPlatformBreakdown() (map[string]PlatformBreakdown, error) {
+func (r *pgRepository) GetPlatformBreakdown() (map[string]PlatformBreakdown, error) {
 	platforms := []string{"Instagram", "TikTok", "Reddit", "Other"}
 	breakdown := make(map[string]PlatformBreakdown)
 
@@ -601,7 +601,7 @@ func (r *mysqlRepository) GetPlatformBreakdown() (map[string]PlatformBreakdown, 
 			FROM influencers i
 			LEFT JOIN referral_conversions rc ON i.referral_code = rc.referral_code
 			LEFT JOIN referral_premium_conversions rpc ON i.referral_code = rpc.referral_code
-			WHERE i.platform = ? AND i.is_active = 1
+			WHERE i.platform = $1 AND i.is_active = 1
 		`
 		var pb PlatformBreakdown
 		err := r.db.QueryRow(query, platform).Scan(

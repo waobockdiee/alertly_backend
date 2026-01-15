@@ -28,7 +28,7 @@ func (r *Repository) FetchPending(limit int64) ([]Notification, error) {
 	query := `SELECT noti_id, reference_id, created_at FROM notifications
          WHERE type = 'new_cluster' AND must_be_processed = 1
          ORDER BY created_at
-         LIMIT ?`
+         LIMIT $1`
 
 	// DEBUG: Log the query
 	log.Printf("🔍 Executing query: %s (limit=%d)", query, limit)
@@ -66,14 +66,17 @@ func (r *Repository) FindSubscribedUsersForCluster(clusterID int64) ([]Subscribe
             incident_clusters ic
         JOIN
             account_favorite_locations afl ON
-            -- Fórmula de Haversine para calcular la distancia en KM
-            (6371 * ACOS(COS(RADIANS(ic.center_latitude)) * COS(RADIANS(afl.latitude)) * COS(RADIANS(afl.longitude) - RADIANS(ic.center_longitude)) + SIN(RADIANS(ic.center_latitude)) * SIN(RADIANS(afl.latitude)))) <= afl.radius / 1000
+            -- Fórmula de Haversine para calcular la distancia en KM usando PostgreSQL
+            ST_DistanceSphere(
+                ST_MakePoint(ic.center_longitude, ic.center_latitude),
+                ST_MakePoint(afl.longitude, afl.latitude)
+            ) <= afl.radius
         JOIN
             account a ON afl.account_id = a.account_id
         JOIN
             device_tokens dt ON a.account_id = dt.account_id
         WHERE
-            ic.incl_id = ?
+            ic.incl_id = $1
             AND a.status = 'active'
             AND a.is_premium = 1
             AND a.receive_notifications = 1

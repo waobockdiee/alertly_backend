@@ -16,13 +16,13 @@ type Repository interface {
 	SaveLossNotification(accountID int64, clusterID int64, message string) error
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 // NewRepository creates a new instance of the repository.
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
 // ExpiredCluster holds the necessary information for a cluster that has expired.
@@ -38,7 +38,7 @@ type VoteRecord struct {
 }
 
 // GetExpiredClusters fetches all active clusters that have passed their expiration time.
-func (r *mysqlRepository) GetExpiredClusters() ([]ExpiredCluster, error) {
+func (r *pgRepository) GetExpiredClusters() ([]ExpiredCluster, error) {
 	query := `
 		SELECT
 			ic.incl_id,
@@ -49,7 +49,7 @@ func (r *mysqlRepository) GetExpiredClusters() ([]ExpiredCluster, error) {
 			incident_subcategories AS isu ON ic.insu_id = isu.insu_id
 		WHERE
 			ic.is_active = '1'
-			AND NOW() >= TIMESTAMPADD(HOUR, isu.default_duration_hours, ic.created_at);
+			AND NOW() >= ic.created_at + (isu.default_duration_hours || ' hours')::INTERVAL;
 	`
 	rows, err := r.db.Query(query)
 	if err != nil {
@@ -70,7 +70,7 @@ func (r *mysqlRepository) GetExpiredClusters() ([]ExpiredCluster, error) {
 }
 
 // GetVotesForCluster retrieves all votes for a given cluster ID.
-func (r *mysqlRepository) GetVotesForCluster(clusterID int64) ([]VoteRecord, error) {
+func (r *pgRepository) GetVotesForCluster(clusterID int64) ([]VoteRecord, error) {
 	query := `
 		SELECT
 			account_id,
@@ -78,7 +78,7 @@ func (r *mysqlRepository) GetVotesForCluster(clusterID int64) ([]VoteRecord, err
 		FROM
 			incident_reports
 		WHERE
-			incl_id = ? AND vote IS NOT NULL;
+			incl_id = $1 AND vote IS NOT NULL;
 	`
 	rows, err := r.db.Query(query, clusterID)
 	if err != nil {
@@ -98,14 +98,14 @@ func (r *mysqlRepository) GetVotesForCluster(clusterID int64) ([]VoteRecord, err
 }
 
 // UpdateUserStats updates the score and credibility for a given user.
-func (r *mysqlRepository) UpdateUserStats(accountID int64, scoreChange float64, credibilityChange float64) error {
+func (r *pgRepository) UpdateUserStats(accountID int64, scoreChange float64, credibilityChange float64) error {
 	query := `
 		UPDATE account
 		SET
-			score = score + ?,
-			credibility = credibility + ?
+			score = score + $1,
+			credibility = credibility + $2
 		WHERE
-			account_id = ?;
+			account_id = $3;
 	`
 	_, err := r.db.Exec(query, scoreChange, credibilityChange, accountID)
 	if err != nil {
@@ -115,11 +115,11 @@ func (r *mysqlRepository) UpdateUserStats(accountID int64, scoreChange float64, 
 }
 
 // MarkClusterProcessed marks a cluster as inactive.
-func (r *mysqlRepository) MarkClusterProcessed(clusterID int64) error {
+func (r *pgRepository) MarkClusterProcessed(clusterID int64) error {
 	query := `
 		UPDATE incident_clusters
 		SET is_active = '0'
-		WHERE incl_id = ?;
+		WHERE incl_id = $1;
 	`
 	_, err := r.db.Exec(query, clusterID)
 	if err != nil {
@@ -129,11 +129,11 @@ func (r *mysqlRepository) MarkClusterProcessed(clusterID int64) error {
 }
 
 // SaveWinNotification saves a win notification for a user.
-func (r *mysqlRepository) SaveWinNotification(accountID int64, clusterID int64, message string) error {
+func (r *pgRepository) SaveWinNotification(accountID int64, clusterID int64, message string) error {
 	return common.SaveNotification(r.db, "incident_result_win", accountID, clusterID, "¡Incidente resuelto!", message)
 }
 
 // SaveLossNotification saves a loss notification for a user.
-func (r *mysqlRepository) SaveLossNotification(accountID int64, clusterID int64, message string) error {
+func (r *pgRepository) SaveLossNotification(accountID int64, clusterID int64, message string) error {
 	return common.SaveNotification(r.db, "incident_result_loss", accountID, clusterID, "¡Incidente resuelto!", message)
 }

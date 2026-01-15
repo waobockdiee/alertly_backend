@@ -8,15 +8,15 @@ type Repository interface {
 	GetCategories() ([]Category, error)
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) GetCategories() ([]Category, error) {
+func (r *pgRepository) GetCategories() ([]Category, error) {
 	query := `SELECT inca_id, name, description, icon, code FROM incident_categories ORDER BY name DESC`
 	rows, err := r.db.Query(query)
 	if err != nil {

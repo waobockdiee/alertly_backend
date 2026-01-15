@@ -40,7 +40,7 @@ func GenerateIncidentHash(source, externalID string, timestamp time.Time) string
 // CheckHashExists verifies if incident was already processed
 func (r *Repository) CheckHashExists(hash string) (bool, error) {
 	var exists bool
-	query := `SELECT EXISTS(SELECT 1 FROM bot_incident_hashes WHERE hash = ?)`
+	query := `SELECT EXISTS(SELECT 1 FROM bot_incident_hashes WHERE hash = $1)`
 	err := r.db.QueryRow(query, hash).Scan(&exists)
 	return exists, err
 }
@@ -49,8 +49,8 @@ func (r *Repository) CheckHashExists(hash string) (bool, error) {
 func (r *Repository) SaveIncidentHash(hash BotIncidentHash) error {
 	query := `
 		INSERT INTO bot_incident_hashes (hash, source, external_id, category_code, created_at, expires_at)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON DUPLICATE KEY UPDATE external_id = external_id
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (hash) DO NOTHING
 	`
 	_, err := r.db.Exec(query, hash.Hash, hash.Source, hash.ExternalID, hash.CategoryCode, hash.CreatedAt, hash.ExpiresAt)
 	return err
@@ -94,7 +94,7 @@ func (r *Repository) GetCachedGeocode(addressHash string) (*GeocodingCache, erro
 	query := `
 		SELECT address_hash, original_address, normalized_address, latitude, longitude, source, created_at, last_used_at
 		FROM geocoding_cache
-		WHERE address_hash = ?
+		WHERE address_hash = $1
 	`
 	err := r.db.QueryRow(query, addressHash).Scan(
 		&cache.AddressHash,
@@ -123,8 +123,8 @@ func (r *Repository) GetCachedGeocode(addressHash string) (*GeocodingCache, erro
 func (r *Repository) SaveGeocodeCache(cache GeocodingCache) error {
 	query := `
 		INSERT INTO geocoding_cache (address_hash, original_address, normalized_address, latitude, longitude, source, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-		ON DUPLICATE KEY UPDATE last_used_at = NOW()
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (address_hash) DO UPDATE SET last_used_at = NOW()
 	`
 	_, err := r.db.Exec(query,
 		cache.AddressHash,
@@ -140,7 +140,7 @@ func (r *Repository) SaveGeocodeCache(cache GeocodingCache) error {
 
 // touchGeocodeCache updates last_used_at timestamp (async)
 func (r *Repository) touchGeocodeCache(addressHash string) {
-	query := `UPDATE geocoding_cache SET last_used_at = NOW() WHERE address_hash = ?`
+	query := `UPDATE geocoding_cache SET last_used_at = NOW() WHERE address_hash = $1`
 	_, err := r.db.Exec(query, addressHash)
 	if err != nil {
 		log.Printf("WARNING: Failed to update geocode cache timestamp: %v", err)
@@ -149,7 +149,7 @@ func (r *Repository) touchGeocodeCache(addressHash string) {
 
 // CleanupOldGeocodeCache removes unused cache entries older than 30 days
 func (r *Repository) CleanupOldGeocodeCache() (int64, error) {
-	query := `DELETE FROM geocoding_cache WHERE last_used_at < DATE_SUB(NOW(), INTERVAL 30 DAY)`
+	query := `DELETE FROM geocoding_cache WHERE last_used_at < NOW() - INTERVAL '30 days'`
 	result, err := r.db.Exec(query)
 	if err != nil {
 		return 0, err
@@ -164,7 +164,7 @@ func (r *Repository) CleanupOldGeocodeCache() (int64, error) {
 // GetSubcategoryID retrieves the insu_id for a given subcategory code
 func (r *Repository) GetSubcategoryID(subcategoryCode string) (int64, error) {
 	var insuID int64
-	query := `SELECT insu_id FROM incident_subcategories WHERE code = ? LIMIT 1`
+	query := `SELECT insu_id FROM incident_subcategories WHERE code = $1 LIMIT 1`
 	err := r.db.QueryRow(query, subcategoryCode).Scan(&insuID)
 	if err == sql.ErrNoRows {
 		return 0, fmt.Errorf("subcategory not found: %s", subcategoryCode)
@@ -217,10 +217,11 @@ func (r *Repository) SaveBotIncident(incident NormalizedIncident) (int64, error)
 			event_type,
 			vote,
 			created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 1, NOW()) RETURNING inre_id
 	`
 
-	result, err := r.db.Exec(query,
+	var reportID int64
+	err = r.db.QueryRow(query,
 		BOT_USER_ID,
 		clusterID,
 		insuID,
@@ -236,12 +237,7 @@ func (r *Repository) SaveBotIncident(incident NormalizedIncident) (int64, error)
 		incident.SubcategoryCode,
 		incident.CategoryCode,
 		incident.EventType,
-	)
-	if err != nil {
-		return 0, err
-	}
-
-	reportID, err := result.LastInsertId()
+	).Scan(&reportID)
 	if err != nil {
 		return 0, err
 	}
@@ -285,12 +281,12 @@ func (r *Repository) CheckClusterExists(categoryCode string, lat, lng float64, r
 	var clusterID int64
 	query := `
 		SELECT incl_id FROM incident_clusters
-		WHERE category_code = ?
-		AND ST_Distance_Sphere(
-			point(center_longitude, center_latitude),
-			point(?, ?)
-		) <= ?
-		AND created_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+		WHERE category_code = $1
+		AND ST_DistanceSphere(
+			ST_MakePoint(center_longitude, center_latitude),
+			ST_MakePoint($2, $3)
+		) <= $4
+		AND created_at >= NOW() - INTERVAL '1 hour' * $5
 		AND is_active = 1
 		ORDER BY created_at DESC
 		LIMIT 1
@@ -329,10 +325,11 @@ func (r *Repository) CreateCluster(incident NormalizedIncident, insuID int64) (i
 			created_at,
 			start_time,
 			end_time
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW(), ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 1, NOW(), NOW(), $16) RETURNING incl_id
 	`
 
-	result, err := r.db.Exec(query,
+	var clusterID int64
+	err := r.db.QueryRow(query,
 		BOT_USER_ID,
 		insuID,
 		incident.Latitude,
@@ -349,12 +346,7 @@ func (r *Repository) CreateCluster(incident NormalizedIncident, insuID int64) (i
 		incident.SubcategoryCode,
 		incident.CategoryCode,
 		endTime,
-	)
-	if err != nil {
-		return 0, err
-	}
-
-	clusterID, err := result.LastInsertId()
+	).Scan(&clusterID)
 	if err != nil {
 		return 0, err
 	}
@@ -374,7 +366,7 @@ func (r *Repository) CreateCluster(incident NormalizedIncident, insuID int64) (i
 // getSubcategoryDuration retrieves duration for a subcategory (defaults to 24h)
 func (r *Repository) getSubcategoryDuration(subcategoryCode string) int {
 	var duration int
-	query := `SELECT duration_hours FROM incident_subcategories WHERE code = ?`
+	query := `SELECT duration_hours FROM incident_subcategories WHERE code = $1`
 	err := r.db.QueryRow(query, subcategoryCode).Scan(&duration)
 	if err != nil || duration < 24 {
 		return 24 // Default minimum

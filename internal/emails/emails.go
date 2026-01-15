@@ -2,51 +2,38 @@ package emails
 
 import (
 	"bytes"
-	"context"
 	"html/template"
 	"log"
 	"os"
 	"path/filepath"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
-	"github.com/aws/aws-sdk-go-v2/service/sesv2"
-	"github.com/aws/aws-sdk-go-v2/service/sesv2/types"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/resend/resend-go/v2"
 )
 
-var sesClient *sesv2.Client
+var resendClient *resend.Client
 
-// InitSES inicializa el cliente de AWS SES v2.
+// InitEmails inicializa el cliente de Resend.
 // Debe ser llamado una vez al iniciar la aplicación.
-func InitSES() {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		log.Printf("🚨 CRITICAL: Failed to load AWS SDK config for SES. Email sending will be disabled. Error: %v", err)
-		return // No hacer crash, solo registrar y continuar.
+func InitEmails() {
+	apiKey := os.Getenv("RESEND_API_KEY")
+	if apiKey == "" {
+		log.Println("⚠️ WARNING: RESEND_API_KEY not set. Email sending will be disabled.")
+		return
 	}
 
-	// En Fargate, el Task Role ARN no se asume automáticamente por el SDK.
-	// Debemos crear un proveedor de credenciales que asuma explícitamente el rol.
-	taskRoleARN := os.Getenv("AWS_IAM_ROLE_ARN") // ECS inyecta esta variable si hay un Task Role
-	if taskRoleARN != "" {
-		log.Printf("Found Task Role ARN: %s. Attempting to assume role for SES.", taskRoleARN)
-		stsClient := sts.NewFromConfig(cfg)
-		provider := stscreds.NewAssumeRoleProvider(stsClient, taskRoleARN)
-		cfg.Credentials = aws.NewCredentialsCache(provider)
-	} else {
-		log.Println("No AWS_IAM_ROLE_ARN found. Using default credential chain for SES.")
-	}
-
-	sesClient = sesv2.NewFromConfig(cfg)
-	log.Println("✅ AWS SES Client Initialized")
+	resendClient = resend.NewClient(apiKey)
+	log.Println("✅ Resend Email Client Initialized")
 }
 
-// SendTemplate envía un correo HTML basado en un template y datos dinámicos usando AWS SES.
+// InitSES is an alias for InitEmails (backwards compatibility)
+func InitSES() {
+	InitEmails()
+}
+
+// SendTemplate envía un correo HTML basado en un template y datos dinámicos usando Resend.
 func SendTemplate(email, subject, templateName string, data any) {
-	if sesClient == nil {
-		log.Println("Error: SES client not initialized. Skipping email send.")
+	if resendClient == nil {
+		log.Println("Error: Resend client not initialized. Skipping email send.")
 		return
 	}
 
@@ -66,33 +53,19 @@ func SendTemplate(email, subject, templateName string, data any) {
 		return
 	}
 
-	// Configurar y enviar el email vía AWS SES
-	input := &sesv2.SendEmailInput{
-		FromEmailAddress: aws.String("no-reply@alertly.ca"),
-		Destination: &types.Destination{
-			ToAddresses: []string{email},
-		},
-		Content: &types.EmailContent{
-			Simple: &types.Message{
-				Subject: &types.Content{
-					Data:    aws.String(subject),
-					Charset: aws.String("UTF-8"),
-				},
-				Body: &types.Body{
-					Html: &types.Content{
-						Data:    aws.String(body.String()),
-						Charset: aws.String("UTF-8"),
-					},
-				},
-			},
-		},
+	// Enviar email vía Resend
+	params := &resend.SendEmailRequest{
+		From:    "Alertly <no-reply@alertly.ca>",
+		To:      []string{email},
+		Subject: subject,
+		Html:    body.String(),
 	}
 
-	_, err = sesClient.SendEmail(context.TODO(), input)
+	_, err = resendClient.Emails.Send(params)
 	if err != nil {
-		log.Printf("Error sending email to %s via SES: %v", email, err)
+		log.Printf("Error sending email to %s via Resend: %v", email, err)
 		return
 	}
 
-	log.Printf("Email sent to %s via SES using template %s", email, templateName)
+	log.Printf("Email sent to %s via Resend using template %s", email, templateName)
 }

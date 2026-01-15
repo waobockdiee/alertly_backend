@@ -17,25 +17,25 @@ type Repository interface {
 	SaveAccountHistory(accountID, inclID int64) error
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) GetIncidentBy(inclId int64) (Cluster, error) {
+func (r *pgRepository) GetIncidentBy(inclId int64) (Cluster, error) {
 	return r.getIncidentByWithActiveFilter(inclId, true)
 }
 
 // GetIncidentByPublic obtiene un incidente sin filtrar por is_active (para endpoint público)
-func (r *mysqlRepository) GetIncidentByPublic(inclId int64) (Cluster, error) {
+func (r *pgRepository) GetIncidentByPublic(inclId int64) (Cluster, error) {
 	return r.getIncidentByWithActiveFilter(inclId, false)
 }
 
 // getIncidentByWithActiveFilter es el método base que permite filtrar opcionalmente por is_active
-func (r *mysqlRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly bool) (Cluster, error) {
+func (r *pgRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly bool) (Cluster, error) {
 	// ✅ SEGURIDAD: Primero verificar si existe cluster o solo incident_report
 	// 1. Query principal del cluster (más eficiente)
 	activeFilter := ""
@@ -74,7 +74,7 @@ func (r *mysqlRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly
     c.credibility,
     c.account_id
   FROM incident_clusters c
-  WHERE c.incl_id = ? %s;
+  WHERE c.incl_id = $1 %s;
   `, activeFilter)
 
 	var cluster Cluster
@@ -99,7 +99,7 @@ func (r *mysqlRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly
 
 	// 2. Query separada para incidentes (más eficiente)
 	incidentsQuery := `
-        SELECT 
+        SELECT
             r.inre_id,
             r.media_url,
             r.description,
@@ -107,18 +107,18 @@ func (r *mysqlRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly
             r.is_anonymous,
             r.subcategory_name,
             a.account_id,
-            IF(r.is_anonymous, '', a.nickname) as nickname,
-            IF(r.is_anonymous, '', a.first_name) as first_name,
-            IF(r.is_anonymous, '', a.last_name) as last_name,
+            CASE WHEN r.is_anonymous THEN '' ELSE a.nickname END as nickname,
+            CASE WHEN r.is_anonymous THEN '' ELSE a.first_name END as first_name,
+            CASE WHEN r.is_anonymous THEN '' ELSE a.last_name END as last_name,
             a.is_private_profile,
-            IF(r.is_anonymous, '', COALESCE(a.thumbnail_url, '')) as thumbnail_url,
-            IF(r.is_anonymous, 0, COALESCE(a.score, 0)) as score,
+            CASE WHEN r.is_anonymous THEN '' ELSE COALESCE(a.thumbnail_url, '') END as thumbnail_url,
+            CASE WHEN r.is_anonymous THEN 0 ELSE COALESCE(a.score, 0) END as score,
             r.created_at,
             r.incl_id,
             r.status
         FROM incident_reports r
         INNER JOIN account a ON r.account_id = a.account_id
-        WHERE r.incl_id = ? AND r.is_active = 1
+        WHERE r.incl_id = $1 AND r.is_active = 1
         ORDER BY r.created_at DESC
         LIMIT 50
     `
@@ -160,7 +160,7 @@ func (r *mysqlRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly
 	cluster.Incidents = incidents
 
 	// ✅ Actualizar contador de vistas
-	query := `UPDATE incident_clusters SET counter_total_views = counter_total_views + 1 WHERE incl_id = ?`
+	query := `UPDATE incident_clusters SET counter_total_views = counter_total_views + 1 WHERE incl_id = $1`
 	_, err = r.db.Exec(query, inclId)
 
 	if err != nil {
@@ -171,8 +171,8 @@ func (r *mysqlRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly
 }
 
 // para saber si el usuario voto. Es necesario saber que la forma de verificar es que al un usuario votar. Basicamente esta creando un incidente nuevo. Y este se asocia al cluster.
-func (r *mysqlRepository) GetAccountAlreadyVoted(inclID, AccountID int64) (bool, error) {
-	query := `SELECT COUNT(*) AS total FROM incident_reports WHERE incl_id = ? AND account_id = ? AND vote IS NOT NULL`
+func (r *pgRepository) GetAccountAlreadyVoted(inclID, AccountID int64) (bool, error) {
+	query := `SELECT COUNT(*) AS total FROM incident_reports WHERE incl_id = $1 AND account_id = $2 AND vote IS NOT NULL`
 	var total int
 	err := r.db.QueryRow(query, inclID, AccountID).Scan(&total)
 	if err != nil {
@@ -181,8 +181,8 @@ func (r *mysqlRepository) GetAccountAlreadyVoted(inclID, AccountID int64) (bool,
 	return total > 0, nil
 }
 
-func (r *mysqlRepository) GetAccountAlreadySaved(inclID, AccountID int64) (bool, error) {
-	query := `SELECT COUNT(*) AS total FROM account_cluster_saved WHERE incl_id = ? AND account_id = ?`
+func (r *pgRepository) GetAccountAlreadySaved(inclID, AccountID int64) (bool, error) {
+	query := `SELECT COUNT(*) AS total FROM account_cluster_saved WHERE incl_id = $1 AND account_id = $2`
 	var total int
 	err := r.db.QueryRow(query, inclID, AccountID).Scan(&total)
 	if err != nil {
@@ -191,8 +191,8 @@ func (r *mysqlRepository) GetAccountAlreadySaved(inclID, AccountID int64) (bool,
 	return total > 0, nil
 }
 
-func (r *mysqlRepository) GetUserVote(inclID, AccountID int64) (int, error) {
-	query := `SELECT vote FROM incident_reports WHERE incl_id = ? AND account_id = ? AND vote IS NOT NULL LIMIT 1`
+func (r *pgRepository) GetUserVote(inclID, AccountID int64) (int, error) {
+	query := `SELECT vote FROM incident_reports WHERE incl_id = $1 AND account_id = $2 AND vote IS NOT NULL LIMIT 1`
 	var vote sql.NullInt64
 	err := r.db.QueryRow(query, inclID, AccountID).Scan(&vote)
 	if err != nil {
@@ -209,14 +209,14 @@ func (r *mysqlRepository) GetUserVote(inclID, AccountID int64) (int, error) {
 	return int(vote.Int64), nil
 }
 
-func (r *mysqlRepository) SaveAccountHistory(accountID, inclID int64) error {
-	query := `INSERT INTO account_history(account_id, incl_id) VALUES(?, ?)`
+func (r *pgRepository) SaveAccountHistory(accountID, inclID int64) error {
+	query := `INSERT INTO account_history(account_id, incl_id) VALUES($1, $2)`
 	_, err := r.db.Exec(query, accountID, inclID)
 	return err
 }
 
 // ✅ FALLBACK: Crear cluster temporal desde incident_report individual
-func (r *mysqlRepository) createClusterFromIndividualIncident(inclId int64, activeOnly bool) (Cluster, error) {
+func (r *pgRepository) createClusterFromIndividualIncident(inclId int64, activeOnly bool) (Cluster, error) {
 	log.Printf("Creating temporary cluster from individual incident %d (activeOnly: %v)", inclId, activeOnly)
 
 	// Query para obtener datos del incident_report individual
@@ -243,7 +243,7 @@ func (r *mysqlRepository) createClusterFromIndividualIncident(inclId int64, acti
 			r.insu_id
 		FROM incident_reports r
 		LEFT JOIN subcategories sc ON r.subcategory_code = sc.subcategory_code
-		WHERE r.incl_id = ? %s
+		WHERE r.incl_id = $1 %s
 		LIMIT 1
 	`, statusFilter)
 
@@ -294,18 +294,18 @@ func (r *mysqlRepository) createClusterFromIndividualIncident(inclId int64, acti
             r.is_anonymous,
             r.subcategory_name,
             a.account_id,
-            IF(r.is_anonymous, '', a.nickname) as nickname,
-            IF(r.is_anonymous, '', a.first_name) as first_name,
-            IF(r.is_anonymous, '', a.last_name) as last_name,
+            CASE WHEN r.is_anonymous THEN '' ELSE a.nickname END as nickname,
+            CASE WHEN r.is_anonymous THEN '' ELSE a.first_name END as first_name,
+            CASE WHEN r.is_anonymous THEN '' ELSE a.last_name END as last_name,
             a.is_private_profile,
-            IF(r.is_anonymous, '', COALESCE(a.thumbnail_url, '')) as thumbnail_url,
-            IF(r.is_anonymous, 0, COALESCE(a.score, 0)) as score,
+            CASE WHEN r.is_anonymous THEN '' ELSE COALESCE(a.thumbnail_url, '') END as thumbnail_url,
+            CASE WHEN r.is_anonymous THEN 0 ELSE COALESCE(a.score, 0) END as score,
             r.created_at,
             r.incl_id,
             r.status
         FROM incident_reports r
         LEFT JOIN account a ON r.account_id = a.account_id
-        WHERE r.incl_id = ? %s
+        WHERE r.incl_id = $1 %s
         ORDER BY r.created_at DESC
     `, statusFilter)
 

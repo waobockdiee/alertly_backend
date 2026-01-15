@@ -10,15 +10,15 @@ type Repository interface {
 	DeleteFollowIncident(acsID, accountID int64) error
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) ToggleSaveClusterAccount(accountID, inclID int64) (err error) {
+func (r *pgRepository) ToggleSaveClusterAccount(accountID, inclID int64) (err error) {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return err
@@ -30,20 +30,20 @@ func (r *mysqlRepository) ToggleSaveClusterAccount(accountID, inclID int64) (err
 	}()
 
 	var total int
-	queryCheck := `SELECT COUNT(*) AS total FROM account_cluster_saved WHERE account_id = ? AND incl_id = ?`
+	queryCheck := `SELECT COUNT(*) AS total FROM account_cluster_saved WHERE account_id = $1 AND incl_id = $2`
 	err = tx.QueryRow(queryCheck, accountID, inclID).Scan(&total)
 	if err != nil {
 		return err
 	}
 
 	if total > 0 {
-		queryDelete := `DELETE FROM account_cluster_saved WHERE account_id = ? AND incl_id = ?`
+		queryDelete := `DELETE FROM account_cluster_saved WHERE account_id = $1 AND incl_id = $2`
 		_, err = tx.Exec(queryDelete, accountID, inclID)
 		if err != nil {
 			return err
 		}
 	} else {
-		queryInsert := `INSERT INTO account_cluster_saved (account_id, incl_id) VALUES (?, ?)`
+		queryInsert := `INSERT INTO account_cluster_saved (account_id, incl_id) VALUES ($1, $2)`
 		_, err = tx.Exec(queryInsert, accountID, inclID)
 		if err != nil {
 			return err
@@ -53,14 +53,14 @@ func (r *mysqlRepository) ToggleSaveClusterAccount(accountID, inclID int64) (err
 	return tx.Commit()
 }
 
-func (r *mysqlRepository) GetMyList(accountID int64) ([]MyList, error) {
+func (r *pgRepository) GetMyList(accountID int64) ([]MyList, error) {
 
 	var list []MyList
 
-	query := `SELECT 
+	query := `SELECT
 	t1.acs_id, t1.account_id, t1.incl_id, t2.media_url, t2.credibility
 	FROM account_cluster_saved t1 INNER JOIN incident_clusters t2 ON t1.incl_id = t2.incl_id
-	WHERE t1.account_id = ?`
+	WHERE t1.account_id = $1`
 
 	rows, err := r.db.Query(query, accountID)
 
@@ -87,8 +87,8 @@ func (r *mysqlRepository) GetMyList(accountID int64) ([]MyList, error) {
 	return list, nil
 }
 
-func (r *mysqlRepository) DeleteFollowIncident(acsID, accountID int64) error {
-	query := `DELETE FROM account_cluster_saved WHERE acs_id = ? AND account_id = ?`
+func (r *pgRepository) DeleteFollowIncident(acsID, accountID int64) error {
+	query := `DELETE FROM account_cluster_saved WHERE acs_id = $1 AND account_id = $2`
 	_, err := r.db.Exec(query, acsID, accountID)
 	return err
 }

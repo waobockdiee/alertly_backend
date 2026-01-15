@@ -8,19 +8,19 @@ type Repository interface {
 	ShowByAccountID(accountID int64) ([]Achievement, error)
 	Update(acacID, accountID int64) error
 }
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) ShowByAccountID(accountID int64) ([]Achievement, error) {
+func (r *pgRepository) ShowByAccountID(accountID int64) ([]Achievement, error) {
 	query := `SELECT
 	acac_id, account_id, name, description, created, show_in_modal, type, text_to_show, icon_url, badge_threshold
 	FROM account_achievements
-	WHERE account_id = ? AND show_in_modal = 1
+	WHERE account_id = $1 AND show_in_modal = 1
 	ORDER BY created DESC`
 
 	rows, err := r.db.Query(query, accountID)
@@ -55,8 +55,8 @@ func (r *mysqlRepository) ShowByAccountID(accountID int64) ([]Achievement, error
 	return achievements, nil
 }
 
-func (r *mysqlRepository) Update(acacID, accountID int64) error {
-	query := `UPDATE account_achievements SET show_in_modal = 0 WHERE acac_id = ? AND account_id = ?`
+func (r *pgRepository) Update(acacID, accountID int64) error {
+	query := `UPDATE account_achievements SET show_in_modal = 0 WHERE acac_id = $1 AND account_id = $2`
 	_, err := r.db.Exec(query, acacID, accountID)
 	return err
 }

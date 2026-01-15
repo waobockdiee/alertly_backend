@@ -8,16 +8,16 @@ type Repository interface {
 	GetSubcategoriesByCategoryId(id int) ([]Subcategory, error)
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) GetSubcategoriesByCategoryId(id int) ([]Subcategory, error) {
-	query := `SELECT insu_id, inca_id, name, description, icon, code, min_circle_range, max_circle_range, default_circle_range, category_code, subcategory_code FROM incident_subcategories WHERE inca_id = ? ORDER BY name DESC`
+func (r *pgRepository) GetSubcategoriesByCategoryId(id int) ([]Subcategory, error) {
+	query := `SELECT insu_id, inca_id, name, description, icon, code, min_circle_range, max_circle_range, default_circle_range, category_code, subcategory_code FROM incident_subcategories WHERE inca_id = $1 ORDER BY name DESC`
 	rows, err := r.db.Query(query, id)
 	if err != nil {
 		return nil, err

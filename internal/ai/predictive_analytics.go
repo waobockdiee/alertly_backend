@@ -69,7 +69,7 @@ func (pa *PredictiveAnalytics) AnalyzeAreaRisk(latitude, longitude float64, radi
 // getHistoricalData retrieves historical incident data for analysis
 func (pa *PredictiveAnalytics) getHistoricalData(lat, lon float64, radiusMeters int, daysBack int) ([]HistoricalIncident, error) {
 	query := `
-		SELECT 
+		SELECT
 			ic.category_code,
 			ic.subcategory_code,
 			ic.created_at,
@@ -80,12 +80,12 @@ func (pa *PredictiveAnalytics) getHistoricalData(lat, lon float64, radiusMeters 
 			COUNT(ir.inre_id) as incident_count
 		FROM incident_clusters ic
 		LEFT JOIN incident_reports ir ON ic.incl_id = ir.incl_id
-		WHERE 
-			ST_Distance_Sphere(
-				POINT(ic.center_longitude, ic.center_latitude),
-				POINT(?, ?)
-			) <= ?
-			AND ic.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+		WHERE
+			ST_DistanceSphere(
+				ST_MakePoint(ic.center_longitude, ic.center_latitude),
+				ST_MakePoint($1, $2)
+			) <= $3
+			AND ic.created_at >= NOW() - INTERVAL '1 day' * $4
 		GROUP BY ic.incl_id, ic.category_code, ic.subcategory_code, ic.created_at, ic.center_latitude, ic.center_longitude, ic.counter_total_votes_true, ic.counter_total_votes_false
 		ORDER BY ic.created_at DESC
 	`

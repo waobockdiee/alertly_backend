@@ -18,41 +18,40 @@ type Repository interface {
 	UpdatePhoneNumber(accountID int64, phoneNumber string) error
 	UpdateFullName(accountID int64, firstName, lastName string) error
 	UpdateIsPrivateProfile(accountID int64, isPrivateProfile bool) error
-	
+
 	UpdateBirthDate(accountID int64, year, month, day string) error
 	UpdateReceiveNotifications(accountID int64) error
 	DesactivateAccount(account Account) error
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) GetAccountByID(accountID int64) (Account, error) {
-	// ✅ FIX: Usar COALESCE para manejar valores NULL en birth_year, birth_month, birth_day
-	query := `SELECT 
-		account_id, 
-		email, 
-		first_name, 
-		last_name, 
-		nickname, 
-		password, 
-		can_update_nickname, 
-		can_update_fullname, 
-		can_update_birthdate, 
-		COALESCE(birth_year, '') as birth_year, 
-		COALESCE(birth_month, '') as birth_month, 
-		COALESCE(birth_day, '') as birth_day, 
-		can_update_email, 
-		COALESCE(thumbnail_url, '') as thumbnail_url, 
-		receive_notifications, 
-		status 
-	FROM account 
-	WHERE account_id = ?`
+func (r *pgRepository) GetAccountByID(accountID int64) (Account, error) {
+	query := `SELECT
+		account_id,
+		email,
+		first_name,
+		last_name,
+		nickname,
+		password,
+		can_update_nickname,
+		can_update_fullname,
+		can_update_birthdate,
+		COALESCE(birth_year, '') as birth_year,
+		COALESCE(birth_month, '') as birth_month,
+		COALESCE(birth_day, '') as birth_day,
+		can_update_email,
+		COALESCE(thumbnail_url, '') as thumbnail_url,
+		receive_notifications,
+		status
+	FROM account
+	WHERE account_id = $1`
 
 	row := r.db.QueryRow(query, accountID)
 
@@ -85,24 +84,24 @@ func (r *mysqlRepository) GetAccountByID(accountID int64) (Account, error) {
 	return account, nil
 }
 
-func (r *mysqlRepository) SaveCodeBeforeUpdateEmail(code string, accountID int64) error {
-	query := `UPDATE account SET update_email_code = ? WHERE account_id = ?`
+func (r *pgRepository) SaveCodeBeforeUpdateEmail(code string, accountID int64) error {
+	query := `UPDATE account SET update_email_code = $1 WHERE account_id = $2`
+	_, err := r.db.Exec(query, code, accountID)
+	return err
+}
+
+func (r *pgRepository) UpdateReceiveNotifications(accountID int64) error {
+	query := `UPDATE account SET receive_notifications = NOT receive_notifications WHERE account_id = $1`
 	_, err := r.db.Exec(query, accountID)
 	return err
 }
 
-func (r *mysqlRepository) UpdateReceiveNotifications(accountID int64) error {
-	query := `UPDATE account SET receive_notifications = NOT receive_notifications WHERE account_id = ?`
-	_, err := r.db.Exec(query, accountID)
-	return err
-}
-
-func (r *mysqlRepository) ValidateUpdateEmailCode(accountID int64, code string) (bool, error) {
+func (r *pgRepository) ValidateUpdateEmailCode(accountID int64, code string) (bool, error) {
 	var match bool
 	query := `SELECT EXISTS(
 		SELECT 1
 		FROM account
-		WHERE account_id = ? AND update_email_code = ?
+		WHERE account_id = $1 AND update_email_code = $2
 	)
 	`
 	err := r.db.QueryRow(query, accountID, code).Scan(&match)
@@ -114,11 +113,11 @@ func (r *mysqlRepository) ValidateUpdateEmailCode(accountID int64, code string) 
 	return match, nil
 }
 
-func (r *mysqlRepository) UpdateEmail(accountID int64, email string) error {
+func (r *pgRepository) UpdateEmail(accountID int64, email string) error {
 
 	log.Printf("account_id: %v", accountID)
 	log.Printf("email: %v", email)
-	query := `UPDATE account SET email = ?, can_update_email = 0 WHERE account_id = ?`
+	query := `UPDATE account SET email = $1, can_update_email = 0 WHERE account_id = $2`
 	res, err := r.db.Exec(query, email, accountID)
 
 	if err != nil {
@@ -143,8 +142,8 @@ func (r *mysqlRepository) UpdateEmail(accountID int64, email string) error {
 	return nil
 }
 
-func (r *mysqlRepository) UpdateThumbnail(accountID int64, mediaUrl string) error {
-	query := `UPDATE account SET thumbnail_url = ? WHERE account_id = ?`
+func (r *pgRepository) UpdateThumbnail(accountID int64, mediaUrl string) error {
+	query := `UPDATE account SET thumbnail_url = $1 WHERE account_id = $2`
 	_, err := r.db.Exec(query, mediaUrl, accountID)
 
 	if err != nil {
@@ -154,8 +153,8 @@ func (r *mysqlRepository) UpdateThumbnail(accountID int64, mediaUrl string) erro
 	return err
 }
 
-func (r *mysqlRepository) UpdatePassword(accountID int64, password string) error {
-	query := `UPDATE account SET password = ? WHERE account_id = ?`
+func (r *pgRepository) UpdatePassword(accountID int64, password string) error {
+	query := `UPDATE account SET password = $1 WHERE account_id = $2`
 	_, err := r.db.Exec(query, password, accountID)
 
 	if err != nil {
@@ -165,8 +164,8 @@ func (r *mysqlRepository) UpdatePassword(accountID int64, password string) error
 	return err
 }
 
-func (r *mysqlRepository) UpdateNickname(accountID int64, nickname string) error {
-	query := `UPDATE account SET nickname = ?, can_update_nickname = 0 WHERE account_id = ? AND can_update_nickname = 1`
+func (r *pgRepository) UpdateNickname(accountID int64, nickname string) error {
+	query := `UPDATE account SET nickname = $1, can_update_nickname = 0 WHERE account_id = $2 AND can_update_nickname = 1`
 	_, err := r.db.Exec(query, nickname, accountID)
 
 	if err != nil {
@@ -176,8 +175,8 @@ func (r *mysqlRepository) UpdateNickname(accountID int64, nickname string) error
 	return err
 }
 
-func (r *mysqlRepository) UpdatePhoneNumber(accountID int64, phoneNumber string) error {
-	query := `UPDATE account SET phone_number = ? WHERE account_id = ?`
+func (r *pgRepository) UpdatePhoneNumber(accountID int64, phoneNumber string) error {
+	query := `UPDATE account SET phone_number = $1 WHERE account_id = $2`
 	_, err := r.db.Exec(query, phoneNumber, accountID)
 
 	if err != nil {
@@ -187,11 +186,11 @@ func (r *mysqlRepository) UpdatePhoneNumber(accountID int64, phoneNumber string)
 	return err
 }
 
-func (r *mysqlRepository) UpdateFullName(accountID int64, firstName, lastName string) error {
+func (r *pgRepository) UpdateFullName(accountID int64, firstName, lastName string) error {
 	fmt.Println("account_id", accountID)
 	fmt.Println("first_name", firstName)
 	fmt.Println("first_name", lastName)
-	query := `UPDATE account SET first_name = ?, last_name = ?, can_update_fullname = 0 WHERE account_id = ? AND can_update_fullname = 1`
+	query := `UPDATE account SET first_name = $1, last_name = $2, can_update_fullname = 0 WHERE account_id = $3 AND can_update_fullname = 1`
 	_, err := r.db.Exec(query, firstName, lastName, accountID)
 
 	if err != nil {
@@ -201,8 +200,8 @@ func (r *mysqlRepository) UpdateFullName(accountID int64, firstName, lastName st
 	return err
 }
 
-func (r *mysqlRepository) UpdateIsPrivateProfile(accountID int64, isPrivateProfile bool) error {
-	query := `UPDATE account SET is_private_profile = ? WHERE account_id = ?`
+func (r *pgRepository) UpdateIsPrivateProfile(accountID int64, isPrivateProfile bool) error {
+	query := `UPDATE account SET is_private_profile = $1 WHERE account_id = $2`
 	_, err := r.db.Exec(query, isPrivateProfile, accountID)
 
 	if err != nil {
@@ -214,8 +213,8 @@ func (r *mysqlRepository) UpdateIsPrivateProfile(accountID int64, isPrivateProfi
 
 
 
-func (r *mysqlRepository) UpdateBirthDate(accountID int64, year, month, day string) error {
-	query := `UPDATE account SET birth_year = ?, birth_month = ?, birth_day = ?, can_update_birthdate = 0 WHERE account_id = ? AND can_update_birthdate = 1`
+func (r *pgRepository) UpdateBirthDate(accountID int64, year, month, day string) error {
+	query := `UPDATE account SET birth_year = $1, birth_month = $2, birth_day = $3, can_update_birthdate = 0 WHERE account_id = $4 AND can_update_birthdate = 1`
 	_, err := r.db.Exec(query, year, month, day, accountID)
 
 	if err != nil {
@@ -225,9 +224,9 @@ func (r *mysqlRepository) UpdateBirthDate(accountID int64, year, month, day stri
 	return err
 }
 
-func (r *mysqlRepository) DesactivateAccount(account Account) error {
+func (r *pgRepository) DesactivateAccount(account Account) error {
 
-	query := `UPDATE account SET status = ? WHERE account_id = ?`
+	query := `UPDATE account SET status = $1 WHERE account_id = $2`
 	_, err := r.db.Exec(query, account.Status, account.AccountID)
 
 	if err != nil {

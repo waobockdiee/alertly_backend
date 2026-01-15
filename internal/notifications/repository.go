@@ -20,7 +20,7 @@ type Repository interface {
 	DeleteNotification(accountID, notificationID int64) error
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
@@ -62,26 +62,18 @@ func (nd *NotificationDelivery) MarshalJSON() ([]byte, error) {
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) Save(n Notification) (int64, error) {
-	var notiID int64
-
+func (r *pgRepository) Save(n Notification) (int64, error) {
 	query := `INSERT INTO notifications(noti_id, owner_account_id, title, message, type, link, must_send_as_notification_push, must_send_as_notification, must_be_processed, error_message, reference_id)
-	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING noti_id`
 
-	result, err := r.db.Exec(query, n.OwnerAccountID, n.Title, n.Message, n.Type, n.Link, n.MustSendAsNotificationPush, n.MustSendAsNotification, n.MustBeProcessed, n.ErrorMesssage, n.ReferenceID)
+	var notiID int64
+	err := r.db.QueryRow(query, n.OwnerAccountID, n.Title, n.Message, n.Type, n.Link, n.MustSendAsNotificationPush, n.MustSendAsNotification, n.MustBeProcessed, n.ErrorMesssage, n.ReferenceID).Scan(&notiID)
 
 	if err != nil {
 		log.Println("Error saving notification...")
-		return notiID, err
-	}
-
-	notiID, err = result.LastInsertId()
-
-	if err != nil {
-		log.Println("Error getting noti_id notification...")
 		return notiID, err
 	}
 
@@ -89,11 +81,11 @@ func (r *mysqlRepository) Save(n Notification) (int64, error) {
 	return notiID, nil
 }
 
-func (r *mysqlRepository) SaveDeviceToken(accountID int64, token string) error {
+func (r *pgRepository) SaveDeviceToken(accountID int64, token string) error {
 	query := `
         INSERT INTO device_tokens (account_id, device_token)
-        VALUES (?, ?)
-        ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP;
+        VALUES ($1, $2)
+        ON CONFLICT (account_id, device_token) DO UPDATE SET updated_at = CURRENT_TIMESTAMP;
     `
 	if _, err := r.db.Exec(query, accountID, token); err != nil {
 		return fmt.Errorf("SaveDeviceToken: %w", err)
@@ -101,17 +93,17 @@ func (r *mysqlRepository) SaveDeviceToken(accountID int64, token string) error {
 	return nil
 }
 
-func (r *mysqlRepository) DeleteDeviceToken(accountID int64, deviceToken string) error {
+func (r *pgRepository) DeleteDeviceToken(accountID int64, deviceToken string) error {
 	_, err := r.db.Exec(`
-	  DELETE FROM device_tokens 
-	  WHERE account_id = ? AND device_token = ?`,
+	  DELETE FROM device_tokens
+	  WHERE account_id = $1 AND device_token = $2`,
 		accountID, deviceToken,
 	)
 	return err
 }
 
 // GetNotifications obtiene las notificaciones del usuario con paginación
-func (r *mysqlRepository) GetNotifications(accountID int64, limit, offset int) ([]NotificationDelivery, error) {
+func (r *pgRepository) GetNotifications(accountID int64, limit, offset int) ([]NotificationDelivery, error) {
 	query := `
 		SELECT
 			nd.node_id,
@@ -125,9 +117,9 @@ func (r *mysqlRepository) GetNotifications(accountID int64, limit, offset int) (
 			n.reference_id
 		FROM notification_deliveries nd
 		LEFT JOIN notifications n ON nd.noti_id = n.noti_id
-		WHERE nd.to_account_id = ?
+		WHERE nd.to_account_id = $1
 		ORDER BY nd.created_at DESC
-		LIMIT ? OFFSET ?
+		LIMIT $2 OFFSET $3
 	`
 
 	rows, err := r.db.Query(query, accountID, limit, offset)
@@ -170,11 +162,11 @@ func (r *mysqlRepository) GetNotifications(accountID int64, limit, offset int) (
 }
 
 // GetUnreadCount obtiene el conteo de notificaciones no leídas
-func (r *mysqlRepository) GetUnreadCount(accountID int64) (int64, error) {
+func (r *pgRepository) GetUnreadCount(accountID int64) (int64, error) {
 	query := `
 		SELECT COUNT(*)
 		FROM notification_deliveries
-		WHERE to_account_id = ? AND (is_read = 0 OR is_read IS NULL)
+		WHERE to_account_id = $1 AND (is_read = 0 OR is_read IS NULL)
 	`
 
 	var count int64
@@ -187,10 +179,10 @@ func (r *mysqlRepository) GetUnreadCount(accountID int64) (int64, error) {
 }
 
 // MarkAsRead marca una notificación como leída
-func (r *mysqlRepository) MarkAsRead(accountID, notificationID int64) error {
+func (r *pgRepository) MarkAsRead(accountID, notificationID int64) error {
 	// First, let's check if the notification exists and get its current status
 	var isRead sql.NullInt64
-	checkQuery := `SELECT is_read FROM notification_deliveries WHERE to_account_id = ? AND node_id = ?`
+	checkQuery := `SELECT is_read FROM notification_deliveries WHERE to_account_id = $1 AND node_id = $2`
 	err := r.db.QueryRow(checkQuery, accountID, notificationID).Scan(&isRead)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -208,7 +200,7 @@ func (r *mysqlRepository) MarkAsRead(accountID, notificationID int64) error {
 	}
 
 	// Update the notification as read
-	updateQuery := `UPDATE notification_deliveries SET is_read = 1 WHERE to_account_id = ? AND node_id = ?`
+	updateQuery := `UPDATE notification_deliveries SET is_read = 1 WHERE to_account_id = $1 AND node_id = $2`
 	result, err := r.db.Exec(updateQuery, accountID, notificationID)
 	if err != nil {
 		log.Printf("MarkAsRead: Update query error: %v", err)
@@ -231,11 +223,11 @@ func (r *mysqlRepository) MarkAsRead(accountID, notificationID int64) error {
 }
 
 // MarkAllAsRead marca todas las notificaciones como leídas
-func (r *mysqlRepository) MarkAllAsRead(accountID int64) error {
+func (r *pgRepository) MarkAllAsRead(accountID int64) error {
 	query := `
 		UPDATE notification_deliveries
 		SET is_read = 1
-		WHERE to_account_id = ? AND (is_read = 0 OR is_read IS NULL)
+		WHERE to_account_id = $1 AND (is_read = 0 OR is_read IS NULL)
 	`
 
 	_, err := r.db.Exec(query, accountID)
@@ -247,10 +239,10 @@ func (r *mysqlRepository) MarkAllAsRead(accountID int64) error {
 }
 
 // DeleteNotification elimina una notificación
-func (r *mysqlRepository) DeleteNotification(accountID, notificationID int64) error {
+func (r *pgRepository) DeleteNotification(accountID, notificationID int64) error {
 	query := `
 		DELETE FROM notification_deliveries
-		WHERE to_account_id = ? AND node_id = ?
+		WHERE to_account_id = $1 AND node_id = $2
 	`
 
 	result, err := r.db.Exec(query, accountID, notificationID)

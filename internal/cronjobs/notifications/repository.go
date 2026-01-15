@@ -3,7 +3,6 @@ package notifications
 import (
 	"database/sql"
 	"log"
-	"strings"
 )
 
 type Repository interface {
@@ -15,23 +14,23 @@ type Repository interface {
 	GetDB() *sql.DB
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
 // GetUnprocessedNotificationsPush obtiene las notificaciones pendientes de procesar.
-func (r *mysqlRepository) GetUnprocessedNotificationsPush() ([]Notification, error) {
+func (r *pgRepository) GetUnprocessedNotificationsPush() ([]Notification, error) {
 	var notifications []Notification
 	query := `
-	SELECT 
-		t1.noti_id, t1.owner_account_id, t1.title, t1.message, t1.type, t1.link, 
-		t1.created_at, t1.must_send_as_notification_push, t1.must_send_as_notification, 
+	SELECT
+		t1.noti_id, t1.owner_account_id, t1.title, t1.message, t1.type, t1.link,
+		t1.created_at, t1.must_send_as_notification_push, t1.must_send_as_notification,
 		t1.must_be_processed, t1.retry_count, t1.reference_id, t2.nickname, COALESCE(t2.thumbnail_url, '') as thumbnail_url
-	FROM notifications t1 
+	FROM notifications t1
 	INNER JOIN account t2 ON t1.owner_account_id = t2.account_id
 	WHERE t1.must_be_processed = 1`
 
@@ -58,34 +57,45 @@ func (r *mysqlRepository) GetUnprocessedNotificationsPush() ([]Notification, err
 }
 
 // BatchSaveNewNotificationDeliveries realiza una inserción en batch de las notification deliveries.
-func (r *mysqlRepository) BatchSaveNewNotificationDeliveries(nd []NotificationDelivery) error {
+func (r *pgRepository) BatchSaveNewNotificationDeliveries(nd []NotificationDelivery) error {
 	if len(nd) == 0 {
 		return nil
 	}
 
-	// Suponiendo que la tabla se llama notification_deliveries y tiene las columnas: to_account_id, noti_id, title, message
-	query := "INSERT INTO notification_deliveries (to_account_id, noti_id, title, message) VALUES "
-	values := []string{}
-	args := []interface{}{}
-
-	for _, delivery := range nd {
-		values = append(values, "(?, ?, ?, ?)")
-		args = append(args, delivery.ToAccountID, delivery.NotiID, delivery.Title, delivery.Message)
-	}
-
-	// Combinar los valores y ejecutar la consulta
-	query = query + strings.Join(values, ",")
-	_, err := r.db.Exec(query, args...)
+	// Usar una transacción para insertar en batch de manera eficiente
+	tx, err := r.db.Begin()
 	if err != nil {
-		log.Printf("Error durante batch insert en BatchSaveNewNotificationDeliveries: %v", err)
+		log.Printf("Error starting transaction: %v", err)
 		return err
 	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`INSERT INTO notification_deliveries (to_account_id, noti_id, title, message) VALUES ($1, $2, $3, $4)`)
+	if err != nil {
+		log.Printf("Error preparing statement: %v", err)
+		return err
+	}
+	defer stmt.Close()
+
+	for _, delivery := range nd {
+		_, err := stmt.Exec(delivery.ToAccountID, delivery.NotiID, delivery.Title, delivery.Message)
+		if err != nil {
+			log.Printf("Error executing statement for delivery: %v", err)
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		return err
+	}
+
 	return nil
 }
 
 // SaveNotificationDelivery guarda una sola notification delivery
-func (r *mysqlRepository) SaveNotificationDelivery(nd NotificationDelivery) error {
-	query := "INSERT INTO notification_deliveries (to_account_id, noti_id, title, message) VALUES (?, ?, ?, ?)"
+func (r *pgRepository) SaveNotificationDelivery(nd NotificationDelivery) error {
+	query := "INSERT INTO notification_deliveries (to_account_id, noti_id, title, message) VALUES ($1, $2, $3, $4)"
 	_, err := r.db.Exec(query, nd.ToAccountID, nd.NotiID, nd.Title, nd.Message)
 	if err != nil {
 		log.Printf("Error saving individual notification delivery: %v", err)
@@ -94,8 +104,8 @@ func (r *mysqlRepository) SaveNotificationDelivery(nd NotificationDelivery) erro
 	return nil
 }
 
-func (r *mysqlRepository) UpdateNotificationAsProcessed(notiID int64) error {
-	query := "UPDATE notifications SET must_be_processed = 0 WHERE noti_id = ?"
+func (r *pgRepository) UpdateNotificationAsProcessed(notiID int64) error {
+	query := "UPDATE notifications SET must_be_processed = 0 WHERE noti_id = $1"
 	_, err := r.db.Exec(query, notiID)
 	if err != nil {
 		log.Printf("Error actualizando notificación (ID: %d) como procesada: %v", notiID, err)
@@ -103,16 +113,16 @@ func (r *mysqlRepository) UpdateNotificationAsProcessed(notiID int64) error {
 	return err
 }
 
-func (r *mysqlRepository) GetProcessWelcomeToAppAccounts(n Notification) ([]Account, error) {
+func (r *pgRepository) GetProcessWelcomeToAppAccounts(n Notification) ([]Account, error) {
 	var accounts []Account
 
 	// Suponiendo que para la notificación 'welcome_to_app' se quieren obtener todas las cuentas
 	// excepto el dueño (podrías ajustar la condición según la lógica del negocio).
 	query := `
-	SELECT 
-		a.account_id, a.email, a.nickname, COALESCE(a.thumbnail_url, '') as thumbnail_url 
-	FROM account a 
-	WHERE a.account_id != ?`
+	SELECT
+		a.account_id, a.email, a.nickname, COALESCE(a.thumbnail_url, '') as thumbnail_url
+	FROM account a
+	WHERE a.account_id != $1`
 	rows, err := r.db.Query(query, n.AccountID)
 	if err != nil {
 		log.Printf("Error ejecutando query GetProcessWelcomeToAppAccounts: %v", err)
@@ -132,6 +142,6 @@ func (r *mysqlRepository) GetProcessWelcomeToAppAccounts(n Notification) ([]Acco
 }
 
 // GetDB returns the database connection
-func (r *mysqlRepository) GetDB() *sql.DB {
+func (r *pgRepository) GetDB() *sql.DB {
 	return r.db
 }

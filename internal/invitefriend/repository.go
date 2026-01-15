@@ -9,15 +9,15 @@ type Repository interface {
 	Save(invitation Invitation) error
 }
 
-type mysqlRepository struct {
+type pgRepository struct {
 	db *sql.DB
 }
 
 func NewRepository(db *sql.DB) Repository {
-	return &mysqlRepository{db: db}
+	return &pgRepository{db: db}
 }
 
-func (r *mysqlRepository) Save(invitation Invitation) error {
+func (r *pgRepository) Save(invitation Invitation) error {
 	err := common.SaveScore(r.db, invitation.AccountID, 20)
 	return err
 }

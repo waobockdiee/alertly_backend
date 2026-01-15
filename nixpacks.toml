@@ -1,9 +1,10 @@
 # Railway/Nixpacks configuration
-# This tells Railway to only build the main application package
-# and ignore test/debug files in the root directory
+
+[phases.setup]
+nixPkgs = ["libwebp"]
 
 [phases.build]
-cmds = ["go build -o out ./cmd/app"]
+cmds = ["go build -ldflags=\"-w -s\" -o out ./cmd/app"]
 
 [start]
 cmd = "./out"

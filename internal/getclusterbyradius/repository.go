@@ -47,8 +47,8 @@ func (r *pgRepository) GetClustersByRadius(inputs Inputs) ([]Cluster, error) {
 			ST_MakePoint(t1.center_longitude, t1.center_latitude),
 			ST_MakePoint($5, $6)
 		  ) <= $7
-		  AND t1.start_time <= $8 + INTERVAL '1 day'
-		  AND t1.end_time >= $9
+		  AND t1.start_time <= $8::date + INTERVAL '1 day'
+		  AND t1.end_time >= $9::date
 		  AND ($10 = 0 OR t1.insu_id = $11)
 		  AND t1.is_active = 1
 	`

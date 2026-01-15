@@ -37,7 +37,7 @@ func (r *pgRepository) GetDeviceTokensForAccount(accountID int64) ([]string, err
 }
 
 /*
-actualiza is_active = false, esto quiere decir que ya pasaron 48 horas y el incidente ya no se mostrara en el mapa.
+actualiza is_active = '0', esto quiere decir que ya pasaron 48 horas y el incidente ya no se mostrara en el mapa.
 credibilidad actualizada del usuario al asignarla a la columna credibility
 credibilidad_usuario = (credibilidad_usuario * 0.8) + (credibilidad_cluster * 0.2)
 */
@@ -45,13 +45,13 @@ func (r *pgRepository) SetClusterToInactiveAndSetAccountScore() error {
 	query := `
 	UPDATE incident_clusters ic
 	SET
-		is_active = false
+		is_active = '0'
 	FROM incident_reports ir
 	JOIN account a ON a.account_id = ir.account_id
 	WHERE
 		ir.incl_id = ic.incl_id
 		AND EXTRACT(EPOCH FROM (NOW() - ic.created_at))/3600 > 48
-		AND ic.is_active = true;
+		AND ic.is_active = '1';
 
 	UPDATE account a
 	SET
@@ -61,7 +61,7 @@ func (r *pgRepository) SetClusterToInactiveAndSetAccountScore() error {
 	WHERE
 		a.account_id = ir.account_id
 		AND EXTRACT(EPOCH FROM (NOW() - ic.created_at))/3600 > 48
-		AND ic.is_active = true;
+		AND ic.is_active = '1';
 	`
 	_, err := r.db.Exec(query)
 

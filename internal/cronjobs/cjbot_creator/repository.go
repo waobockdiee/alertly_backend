@@ -287,7 +287,7 @@ func (r *Repository) CheckClusterExists(categoryCode string, lat, lng float64, r
 			ST_MakePoint($2, $3)
 		) <= $4
 		AND created_at >= NOW() - INTERVAL '1 hour' * $5
-		AND is_active = true
+		AND is_active = '1'
 		ORDER BY created_at DESC
 		LIMIT 1
 	`

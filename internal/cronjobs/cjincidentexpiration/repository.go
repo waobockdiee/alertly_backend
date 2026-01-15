@@ -48,7 +48,7 @@ func (r *pgRepository) GetExpiredClusters() ([]ExpiredCluster, error) {
 		JOIN
 			incident_subcategories AS isu ON ic.insu_id = isu.insu_id
 		WHERE
-			ic.is_active = true
+			ic.is_active = '1'
 			AND NOW() >= ic.created_at + (isu.default_duration_hours || ' hours')::INTERVAL;
 	`
 	rows, err := r.db.Query(query)
@@ -118,7 +118,7 @@ func (r *pgRepository) UpdateUserStats(accountID int64, scoreChange float64, cre
 func (r *pgRepository) MarkClusterProcessed(clusterID int64) error {
 	query := `
 		UPDATE incident_clusters
-		SET is_active = false
+		SET is_active = '0'
 		WHERE incl_id = $1;
 	`
 	_, err := r.db.Exec(query, clusterID)

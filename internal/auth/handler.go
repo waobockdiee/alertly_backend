@@ -49,7 +49,9 @@ func SignIn(c *gin.Context) {
 		"user":  user,
 	}
 
-	emails.SendTemplate(user.Email, "New login detected on your Alertly account", "new_login", nil)
+	// Enviar email de notificación en background (no bloquea la respuesta)
+	go emails.SendTemplate(user.Email, "New login detected on your Alertly account", "new_login", nil)
+
 	response.Send(c, http.StatusOK, false, "Success", loginResponse)
 }
 

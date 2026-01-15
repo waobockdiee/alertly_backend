@@ -65,9 +65,18 @@ func (s *service) AuthenticateUser(email, password string) (User, error) {
 		return User{}, errors.New("invalid credentials")
 	}
 
-	// Verificar que la cuenta esté activada
-	if user.Status != "active" {
+	// Verificar estado de la cuenta
+	switch user.Status {
+	case "active":
+		// OK, continuar con login
+	case "pending_activation":
 		return User{}, errors.New("your account is not activated yet. Please check your email for the activation code")
+	case "inactive":
+		return User{}, errors.New("your account has been deactivated. Please contact support at support@alertly.ca")
+	case "blocked":
+		return User{}, errors.New("your account has been suspended. Please contact support at support@alertly.ca")
+	default:
+		return User{}, errors.New("invalid account status. Please contact support at support@alertly.ca")
 	}
 
 	return user, nil

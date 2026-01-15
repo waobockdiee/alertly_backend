@@ -2,6 +2,7 @@ package auth
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -26,6 +27,12 @@ func (r *mysqlRepository) GetUserByEmail(email string) (User, error) {
 	row := r.db.QueryRow(query, email)
 	var user User
 	err := row.Scan(&user.AccountID, &user.Email, &user.Password, &user.PhoneNumber, &user.FirstName, &user.LastName, &user.Status, &user.IsPremium, &user.HasFinishedTutorial)
+
+	// Normalizar error para no exponer detalles de implementación SQL
+	if err == sql.ErrNoRows {
+		return User{}, errors.New("invalid credentials")
+	}
+
 	return user, err
 }
 

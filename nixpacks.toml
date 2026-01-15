@@ -1,7 +1,7 @@
 # Railway/Nixpacks configuration
 
 [phases.setup]
-nixPkgs = ["libwebp"]
+nixPkgs = ["go", "libwebp"]
 
 [phases.build]
 cmds = ["go build -ldflags=\"-w -s\" -o out ./cmd/app"]

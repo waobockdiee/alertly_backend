@@ -49,8 +49,8 @@ func (r *pgRepository) GetClustersByRadius(inputs Inputs) ([]Cluster, error) {
 		  ) <= $7
 		  AND t1.start_time <= $8::date + INTERVAL '1 day'
 		  AND t1.end_time >= $9::date
-		  AND ($10 = 0 OR t1.insu_id = $11)
-		  AND t1.is_active = 1
+		  AND ($10::integer = 0 OR t1.insu_id = $11::integer)
+		  AND t1.is_active = true
 	`
 
 	params := []interface{}{

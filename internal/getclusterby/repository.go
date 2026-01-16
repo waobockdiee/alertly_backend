@@ -110,18 +110,18 @@ func (r *pgRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly bo
             r.is_anonymous,
             r.subcategory_name,
             a.account_id,
-            CASE WHEN r.is_anonymous THEN '' ELSE a.nickname END as nickname,
-            CASE WHEN r.is_anonymous THEN '' ELSE a.first_name END as first_name,
-            CASE WHEN r.is_anonymous THEN '' ELSE a.last_name END as last_name,
+            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE a.nickname END as nickname,
+            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE a.first_name END as first_name,
+            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE a.last_name END as last_name,
             a.is_private_profile,
-            CASE WHEN r.is_anonymous THEN '' ELSE COALESCE(a.thumbnail_url, '') END as thumbnail_url,
-            CASE WHEN r.is_anonymous THEN 0 ELSE COALESCE(a.score, 0) END as score,
+            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE COALESCE(a.thumbnail_url, '') END as thumbnail_url,
+            CASE WHEN TRIM(r.is_anonymous) = '1' THEN 0 ELSE COALESCE(a.score, 0) END as score,
             r.created_at,
             r.incl_id,
             r.status
         FROM incident_reports r
         INNER JOIN account a ON r.account_id = a.account_id
-        WHERE r.incl_id = $1 AND r.is_active = '1'
+        WHERE r.incl_id = $1 AND TRIM(r.is_active) = '1'
         ORDER BY r.created_at DESC
         LIMIT 50
     `
@@ -297,12 +297,12 @@ func (r *pgRepository) createClusterFromIndividualIncident(inclId int64, activeO
             r.is_anonymous,
             r.subcategory_name,
             a.account_id,
-            CASE WHEN r.is_anonymous THEN '' ELSE a.nickname END as nickname,
-            CASE WHEN r.is_anonymous THEN '' ELSE a.first_name END as first_name,
-            CASE WHEN r.is_anonymous THEN '' ELSE a.last_name END as last_name,
+            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE a.nickname END as nickname,
+            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE a.first_name END as first_name,
+            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE a.last_name END as last_name,
             a.is_private_profile,
-            CASE WHEN r.is_anonymous THEN '' ELSE COALESCE(a.thumbnail_url, '') END as thumbnail_url,
-            CASE WHEN r.is_anonymous THEN 0 ELSE COALESCE(a.score, 0) END as score,
+            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE COALESCE(a.thumbnail_url, '') END as thumbnail_url,
+            CASE WHEN TRIM(r.is_anonymous) = '1' THEN 0 ELSE COALESCE(a.score, 0) END as score,
             r.created_at,
             r.incl_id,
             r.status

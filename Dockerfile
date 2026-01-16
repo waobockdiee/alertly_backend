@@ -32,6 +32,9 @@ RUN apt-get update && apt-get install -y \
 # Copy binary from builder
 COPY --from=builder /app/out .
 
+# Copy email templates
+COPY --from=builder /app/internal/emails/templates ./internal/emails/templates
+
 EXPOSE 8080
 
 CMD ["./out"]

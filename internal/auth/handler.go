@@ -30,11 +30,14 @@ func SignIn(c *gin.Context) {
 	service := NewService(repo)
 
 	// Autentica al usuario
+	log.Printf("🔐 [SIGNIN] Attempting login for email: %s", req.Email)
 	user, err := service.AuthenticateUser(req.Email, req.Password)
 	if err != nil {
+		log.Printf("❌ [SIGNIN] Authentication failed for %s: %v", req.Email, err)
 		response.Send(c, http.StatusUnauthorized, true, "Invalid credentials", err.Error())
 		return
 	}
+	log.Printf("✅ [SIGNIN] Authentication successful for %s (account_id: %d, status: %s)", req.Email, user.AccountID, user.Status)
 
 	// Genera el token de sesión
 	tokenResp, err := service.GenerateSessionToken(user)

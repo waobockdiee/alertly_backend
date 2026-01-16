@@ -59,11 +59,15 @@ func (s *service) GenerateSessionToken(user User) (TokenResponse, error) {
 func (s *service) AuthenticateUser(email, password string) (User, error) {
 	user, err := s.repo.GetUserByEmail(email)
 	if err != nil {
+		fmt.Printf("❌ [AUTH-SVC] GetUserByEmail failed: %v\n", err)
 		return User{}, err
 	}
+	fmt.Printf("🔑 [AUTH-SVC] Comparing password for %s (hash starts with: %s...)\n", email, user.Password[:10])
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+		fmt.Printf("❌ [AUTH-SVC] Password mismatch for %s: %v\n", email, err)
 		return User{}, errors.New("invalid credentials")
 	}
+	fmt.Printf("✅ [AUTH-SVC] Password matches for %s\n", email)
 
 	// Verificar estado de la cuenta
 	switch user.Status {

@@ -30,10 +30,16 @@ func (r *pgRepository) GetUserByEmail(email string) (User, error) {
 
 	// Normalizar error para no exponer detalles de implementación SQL
 	if err == sql.ErrNoRows {
+		fmt.Printf("❌ [AUTH-REPO] User not found in database: %s\n", email)
 		return User{}, errors.New("invalid credentials")
 	}
+	if err != nil {
+		fmt.Printf("❌ [AUTH-REPO] Database error for %s: %v\n", email, err)
+		return User{}, err
+	}
 
-	return user, err
+	fmt.Printf("✅ [AUTH-REPO] User found: %s (id: %d, status: %s, password_hash_len: %d)\n", email, user.AccountID, user.Status, len(user.Password))
+	return user, nil
 }
 
 func (r *pgRepository) GetUserById(accountID int64) (PasswordMatch, error) {

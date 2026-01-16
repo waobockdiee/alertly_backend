@@ -2,6 +2,7 @@ package getclusterby
 
 import (
 	"alertly/internal/common"
+	"alertly/internal/dbtypes"
 	"database/sql"
 	"fmt"
 	"log"
@@ -78,15 +79,17 @@ func (r *pgRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly bo
   `, activeFilter)
 
 	var cluster Cluster
+	var isActive dbtypes.NullBool
 	err := r.db.QueryRow(clusterQuery, inclId).Scan(
 		&cluster.InclId, &cluster.Address, &cluster.CenterLatitude, &cluster.CenterLongitude,
 		&cluster.City, &cluster.CounterTotalComments, &cluster.CounterTotalFlags, &cluster.CounterTotalViews,
 		&cluster.CounterTotalVotes, &cluster.CounterTotalVotesTrue, &cluster.CounterTotalVotesFalse,
 		&cluster.CreatedAt, &cluster.Description, &cluster.EndTime, &cluster.EventType, &cluster.IncidentCount,
-		&cluster.IsActive, &cluster.InsuId, &cluster.MediaType, &cluster.MediaUrl, &cluster.PostalCode,
+		&isActive, &cluster.InsuId, &cluster.MediaType, &cluster.MediaUrl, &cluster.PostalCode,
 		&cluster.Province, &cluster.StartTime, &cluster.SubcategoryName, &cluster.CategoryCode,
 		&cluster.SubcategoryCode, &cluster.Credibility, &cluster.AccountId,
 	)
+	cluster.IsActive = isActive.Valid && isActive.Bool
 
 	if err != nil {
 		// ✅ FALLBACK: Si no hay cluster, intentar crear uno temporal desde incident_report

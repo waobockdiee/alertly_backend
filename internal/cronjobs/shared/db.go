@@ -8,6 +8,18 @@ import (
 	"time"
 )
 
+// generatePgPlaceholders creates PostgreSQL-style placeholders ($1, $2, ..., $n)
+func generatePgPlaceholders(count int) string {
+	if count == 0 {
+		return ""
+	}
+	placeholders := make([]string, count)
+	for i := 0; i < count; i++ {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+	}
+	return strings.Join(placeholders, ",")
+}
+
 // Delivery representa un registro en la tabla notification_deliveries.
 // Esta struct se puede mover a un paquete de modelo si es necesario.
 type Delivery struct {
@@ -27,7 +39,7 @@ func MarkItemsAsProcessed(db *sql.DB, tableName string, idColumn string, ids []i
 	defer cancel()
 
 	// Crear placeholders para los IDs
-	placeholders := strings.Repeat("?,", len(ids)-1) + "?"
+	placeholders := generatePgPlaceholders(len(ids))
 
 	// Construir la consulta dinámicamente
 	query := fmt.Sprintf(
@@ -58,9 +70,12 @@ func InsertDeliveries(db *sql.DB, deliveries []Delivery) error {
 	var args []interface{}
 	now := time.Now()
 
+	paramIndex := 1
 	for _, d := range deliveries {
-		placeholders = append(placeholders, "(?,?,?,?,?)")
+		placeholders = append(placeholders, fmt.Sprintf("($%d,$%d,$%d,$%d,$%d)",
+			paramIndex, paramIndex+1, paramIndex+2, paramIndex+3, paramIndex+4))
 		args = append(args, d.NotificationID, d.AccountID, d.Title, d.Message, now)
+		paramIndex += 5
 	}
 
 	query := base + strings.Join(placeholders, ",")
@@ -71,7 +86,7 @@ func InsertDeliveries(db *sql.DB, deliveries []Delivery) error {
 // GetDeviceTokensForAccount returns all device tokens for a given account
 func GetDeviceTokensForAccount(db *sql.DB, accountID int64) ([]string, error) {
 	rows, err := db.Query(
-		`SELECT device_token FROM device_tokens WHERE account_id = ?`,
+		`SELECT device_token FROM device_tokens WHERE account_id = $1`,
 		accountID,
 	)
 	if err != nil {

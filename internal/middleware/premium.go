@@ -40,7 +40,7 @@ func PremiumMiddleware(db *sql.DB) gin.HandlerFunc {
 		query := `
 			SELECT is_premium, premium_expired_date
 			FROM account
-			WHERE account_id = ?
+			WHERE account_id = $1
 		`
 
 		err := db.QueryRow(query, accountID).Scan(&isPremium, &premiumExpiresAt)

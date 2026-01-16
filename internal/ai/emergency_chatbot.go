@@ -222,11 +222,11 @@ func (ec *EmergencyChatbot) generateResponse(analysis MessageAnalysis, context m
 // storeConversation stores the conversation in the database
 func (ec *EmergencyChatbot) storeConversation(userID int64, userMessage, botResponse, category, priority string) error {
 	query := `
-		INSERT INTO emergency_chatbot_conversations 
-		(user_id, user_message, bot_response, category, priority, created_at) 
-		VALUES (?, ?, ?, ?, ?, NOW())
+		INSERT INTO emergency_chatbot_conversations
+		(user_id, user_message, bot_response, category, priority, created_at)
+		VALUES ($1, $2, $3, $4, $5, NOW())
 	`
-	
+
 	_, err := ec.db.Exec(query, userID, userMessage, botResponse, category, priority)
 	return err
 }
@@ -234,7 +234,7 @@ func (ec *EmergencyChatbot) storeConversation(userID int64, userMessage, botResp
 // GetConversationHistory retrieves conversation history for a user
 func (ec *EmergencyChatbot) GetConversationHistory(userID int64, limit int) ([]ChatMessage, error) {
 	query := `
-		SELECT 
+		SELECT
 			message_id,
 			user_id,
 			user_message as message,
@@ -242,10 +242,10 @@ func (ec *EmergencyChatbot) GetConversationHistory(userID int64, limit int) ([]C
 			created_at as timestamp,
 			category,
 			priority
-		FROM emergency_chatbot_conversations 
-		WHERE user_id = ?
+		FROM emergency_chatbot_conversations
+		WHERE user_id = $1
 		UNION ALL
-		SELECT 
+		SELECT
 			message_id,
 			user_id,
 			bot_response as message,
@@ -253,12 +253,12 @@ func (ec *EmergencyChatbot) GetConversationHistory(userID int64, limit int) ([]C
 			created_at as timestamp,
 			category,
 			priority
-		FROM emergency_chatbot_conversations 
-		WHERE user_id = ?
+		FROM emergency_chatbot_conversations
+		WHERE user_id = $2
 		ORDER BY timestamp DESC
-		LIMIT ?
+		LIMIT $3
 	`
-	
+
 	rows, err := ec.db.Query(query, userID, userID, limit)
 	if err != nil {
 		return nil, err

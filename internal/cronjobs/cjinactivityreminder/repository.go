@@ -69,10 +69,10 @@ func (r *Repository) FetchPending(limit int, lastID int64) ([]Notification, erro
           FROM notifications n
           JOIN device_tokens dt ON n.owner_account_id = dt.account_id
          WHERE n.must_be_processed = 1
-           AND n.type = ?
-           AND n.noti_id > ?
+           AND n.type = $1
+           AND n.noti_id > $2
          ORDER BY n.noti_id
-         LIMIT ?`
+         LIMIT $3`
 
 	rows, err := r.db.QueryContext(ctx, sqlQuery, inactivityType, lastID, limit)
 	if err != nil {

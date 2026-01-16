@@ -57,7 +57,7 @@ func (r *Repository) BlockUser(accountID int64) error {
 	query := `
         UPDATE account
         SET status = 'blocked'
-        WHERE account_id = ?
+        WHERE account_id = $1
     `
 	_, err := r.db.Exec(query, accountID)
 	if err != nil {

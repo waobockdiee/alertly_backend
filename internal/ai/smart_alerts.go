@@ -240,10 +240,10 @@ func (sas *SmartAlertSystem) getUserProfile(userID int64) (UserProfile, error) {
 			credibility,
 			counter_total_incidents_created,
 			last_incident_date
-		FROM account 
-		WHERE account_id = ?
+		FROM account
+		WHERE account_id = $1
 	`
-	
+
 	var profile UserProfile
 	err := sas.db.QueryRow(query, userID).Scan(
 		&profile.UserID,
@@ -264,15 +264,15 @@ func (sas *SmartAlertSystem) getUserProfile(userID int64) (UserProfile, error) {
 
 func (sas *SmartAlertSystem) getFavoriteLocations(userID int64) ([]Location, error) {
 	query := `
-		SELECT 
+		SELECT
 			title,
 			latitude,
 			longitude,
 			radius
-		FROM account_favorite_locations 
-		WHERE account_id = ?
+		FROM account_favorite_locations
+		WHERE account_id = $1
 	`
-	
+
 	rows, err := sas.db.Query(query, userID)
 	if err != nil {
 		return nil, err
@@ -294,14 +294,14 @@ func (sas *SmartAlertSystem) getFavoriteLocations(userID int64) ([]Location, err
 
 func (sas *SmartAlertSystem) analyzeUserPatterns(userID int64) (UserPatterns, error) {
 	query := `
-		SELECT 
+		SELECT
 			COUNT(*) as report_count,
 			MAX(created_at) as last_report
-		FROM incident_reports 
-		WHERE account_id = ? 
-		AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+		FROM incident_reports
+		WHERE account_id = $1
+		AND created_at >= NOW() - INTERVAL '30 days'
 	`
-	
+
 	var patterns UserPatterns
 	err := sas.db.QueryRow(query, userID).Scan(&patterns.ReportFrequency, &patterns.LastReportDate)
 	if err != nil {
@@ -322,10 +322,10 @@ func (sas *SmartAlertSystem) calculateSafetyScore(userID int64) (float64, error)
 
 func (sas *SmartAlertSystem) getPreferredCategories(userID int64) ([]string, error) {
 	query := `
-		SELECT DISTINCT category_code 
-		FROM incident_reports 
-		WHERE account_id = ? 
-		ORDER BY COUNT(*) DESC 
+		SELECT DISTINCT category_code
+		FROM incident_reports
+		WHERE account_id = $1
+		ORDER BY COUNT(*) DESC
 		LIMIT 5
 	`
 	

@@ -104,9 +104,9 @@ func (s *PremiumExpirationService) expirePremiumAccount(accountID int64, email s
 
 	// 1. Update account to set is_premium = 0
 	updateAccountQuery := `
-		UPDATE account 
-		SET is_premium = 0, premium_expired_date = NULL 
-		WHERE account_id = ?
+		UPDATE account
+		SET is_premium = 0, premium_expired_date = NULL
+		WHERE account_id = $1
 	`
 	_, err = tx.Exec(updateAccountQuery, accountID)
 	if err != nil {
@@ -115,9 +115,9 @@ func (s *PremiumExpirationService) expirePremiumAccount(accountID int64, email s
 
 	// 2. Log the expiration in payment history
 	insertHistoryQuery := `
-		INSERT INTO account_premium_payment_history 
-		(account_id, type_plan, description, created) 
-		VALUES (?, ?, ?, NOW())
+		INSERT INTO account_premium_payment_history
+		(account_id, type_plan, description, created)
+		VALUES ($1, $2, $3, NOW())
 	`
 	description := "Premium subscription expired automatically by system cronjob"
 	_, err = tx.Exec(insertHistoryQuery, accountID, "free", description)

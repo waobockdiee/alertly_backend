@@ -7,6 +7,18 @@ import (
 	"strings"
 )
 
+// generatePgPlaceholders creates PostgreSQL-style placeholders ($1, $2, ..., $n)
+func generatePgPlaceholders(count int) string {
+	if count == 0 {
+		return ""
+	}
+	placeholders := make([]string, count)
+	for i := 0; i < count; i++ {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+	}
+	return strings.Join(placeholders, ",")
+}
+
 // Repository encapsula el acceso a la base de datos para el cronjob de comentarios.
 type Repository struct {
 	db *sql.DB
@@ -24,7 +36,7 @@ func (r *Repository) FetchPendingCommentNotifications(limit int64) ([]CommentNot
         FROM notifications
         WHERE type = 'new_comment' AND must_be_processed = 1
         ORDER BY created_at
-        LIMIT ?
+        LIMIT $1
     `
 	rows, err := r.db.Query(query, limit)
 	if err != nil {
@@ -53,7 +65,7 @@ func (r *Repository) GetCommentDetails(commentID int64) (*CommentDetails, error)
         JOIN
             incident_clusters ic ON inc.incl_id = ic.incl_id
         WHERE
-            inc.inco_id = ?
+            inc.inco_id = $1
     `
 	var cd CommentDetails
 	err := r.db.QueryRow(query, commentID).Scan(&cd.CommentID, &cd.ClusterID, &cd.CommentText, &cd.CommenterID, &cd.SubcategoryName)
@@ -71,7 +83,7 @@ func (r *Repository) GetIncidentCreators(clusterID int64) ([]int64, error) {
 	query := `
         SELECT DISTINCT account_id
         FROM incident_reports
-        WHERE incl_id = ?
+        WHERE incl_id = $1
     `
 	rows, err := r.db.Query(query, clusterID)
 	if err != nil {
@@ -95,7 +107,7 @@ func (r *Repository) GetSavedClusterUsers(clusterID int64) ([]int64, error) {
 	query := `
         SELECT account_id
         FROM account_cluster_saved
-        WHERE incl_id = ?
+        WHERE incl_id = $1
     `
 	rows, err := r.db.Query(query, clusterID)
 	if err != nil {
@@ -120,7 +132,7 @@ func (r *Repository) GetDeviceTokensForAccounts(accountIDs []int64) ([]Recipient
 		return nil, nil
 	}
 	// Construir placeholders para la cláusula IN
-	placeholders := strings.Repeat("?,", len(accountIDs)-1) + "?"
+	placeholders := generatePgPlaceholders(len(accountIDs))
 	query := fmt.Sprintf(`
         SELECT dt.account_id, dt.device_token
         FROM device_tokens dt

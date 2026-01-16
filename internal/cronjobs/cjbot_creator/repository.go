@@ -366,7 +366,7 @@ func (r *Repository) CreateCluster(incident NormalizedIncident, insuID int64) (i
 // getSubcategoryDuration retrieves duration for a subcategory (defaults to 24h)
 func (r *Repository) getSubcategoryDuration(subcategoryCode string) int {
 	var duration int
-	query := `SELECT duration_hours FROM incident_subcategories WHERE code = $1`
+	query := `SELECT default_duration_hours FROM incident_subcategories WHERE code = $1`
 	err := r.db.QueryRow(query, subcategoryCode).Scan(&duration)
 	if err != nil || duration < 24 {
 		return 24 // Default minimum

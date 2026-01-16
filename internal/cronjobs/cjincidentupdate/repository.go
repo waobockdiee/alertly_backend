@@ -7,6 +7,18 @@ import (
 	"strings"
 )
 
+// generatePgPlaceholders creates PostgreSQL-style placeholders ($1, $2, ..., $n)
+func generatePgPlaceholders(count int) string {
+	if count == 0 {
+		return ""
+	}
+	placeholders := make([]string, count)
+	for i := 0; i < count; i++ {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+	}
+	return strings.Join(placeholders, ",")
+}
+
 // Repository encapsula el acceso a la base de datos para el cronjob de updates de incidentes.
 type Repository struct {
 	db *sql.DB
@@ -24,7 +36,7 @@ func (r *Repository) FetchPendingIncidentUpdateNotifications(limit int64) ([]Inc
         FROM notifications
         WHERE type = 'new_incident_cluster' AND must_be_processed = 1
         ORDER BY created_at
-        LIMIT ?
+        LIMIT $1
     `
 	rows, err := r.db.Query(query, limit)
 	if err != nil {
@@ -51,7 +63,7 @@ func (r *Repository) GetClusterDetails(clusterID int64) (*ClusterDetails, error)
         FROM
             incident_clusters
         WHERE
-            incl_id = ?
+            incl_id = $1
     `
 	var cd ClusterDetails
 	err := r.db.QueryRow(query, clusterID).Scan(&cd.ClusterID, &cd.SubcategoryName, &cd.Description, &cd.City, &cd.ReporterID)
@@ -69,7 +81,7 @@ func (r *Repository) GetIncidentCreators(clusterID int64) ([]int64, error) {
 	query := `
         SELECT DISTINCT account_id
         FROM incident_reports
-        WHERE incl_id = ?
+        WHERE incl_id = $1
     `
 	rows, err := r.db.Query(query, clusterID)
 	if err != nil {
@@ -93,7 +105,7 @@ func (r *Repository) GetSavedClusterUsers(clusterID int64) ([]int64, error) {
 	query := `
         SELECT account_id
         FROM account_cluster_saved
-        WHERE incl_id = ?
+        WHERE incl_id = $1
     `
 	rows, err := r.db.Query(query, clusterID)
 	if err != nil {
@@ -118,16 +130,16 @@ func (r *Repository) GetDeviceTokensForAccounts(accountIDs []int64) ([]Recipient
 		return nil, nil
 	}
 	// Construir placeholders para la cláusula IN
-	placeholders := strings.Repeat("?,", len(accountIDs)-1) + "?"
+	placeholders := generatePgPlaceholders(len(accountIDs))
 	query := fmt.Sprintf(`
         SELECT dt.account_id, dt.device_token
         FROM device_tokens dt
         JOIN account a ON dt.account_id = a.account_id
-        WHERE dt.account_id IN (%s) 
-            AND a.status = 'active' 
+        WHERE dt.account_id IN (%s)
+            AND a.status = 'active'
             AND a.is_premium = 1
             AND a.receive_notifications = 1
-            AND dt.device_token IS NOT NULL 
+            AND dt.device_token IS NOT NULL
             AND dt.device_token != ''
     `, placeholders)
 

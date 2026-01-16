@@ -57,7 +57,7 @@ func (r *Repository) RejectIncident(incidentID int64) error {
 	query := `
         UPDATE incident_reports
         SET status = 'rejected'
-        WHERE inre_id = ?
+        WHERE inre_id = $1
     `
 	_, err := r.db.Exec(query, incidentID)
 	if err != nil {

@@ -42,12 +42,13 @@ func (r *pgRepository) GetClustersByLocation(inputs Inputs) ([]Cluster, error) {
 		inputs.InsuID, inputs.InsuID,
 	}
 
-	// ✅ CORRECCIÓN: Agregar categorías antes del ORDER BY
+	// ✅ CORRECCIÓN: Agregar categorías antes del ORDER BY con numeración consecutiva
 	if inputs.Categories != "" {
 		cats := strings.Split(inputs.Categories, ",")
 		placeholders := make([]string, len(cats))
+		startIdx := len(params) + 1 // $9 is the starting index
 		for i := range cats {
-			placeholders[i] = fmt.Sprintf("$%d", len(params)+i+1)
+			placeholders[i] = fmt.Sprintf("$%d", startIdx+i)
 			params = append(params, strings.TrimSpace(cats[i]))
 		}
 		query += " AND t1.category_code IN (" + strings.Join(placeholders, ",") + ")"

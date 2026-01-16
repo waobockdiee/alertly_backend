@@ -19,7 +19,7 @@ Comentado porque aun no esta definida la logica final y esta me esta dando un er
 */
 func SaveNotification(dbExec DBExecutor, nType string, accountID int64, referenceID int64, customContent ...string) error {
 	query := `INSERT INTO notifications(owner_account_id, title, message, type, link, must_send_as_notification_push, must_send_as_notification, must_be_processed, error_message, reference_id)
-	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 	n := HandleNotification(nType, accountID, referenceID, customContent...)
 
 	// DEBUG: Log notification details

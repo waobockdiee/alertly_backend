@@ -1,54 +1,11 @@
-package common
+package dbtypes
 
 import (
-	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 )
-
-type NullTime struct {
-	sql.NullTime
-}
-
-func (nt *NullTime) UnmarshalJSON(b []byte) error {
-	// Si el valor es null
-	if string(b) == "null" {
-		nt.Valid = false
-		return nil
-	}
-
-	// Remover comillas
-	var s string
-	if err := json.Unmarshal(b, &s); err != nil {
-		return err
-	}
-
-	// Intentar con fracciones de segundo
-	layout := "2006-01-02 15:04:05.000000"
-	t, err := time.Parse(layout, s)
-	if err != nil {
-		// Si falla, probar sin fracciones
-		layout = "2006-01-02 15:04:05"
-		t, err = time.Parse(layout, s)
-		if err != nil {
-			return err
-		}
-	}
-	nt.Time = t
-	nt.Valid = true
-	return nil
-}
-
-// MarshalJSON implementa la serialización JSON para NullTime
-func (nt *NullTime) MarshalJSON() ([]byte, error) {
-	if !nt.Valid {
-		return []byte("null"), nil
-	}
-	return json.Marshal(nt.Time.Format("2006-01-02T15:04:05Z07:00"))
-}
 
 // NullBool es un tipo que maneja booleanos en PostgreSQL que pueden ser:
 // - BOOLEAN (true/false)
@@ -137,9 +94,7 @@ func (nb NullBool) MarshalJSON() ([]byte, error) {
 }
 
 // BoolToInt convierte un bool a int para insertar en columnas SMALLINT de PostgreSQL
-// Uso: db.Exec("INSERT ... VALUES ($1)", common.BoolToInt(myBool))
-// NOTA: Esta función también está disponible en alertly/internal/dbtypes
-// para evitar ciclos de importación. Usa dbtypes.BoolToInt en repositories.
+// Uso: db.Exec("INSERT ... VALUES ($1)", dbtypes.BoolToInt(myBool))
 func BoolToInt(b bool) int {
 	if b {
 		return 1

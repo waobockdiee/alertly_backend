@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"log"
 	"time"
+
+	"alertly/internal/dbtypes"
 )
 
 type Repository interface {
@@ -30,12 +32,31 @@ func NewRepository(db *sql.DB) Repository {
 func (r *pgRepository) GetMyInfo(accountID int64) (MyInfo, error) {
 	var myInfo MyInfo
 
+	// Usar NullBool para campos booleanos que pueden ser SMALLINT/CHAR/BOOLEAN
+	var isPremium, hasFinishedTutorial dbtypes.NullBool
+
 	query := `SELECT account_id, email, is_premium, status, has_finished_tutorial FROM account WHERE account_id = $1`
-	err := r.db.QueryRow(query, accountID).Scan(&myInfo.AccountID, &myInfo.Email, &myInfo.IsPremium, &myInfo.Status, &myInfo.HasFinishedTutorial)
+	err := r.db.QueryRow(query, accountID).Scan(
+		&myInfo.AccountID,
+		&myInfo.Email,
+		&isPremium,
+		&myInfo.Status,
+		&hasFinishedTutorial,
+	)
 
 	if err != nil {
 		log.Printf("Error fetching MyInfo for account ID %d: %v", accountID, err)
 		return myInfo, err
+	}
+
+	// Convertir NullBool a bool
+	myInfo.IsPremium = isPremium.Valid && isPremium.Bool
+
+	// HasFinishedTutorial es string en el modelo (legacy)
+	if hasFinishedTutorial.Valid && hasFinishedTutorial.Bool {
+		myInfo.HasFinishedTutorial = "1"
+	} else {
+		myInfo.HasFinishedTutorial = "0"
 	}
 
 	return myInfo, nil
@@ -258,10 +279,11 @@ func (r *pgRepository) SaveLastRequest(AccountID int64, ip string) error {
 	return err
 }
 func (r *pgRepository) SetHasFinishedTutorial(accountID int64) error {
-	query := "UPDATE account SET has_finished_tutorial = 1 WHERE account_id = $1"
-	_, err := r.db.Exec(query, accountID)
+	// Usar dbtypes.BoolToInt para insertar en columnas SMALLINT
+	query := "UPDATE account SET has_finished_tutorial = $1 WHERE account_id = $2"
+	_, err := r.db.Exec(query, dbtypes.BoolToInt(true), accountID)
 	if err != nil {
-		log.Printf("Error actualizando notificación (ID: %d) como procesada: %v", accountID, err)
+		log.Printf("Error actualizando has_finished_tutorial (ID: %d): %v", accountID, err)
 	}
 	return err
 }

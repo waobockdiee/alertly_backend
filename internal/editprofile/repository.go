@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+
+	"alertly/internal/dbtypes"
 )
 
 type Repository interface {
@@ -57,6 +59,9 @@ func (r *pgRepository) GetAccountByID(accountID int64) (Account, error) {
 
 	var account Account
 
+	// Usar NullBool para campos booleanos que pueden ser SMALLINT/CHAR/BOOLEAN
+	var canUpdateNickname, canUpdateFullName, canUpdateBirthDate, canUpdateEmail, receiveNotifications dbtypes.NullBool
+
 	err := row.Scan(
 		&account.AccountID,
 		&account.Email,
@@ -64,15 +69,15 @@ func (r *pgRepository) GetAccountByID(accountID int64) (Account, error) {
 		&account.LastName,
 		&account.NickName,
 		&account.Password,
-		&account.CanUpdateNickname,
-		&account.CanUpdateFullName,
-		&account.CanUpdateBirthDate,
+		&canUpdateNickname,
+		&canUpdateFullName,
+		&canUpdateBirthDate,
 		&account.BirthYear,
 		&account.BirthMonth,
 		&account.BirthDay,
-		&account.CanUpdateEmail,
+		&canUpdateEmail,
 		&account.ThumbnailURL,
-		&account.ReceiveNotifications,
+		&receiveNotifications,
 		&account.Status,
 	)
 
@@ -80,6 +85,13 @@ func (r *pgRepository) GetAccountByID(accountID int64) (Account, error) {
 		log.Printf("Error scanning account data for ID %d: %v", accountID, err)
 		return account, err
 	}
+
+	// Convertir NullBool a bool
+	account.CanUpdateNickname = canUpdateNickname.Valid && canUpdateNickname.Bool
+	account.CanUpdateFullName = canUpdateFullName.Valid && canUpdateFullName.Bool
+	account.CanUpdateBirthDate = canUpdateBirthDate.Valid && canUpdateBirthDate.Bool
+	account.CanUpdateEmail = canUpdateEmail.Valid && canUpdateEmail.Bool
+	account.ReceiveNotifications = receiveNotifications.Valid && receiveNotifications.Bool
 
 	return account, nil
 }
@@ -117,8 +129,8 @@ func (r *pgRepository) UpdateEmail(accountID int64, email string) error {
 
 	log.Printf("account_id: %v", accountID)
 	log.Printf("email: %v", email)
-	query := `UPDATE account SET email = $1, can_update_email = 0 WHERE account_id = $2`
-	res, err := r.db.Exec(query, email, accountID)
+	query := `UPDATE account SET email = $1, can_update_email = $2 WHERE account_id = $3`
+	res, err := r.db.Exec(query, email, dbtypes.BoolToInt(false), accountID)
 
 	if err != nil {
 		log.Printf("Error: %v", err)
@@ -165,8 +177,8 @@ func (r *pgRepository) UpdatePassword(accountID int64, password string) error {
 }
 
 func (r *pgRepository) UpdateNickname(accountID int64, nickname string) error {
-	query := `UPDATE account SET nickname = $1, can_update_nickname = 0 WHERE account_id = $2 AND can_update_nickname = 1`
-	_, err := r.db.Exec(query, nickname, accountID)
+	query := `UPDATE account SET nickname = $1, can_update_nickname = $2 WHERE account_id = $3 AND can_update_nickname = $4`
+	_, err := r.db.Exec(query, nickname, dbtypes.BoolToInt(false), accountID, dbtypes.BoolToInt(true))
 
 	if err != nil {
 		log.Printf("Error: %v", err)
@@ -190,8 +202,8 @@ func (r *pgRepository) UpdateFullName(accountID int64, firstName, lastName strin
 	fmt.Println("account_id", accountID)
 	fmt.Println("first_name", firstName)
 	fmt.Println("first_name", lastName)
-	query := `UPDATE account SET first_name = $1, last_name = $2, can_update_fullname = 0 WHERE account_id = $3 AND can_update_fullname = 1`
-	_, err := r.db.Exec(query, firstName, lastName, accountID)
+	query := `UPDATE account SET first_name = $1, last_name = $2, can_update_fullname = $3 WHERE account_id = $4 AND can_update_fullname = $5`
+	_, err := r.db.Exec(query, firstName, lastName, dbtypes.BoolToInt(false), accountID, dbtypes.BoolToInt(true))
 
 	if err != nil {
 		log.Printf("Error: %v", err)
@@ -214,8 +226,8 @@ func (r *pgRepository) UpdateIsPrivateProfile(accountID int64, isPrivateProfile 
 
 
 func (r *pgRepository) UpdateBirthDate(accountID int64, year, month, day string) error {
-	query := `UPDATE account SET birth_year = $1, birth_month = $2, birth_day = $3, can_update_birthdate = 0 WHERE account_id = $4 AND can_update_birthdate = 1`
-	_, err := r.db.Exec(query, year, month, day, accountID)
+	query := `UPDATE account SET birth_year = $1, birth_month = $2, birth_day = $3, can_update_birthdate = $4 WHERE account_id = $5 AND can_update_birthdate = $6`
+	_, err := r.db.Exec(query, year, month, day, dbtypes.BoolToInt(false), accountID, dbtypes.BoolToInt(true))
 
 	if err != nil {
 		log.Printf("Error: %v", err)

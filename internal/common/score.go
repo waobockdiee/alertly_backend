@@ -1,6 +1,7 @@
 package common
 
 import (
+	"alertly/internal/dbtypes"
 	"fmt"
 )
 
@@ -28,19 +29,17 @@ func saveScoreNotification(dbExec DBExecutor, accountID int64, score uint8) erro
 	title := fmt.Sprintf("Congratulations! You've Earned %d Citizen Points.", score)
 	message := "Keep contributing to your community!"
 
-	// Insertar notificación
+	// Insertar notificación con RETURNING para PostgreSQL (LastInsertId no funciona en pq)
+	// Convertir bool a int (0/1) para SMALLINT columns
 	notiQuery := `INSERT INTO notifications(owner_account_id, title, message, type, link, must_send_as_notification_push, must_send_as_notification, must_be_processed, reference_id, created_at)
-				  VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`
+				  VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING noti_id`
 
-	result, err := dbExec.Exec(notiQuery, accountID, title, message, "earn_citizen_score", "ProfileScreen", false, true, false, score)
+	var notiID int64
+	err := dbExec.(interface {
+		QueryRow(query string, args ...interface{}) interface{ Scan(dest ...interface{}) error }
+	}).QueryRow(notiQuery, accountID, title, message, "earn_citizen_score", "ProfileScreen", dbtypes.BoolToInt(false), dbtypes.BoolToInt(true), dbtypes.BoolToInt(false), score).Scan(&notiID)
 	if err != nil {
 		return fmt.Errorf("failed to create notification: %w", err)
-	}
-
-	// Obtener ID de la notificación creada
-	notiID, err := result.LastInsertId()
-	if err != nil {
-		return fmt.Errorf("failed to get notification ID: %w", err)
 	}
 
 	// Crear delivery inmediatamente para el usuario (para que aparezca en /notifications)

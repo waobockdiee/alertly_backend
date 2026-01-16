@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"alertly/internal/dbtypes"
 )
 
 type Repository interface {
@@ -26,7 +28,21 @@ func (r *pgRepository) GetUserByEmail(email string) (User, error) {
 	`
 	row := r.db.QueryRow(query, email)
 	var user User
-	err := row.Scan(&user.AccountID, &user.Email, &user.Password, &user.PhoneNumber, &user.FirstName, &user.LastName, &user.Status, &user.IsPremium, &user.HasFinishedTutorial)
+
+	// Usar NullBool para escanear columnas booleanas que pueden ser SMALLINT/CHAR/BOOLEAN
+	var isPremium, hasFinishedTutorial dbtypes.NullBool
+
+	err := row.Scan(
+		&user.AccountID,
+		&user.Email,
+		&user.Password,
+		&user.PhoneNumber,
+		&user.FirstName,
+		&user.LastName,
+		&user.Status,
+		&isPremium,
+		&hasFinishedTutorial,
+	)
 
 	// Normalizar error para no exponer detalles de implementación SQL
 	if err == sql.ErrNoRows {
@@ -37,6 +53,10 @@ func (r *pgRepository) GetUserByEmail(email string) (User, error) {
 		fmt.Printf("❌ [AUTH-REPO] Database error for %s: %v\n", email, err)
 		return User{}, err
 	}
+
+	// Convertir NullBool a bool (si es NULL, usar false por defecto)
+	user.IsPremium = isPremium.Valid && isPremium.Bool
+	user.HasFinishedTutorial = hasFinishedTutorial.Valid && hasFinishedTutorial.Bool
 
 	fmt.Printf("✅ [AUTH-REPO] User found: %s (id: %d, status: %s, password_hash_len: %d)\n", email, user.AccountID, user.Status, len(user.Password))
 	return user, nil

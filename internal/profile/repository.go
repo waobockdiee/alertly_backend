@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+
+	"alertly/internal/dbtypes"
 )
 
 type Repository interface {
@@ -87,6 +89,9 @@ func (r *pgRepository) GetById(accountID int64) (Profile, error) {
 	var stc Profile
 	var rawIncidents string
 
+	// Usar NullBool para campos booleanos que pueden ser SMALLINT/CHAR/BOOLEAN
+	var isPrivateProfile, isPremium, hasFinishedTutorial, hasWatchNewIncidentTutorial dbtypes.NullBool
+
 	err := r.db.QueryRow(query, accountID).Scan(
 		&stc.AccountID,
 		&stc.Nickname,
@@ -95,9 +100,9 @@ func (r *pgRepository) GetById(accountID int64) (Profile, error) {
 		&stc.PhoneNumber,
 		&stc.Status,
 		&stc.Credibility,
-		&stc.IsPrivateProfile,
+		&isPrivateProfile,
 		&stc.Score,
-		&stc.IsPremium,
+		&isPremium,
 		&stc.CounterTotalIncidentsCreated,
 		&stc.CounterTotalVotesMade,
 		&stc.CounterTotalCommentsMade,
@@ -107,8 +112,8 @@ func (r *pgRepository) GetById(accountID int64) (Profile, error) {
 		&stc.BirthYear,
 		&stc.BirthMonth,
 		&stc.BirthDay,
-		&stc.HasFinishedTutorial,
-		&stc.HasWatchNewIncidentTutorial,
+		&hasFinishedTutorial,
+		&hasWatchNewIncidentTutorial,
 		&stc.ThumbnailUrl,
 		&stc.Crime,
 		&stc.TrafficAccident,
@@ -128,6 +133,12 @@ func (r *pgRepository) GetById(accountID int64) (Profile, error) {
 	if err != nil {
 		return Profile{}, fmt.Errorf("error scanning row: %w", err)
 	}
+
+	// Convertir NullBool a bool
+	stc.IsPrivateProfile = isPrivateProfile.Valid && isPrivateProfile.Bool
+	stc.IsPremium = isPremium.Valid && isPremium.Bool
+	stc.HasFinishedTutorial = hasFinishedTutorial.Valid && hasFinishedTutorial.Bool
+	stc.HasWatchNewIncidentTutorial = hasWatchNewIncidentTutorial.Valid && hasWatchNewIncidentTutorial.Bool
 
 	if rawIncidents == "" {
 		stc.Incidents = []Incident{}

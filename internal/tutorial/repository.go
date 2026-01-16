@@ -1,6 +1,10 @@
 package tutorial
 
-import "database/sql"
+import (
+	"database/sql"
+
+	"alertly/internal/dbtypes"
+)
 
 type Repository interface {
 	MarkTutorialAsFinished(accountID int64) error
@@ -15,7 +19,8 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *pgRepository) MarkTutorialAsFinished(accountID int64) error {
-	query := `UPDATE account SET has_finished_tutorial = 1 WHERE account_id = $1`
-	_, err := r.db.Exec(query, accountID)
+	// Usar dbtypes.BoolToInt para insertar en columnas SMALLINT
+	query := `UPDATE account SET has_finished_tutorial = $1 WHERE account_id = $2`
+	_, err := r.db.Exec(query, dbtypes.BoolToInt(true), accountID)
 	return err
 }

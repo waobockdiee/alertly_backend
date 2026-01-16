@@ -3,8 +3,8 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -13,7 +13,7 @@ import (
 func ExecuteSQLFile(db *sql.DB, filePath string) error {
 	log.Printf("📄 Reading SQL file: %s", filePath)
 	
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("error reading file %s: %v", filePath, err)
 	}
@@ -73,17 +73,18 @@ func ExecuteSQLFile(db *sql.DB, filePath string) error {
 // InitializeSchema creates the necessary tables and initial data from SQL files
 func InitializeSchema(db *sql.DB) error {
 	log.Println("🔧 Initializing database schema from SQL files...")
-	
-	// First, ensure we're using the correct database
-	_, err := db.Exec("CREATE DATABASE IF NOT EXISTS alertly DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
+
+	// PostgreSQL: Database is already selected via connection string
+	// No need for CREATE DATABASE or USE statements
+	// The connection is already established to the correct database
+
+	// Verify connection is working
+	var result int
+	err := db.QueryRow("SELECT 1").Scan(&result)
 	if err != nil {
-		log.Printf("⚠️ Could not create database: %v", err)
+		return fmt.Errorf("error verifying database connection: %v", err)
 	}
-	
-	_, err = db.Exec("USE alertly")
-	if err != nil {
-		return fmt.Errorf("error selecting database: %v", err)
-	}
+	log.Println("✅ Database connection verified")
 	
 	// Define the paths to SQL files
 	// These paths are relative to where the binary runs
@@ -103,7 +104,7 @@ func InitializeSchema(db *sql.DB) error {
 		testInsertsPath := filepath.Join(path, "inserts.sql")
 		
 		// Check if files exist at this path
-		if _, err := ioutil.ReadFile(testSchemaPath); err == nil {
+		if _, err := os.ReadFile(testSchemaPath); err == nil {
 			schemaPath = testSchemaPath
 			insertsPath = testInsertsPath
 			break
@@ -145,33 +146,34 @@ func InitializeSchema(db *sql.DB) error {
 }
 
 // createMinimalSchema creates just the essential tables to get the app running
+// PostgreSQL version
 func createMinimalSchema(db *sql.DB) error {
-	log.Println("🔧 Creating minimal schema...")
-	
+	log.Println("🔧 Creating minimal schema (PostgreSQL)...")
+
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS incident_categories (
-			incca_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+			incca_id SERIAL PRIMARY KEY,
 			name VARCHAR(45) NOT NULL,
 			icon VARCHAR(45) NULL,
 			color VARCHAR(7) NULL,
 			created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			PRIMARY KEY (incca_id)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-		
+			updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+
 		`CREATE TABLE IF NOT EXISTS incident_subcategories (
-			incsu_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-			incca_id INT UNSIGNED NOT NULL,
+			incsu_id SERIAL PRIMARY KEY,
+			incca_id INTEGER NOT NULL,
 			name VARCHAR(100) NOT NULL,
 			description TEXT NULL,
 			created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			PRIMARY KEY (incsu_id),
-			KEY fk_subcategory_category_idx (incca_id)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-		
-		// Insert basic categories if empty
-		`INSERT IGNORE INTO incident_categories (incca_id, name, icon, color) VALUES
+			updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create index for subcategories
+		`CREATE INDEX IF NOT EXISTS fk_subcategory_category_idx ON incident_subcategories (incca_id)`,
+
+		// Insert basic categories if empty (ON CONFLICT DO NOTHING = PostgreSQL's INSERT IGNORE)
+		`INSERT INTO incident_categories (incca_id, name, icon, color) VALUES
 			(1, 'Traffic', 'car', '#FF5722'),
 			(2, 'Crime', 'shield', '#F44336'),
 			(3, 'Fire', 'fire', '#FF9800'),
@@ -179,9 +181,10 @@ func createMinimalSchema(db *sql.DB) error {
 			(5, 'Weather', 'cloud', '#2196F3'),
 			(6, 'Infrastructure', 'build', '#9C27B0'),
 			(7, 'Community', 'people', '#00BCD4'),
-			(8, 'Other', 'help', '#607D8B')`,
-		
-		`INSERT IGNORE INTO incident_subcategories (incca_id, name, description) VALUES
+			(8, 'Other', 'help', '#607D8B')
+		ON CONFLICT (incca_id) DO NOTHING`,
+
+		`INSERT INTO incident_subcategories (incca_id, name, description) VALUES
 			(1, 'Accident', 'Vehicle collision or accident'),
 			(1, 'Traffic Jam', 'Heavy traffic congestion'),
 			(2, 'Theft', 'Robbery or theft incident'),
@@ -190,48 +193,44 @@ func createMinimalSchema(db *sql.DB) error {
 			(5, 'Severe Weather', 'Dangerous weather conditions'),
 			(6, 'Power Outage', 'Electricity outage'),
 			(7, 'Lost Pet', 'Missing pet'),
-			(8, 'Other Incident', 'Other type of incident')`,
+			(8, 'Other Incident', 'Other type of incident')
+		ON CONFLICT DO NOTHING`,
 	}
-	
+
 	for _, query := range queries {
 		if _, err := db.Exec(query); err != nil {
-			log.Printf("⚠️ Error executing query: %v", err)
+			// Log but continue - tables may already exist with data
+			log.Printf("⚠️ Error executing query (may be normal): %v", err)
 		}
 	}
-	
+
 	log.Println("✅ Minimal schema created")
 	return nil
 }
 
 // CheckAndInitDatabase checks if tables exist and creates them if needed
+// PostgreSQL version
 func CheckAndInitDatabase(db *sql.DB) error {
-	// First ensure we're using the right database
-	_, err := db.Exec("USE alertly")
-	if err != nil {
-		log.Printf("⚠️ Database 'alertly' might not exist, creating it...")
-		if err := InitializeSchema(db); err != nil {
-			return err
-		}
-		return nil
-	}
-	
-	// Check if incident_categories table exists
+	// PostgreSQL: Database is already selected via connection string
+	// No need for USE statement
+
+	// Check if incident_categories table exists in the public schema
 	var tableName string
-	err = db.QueryRow(`
-		SELECT table_name 
-		FROM information_schema.tables 
-		WHERE table_schema = 'alertly' 
+	err := db.QueryRow(`
+		SELECT table_name
+		FROM information_schema.tables
+		WHERE table_schema = 'public'
 		AND table_name = 'incident_categories'
 		LIMIT 1
 	`).Scan(&tableName)
-	
+
 	if err == sql.ErrNoRows {
 		log.Println("📦 Tables not found, initializing database...")
 		return InitializeSchema(db)
 	} else if err != nil {
 		return fmt.Errorf("error checking tables: %v", err)
 	}
-	
+
 	// Check if tables have data
 	var count int
 	err = db.QueryRow("SELECT COUNT(*) FROM incident_categories").Scan(&count)
@@ -239,7 +238,7 @@ func CheckAndInitDatabase(db *sql.DB) error {
 		log.Println("📦 Tables exist but are empty, initializing data...")
 		return InitializeSchema(db)
 	}
-	
+
 	log.Printf("✅ Database ready with %d categories", count)
 	return nil
 }

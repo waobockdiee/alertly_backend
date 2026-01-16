@@ -45,7 +45,7 @@ func (r *Repository) GenerateInactivityNotifications() error {
              FROM account_session_history
              GROUP BY account_id
           ) ash ON a.account_id = ash.account_id
-         WHERE ash.last_login <= NOW() - INTERVAL '%d' DAY
+         WHERE ash.last_login <= NOW() - INTERVAL '%d days'
            AND NOT EXISTS (
              SELECT 1 FROM notifications n
               WHERE n.owner_account_id = a.account_id

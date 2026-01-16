@@ -152,7 +152,7 @@ func (s *PremiumExpirationService) GetPremiumExpirationStats() (map[string]inter
 		SELECT COUNT(*) FROM account 
 		WHERE is_premium = 1 
 		AND premium_expired_date IS NOT NULL 
-		AND premium_expired_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 7 DAY)
+		AND premium_expired_date BETWEEN NOW() AND NOW() + INTERVAL '7 days'
 	`
 	err = s.db.QueryRow(expiringQuery).Scan(&expiringSoon)
 	if err != nil {
@@ -187,7 +187,7 @@ func (s *PremiumExpirationService) SendExpirationWarnings() error {
 		FROM account 
 		WHERE is_premium = 1 
 		AND premium_expired_date IS NOT NULL 
-		AND premium_expired_date BETWEEN DATE_ADD(NOW(), INTERVAL 2 DAY) AND DATE_ADD(NOW(), INTERVAL 4 DAY)
+		AND premium_expired_date BETWEEN NOW() + INTERVAL '2 days' AND NOW() + INTERVAL '4 days'
 	`
 
 	rows, err := s.db.Query(warningQuery)

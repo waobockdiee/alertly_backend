@@ -15,6 +15,7 @@ type Service interface {
 	processWelcomeToApp(n Notification) error
 	processBadgeEarned(n Notification) error
 	processIncidentResult(n Notification) error
+	processNewCluster(n Notification) error
 }
 
 type service struct {
@@ -49,6 +50,8 @@ func (s *service) ProcessNotifications() {
 					err = s.processBadgeEarned(n)
 				case "incident_result_win", "incident_result_loss":
 					err = s.processIncidentResult(n)
+				case "new_cluster", "new_incident_cluster":
+					err = s.processNewCluster(n)
 				default:
 					log.Printf("Acción no definida para el tipo de notificación: %s", n.Type)
 				}
@@ -218,5 +221,63 @@ func (s *service) processIncidentResult(n Notification) error {
 	}
 
 	log.Printf("Successfully processed incident_result notification ID %d for account %d", n.NotiID, n.AccountID)
+	return nil
+}
+
+func (s *service) processNewCluster(n Notification) error {
+	// new_cluster y new_incident_cluster notifican sobre nuevos incidentes/actualizaciones
+	// Envía push al owner y guarda delivery para notificación in-app
+
+	// Obtener device tokens del usuario
+	deviceTokens, err := shared.GetDeviceTokensForAccount(s.repo.GetDB(), n.AccountID)
+	if err != nil {
+		log.Printf("new_cluster: Error getting device tokens for account %d: %v", n.AccountID, err)
+	}
+
+	// Enviar push notification con screen ViewIncidentScreen + inclId
+	pushData := map[string]interface{}{
+		"screen": "ViewIncidentScreen",
+		"inclId": fmt.Sprintf("%d", n.ReferenceID),
+	}
+
+	for _, token := range deviceTokens {
+		err := common.SendPush(
+			common.ExpoPushMessage{
+				Title: n.Title,
+				Body:  n.Message,
+				Data:  pushData,
+			},
+			token,
+			payload.NewPayload().
+				AlertTitle(n.Title).
+				AlertBody(n.Message).
+				Custom("screen", "ViewIncidentScreen").
+				Custom("inclId", n.ReferenceID),
+		)
+		if err != nil {
+			log.Printf("new_cluster: Error sending push to token %s: %v", token[:20], err)
+		} else {
+			log.Printf("✅ new_cluster push sent to account %d for cluster %d", n.AccountID, n.ReferenceID)
+		}
+	}
+
+	delivery := NotificationDelivery{
+		ToAccountID: n.AccountID,
+		NotiID:      n.NotiID,
+		Title:       n.Title,
+		Message:     n.Message,
+	}
+
+	if err := s.repo.SaveNotificationDelivery(delivery); err != nil {
+		log.Printf("Error saving notification delivery for new_cluster ID %d: %v", n.NotiID, err)
+		return err
+	}
+
+	if err := s.repo.UpdateNotificationAsProcessed(n.NotiID); err != nil {
+		log.Printf("Error marcando processed new_cluster noti %d: %v", n.NotiID, err)
+		return err
+	}
+
+	log.Printf("Successfully processed new_cluster notification ID %d for account %d", n.NotiID, n.AccountID)
 	return nil
 }

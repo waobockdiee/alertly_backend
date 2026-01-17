@@ -71,7 +71,7 @@ func (r *pgRepository) GetById(accountID int64) (Profile, error) {
 					'subcategory_name', COALESCE(i.subcategory_name, ''),
 					'credibility', COALESCE(ic.credibility, 0),
 					'incl_id', i.incl_id,
-					'is_anonymous', CAST(COALESCE(i.is_anonymous, 0) AS TEXT),
+					'is_anonymous', COALESCE(CAST(i.is_anonymous AS TEXT), '0'),
 					'created_at', i.created_at
 					) ORDER BY i.created_at DESC
 				)

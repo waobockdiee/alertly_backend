@@ -2,6 +2,7 @@ package newincident
 
 import (
 	"alertly/internal/common"
+	"alertly/internal/dbtypes"
 	"database/sql"
 	"fmt"
 )
@@ -81,7 +82,7 @@ func (r *pgRepository) Save(incident IncidentReport) (int64, error) {
 		incident.Latitude,
 		incident.Longitude,
 		incident.SubCategoryName,
-		incident.IsAnonymous,
+		dbtypes.BoolToInt(incident.IsAnonymous),
 		incident.Media.Uri,
 		incident.SubcategoryCode,
 		incident.CategoryCode,

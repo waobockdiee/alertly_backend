@@ -41,7 +41,7 @@ func (r *pgRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly bo
 	// 1. Query principal del cluster (más eficiente)
 	activeFilter := ""
 	if activeOnly {
-		activeFilter = "AND c.is_active = '1'"
+		activeFilter = "AND TRIM(c.is_active) = '1'"
 	}
 
 	clusterQuery := fmt.Sprintf(`

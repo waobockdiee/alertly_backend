@@ -1,0 +1,63 @@
+PostgreSQL Migration - Changed Files List
+==========================================
+
+Total Files Modified: 9
+
+1. internal/newincident/service.go
+   - Lines 76-80: Media type empty string validation
+   - Issue: CHECK constraint violation
+   - Fix: Default to "image" when media_type is empty
+
+2. internal/getclustersbylocation/repository.go
+   - Line 35: TRIM(t1.is_active) comparison
+   - Issue: CHAR(1) trailing spaces
+   - Fix: Added TRIM() wrapper
+
+3. internal/getclusterby/repository.go
+   - Line 44: TRIM(c.is_active) in activeFilter
+   - Line 124: TRIM(COALESCE(r.is_active, '0'))
+   - Issue: CHAR(1) trailing spaces
+   - Fix: Added TRIM() wrapper (2 instances)
+
+4. internal/cronjobs/cjincidentexpiration/repository.go
+   - Line 51: TRIM(ic.is_active)
+   - Issue: CHAR(1) trailing spaces
+   - Fix: Added TRIM() wrapper
+
+5. internal/getclusterbyradius/repository.go
+   - Line 53: TRIM(t1.is_active)
+   - Issue: CHAR(1) trailing spaces
+   - Fix: Added TRIM() wrapper
+
+6. internal/getincidentsasreels/repository.go
+   - Line 41: TRIM(c.is_active)
+   - Issue: CHAR(1) trailing spaces
+   - Fix: Added TRIM() wrapper
+
+7. internal/referrals/repository.go
+   - Lines 117, 402, 464, 483, 604: TRIM(is_active) comparisons
+   - Lines 314, 320, 350, 355: DATE() → ::date conversion
+   - Issue: CHAR(1) trailing spaces + MySQL DATE() function
+   - Fix: Added TRIM() wrapper (5 instances) + PostgreSQL cast syntax (4 instances)
+
+8. internal/cronjobs/cronjobs/repository.go
+   - Lines 54, 64: TRIM(ic.is_active)
+   - Issue: CHAR(1) trailing spaces
+   - Fix: Added TRIM() wrapper (2 instances)
+
+9. internal/cronjobs/cjbot_creator/repository.go
+   - Line 290: TRIM(is_active)
+   - Issue: CHAR(1) trailing spaces
+   - Fix: Added TRIM() wrapper
+
+==========================================
+Total Changes:
+- Media type fixes: 1
+- TRIM() additions: 15 instances across 8 files
+- DATE() conversions: 4 instances in 1 file
+==========================================
+
+Documentation Created:
+- POSTGRESQL_MIGRATION_FIXES.md (comprehensive guide)
+- MIGRATION_QUICK_REFERENCE.md (quick reference)
+- CHANGED_FILES.txt (this file)

@@ -48,7 +48,7 @@ func (r *pgRepository) GetExpiredClusters() ([]ExpiredCluster, error) {
 		JOIN
 			incident_subcategories AS isu ON ic.insu_id = isu.insu_id
 		WHERE
-			ic.is_active = '1'
+			TRIM(ic.is_active) = '1'
 			AND NOW() >= ic.created_at + (isu.default_duration_hours || ' hours')::INTERVAL;
 	`
 	rows, err := r.db.Query(query)

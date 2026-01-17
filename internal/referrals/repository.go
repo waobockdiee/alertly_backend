@@ -114,7 +114,7 @@ func (r *pgRepository) GetAllActiveInfluencers() ([]Influencer, error) {
 	query := `
 		SELECT id, web_influencer_id, referral_code, name, platform, is_active, created_at, updated_at
 		FROM influencers
-		WHERE is_active = '1'
+		WHERE TRIM(is_active) = '1'
 		ORDER BY created_at DESC
 	`
 	rows, err := r.db.Query(query)
@@ -311,13 +311,13 @@ func (r *pgRepository) GetCurrentMonthEarningsByCode(code string) (float64, erro
 func (r *pgRepository) GetDailyMetrics(code string, days int) ([]DailyMetric, error) {
 	query := `
 		SELECT
-			DATE(registered_at) as date,
+			registered_at::date as date,
 			COUNT(*) as registrations,
 			0 as premium_conversions,
 			SUM(earnings) as earnings
 		FROM referral_conversions
 		WHERE referral_code = $1 AND registered_at >= NOW() - INTERVAL '1 day' * $2
-		GROUP BY DATE(registered_at)
+		GROUP BY registered_at::date
 		ORDER BY date DESC
 	`
 	rows, err := r.db.Query(query, code, days)
@@ -347,12 +347,12 @@ func (r *pgRepository) GetDailyMetrics(code string, days int) ([]DailyMetric, er
 	// Ahora obtener premium conversions
 	query2 := `
 		SELECT
-			DATE(converted_at) as date,
+			converted_at::date as date,
 			COUNT(*) as premium_conversions,
 			SUM(commission) as commission
 		FROM referral_premium_conversions
 		WHERE referral_code = $1 AND converted_at >= NOW() - INTERVAL '1 day' * $2
-		GROUP BY DATE(converted_at)
+		GROUP BY converted_at::date
 	`
 	rows2, err := r.db.Query(query2, code, days)
 	if err != nil {
@@ -399,7 +399,7 @@ func (r *pgRepository) GetInfluencerRank(code string) (int, int, error) {
 		FROM influencers i
 		LEFT JOIN referral_conversions rc ON i.referral_code = rc.referral_code
 		LEFT JOIN referral_premium_conversions rpc ON i.referral_code = rpc.referral_code
-		WHERE i.is_active = '1'
+		WHERE TRIM(i.is_active) = '1'
 		GROUP BY i.referral_code
 		ORDER BY total_earnings DESC
 	`
@@ -461,7 +461,7 @@ func (r *pgRepository) GetTotalEarnings() (float64, error) {
 }
 
 func (r *pgRepository) GetActiveInfluencersCount() (int, error) {
-	query := `SELECT COUNT(*) FROM influencers WHERE is_active = '1'`
+	query := `SELECT COUNT(*) FROM influencers WHERE TRIM(is_active) = '1'`
 	var count int
 	err := r.db.QueryRow(query).Scan(&count)
 	return count, err
@@ -480,7 +480,7 @@ func (r *pgRepository) GetTopPerformers(limit int) ([]TopPerformer, error) {
 		FROM influencers i
 		LEFT JOIN referral_conversions rc ON i.referral_code = rc.referral_code
 		LEFT JOIN referral_premium_conversions rpc ON i.referral_code = rpc.referral_code
-		WHERE i.is_active = '1'
+		WHERE TRIM(i.is_active) = '1'
 		GROUP BY i.id, i.referral_code, i.name, i.platform
 		ORDER BY total_earnings DESC
 		LIMIT $1
@@ -601,7 +601,7 @@ func (r *pgRepository) GetPlatformBreakdown() (map[string]PlatformBreakdown, err
 			FROM influencers i
 			LEFT JOIN referral_conversions rc ON i.referral_code = rc.referral_code
 			LEFT JOIN referral_premium_conversions rpc ON i.referral_code = rpc.referral_code
-			WHERE i.platform = $1 AND i.is_active = '1'
+			WHERE i.platform = $1 AND TRIM(i.is_active) = '1'
 		`
 		var pb PlatformBreakdown
 		err := r.db.QueryRow(query, platform).Scan(

@@ -73,6 +73,12 @@ func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
 			now := time.Now().UTC()
 			end := now.Add(time.Duration(finalDurationHours) * time.Hour)
 
+			// ✅ FIX: Asegurar que media_type sea NULL si está vacío (no permitir empty string)
+			mediaType := incident.MediaType
+			if mediaType == "" {
+				mediaType = "image" // Default to image if not specified
+			}
+
 			cluster = Cluster{
 				AccountId:       incident.AccountId,
 				CreatedAt:       &now,
@@ -83,7 +89,7 @@ func (s *service) Save(incident IncidentReport) (IncidentReport, error) {
 				CenterLongitude: incident.Longitude,
 				InsuId:          incident.InsuId,
 				IsActive:        true, // Cluster activo por defecto
-				MediaType:       incident.MediaType,
+				MediaType:       mediaType,
 				EventType:       incident.EventType,
 				Description:     incident.Description,
 				Address:         addr, // Dirección temporal

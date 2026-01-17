@@ -1,0 +1,53 @@
+Fix PostgreSQL compatibility issues (MySQL to PostgreSQL migration)
+
+This commit addresses all PostgreSQL compatibility issues found during
+the MySQL to PostgreSQL migration. Three critical categories of issues
+were identified and resolved:
+
+1. CHECK Constraint Violation - Media Type
+   - Fixed empty string ("") being inserted into media_type column
+   - PostgreSQL CHECK constraint only allows 'image', 'video', or NULL
+   - Solution: Default to 'image' when media_type is empty
+   - File: internal/newincident/service.go
+
+2. CHAR(1) Boolean Comparisons with Trailing Spaces
+   - PostgreSQL CHAR(1) columns may contain trailing spaces (e.g., "1 ")
+   - Direct comparisons like `is_active = '1'` fail with "1 "
+   - Solution: Wrap all boolean comparisons with TRIM() function
+   - Files: 8 repository files (15 instances total)
+   - Pattern: `WHERE is_active = '1'` → `WHERE TRIM(is_active) = '1'`
+
+3. MySQL DATE() Function Incompatibility
+   - MySQL DATE() function doesn't exist in PostgreSQL
+   - Solution: Replace with PostgreSQL ::date cast syntax
+   - File: internal/referrals/repository.go (4 instances)
+   - Pattern: `DATE(registered_at)` → `registered_at::date`
+
+Files Modified (9 total):
+- internal/newincident/service.go
+- internal/getclustersbylocation/repository.go
+- internal/getclusterby/repository.go
+- internal/cronjobs/cjincidentexpiration/repository.go
+- internal/getclusterbyradius/repository.go
+- internal/getincidentsasreels/repository.go
+- internal/referrals/repository.go
+- internal/cronjobs/cronjobs/repository.go
+- internal/cronjobs/cjbot_creator/repository.go
+
+Breaking Changes: None (backward compatible with existing PostgreSQL data)
+Performance Impact: Minimal (TRIM() and ::date are fast operations)
+
+Tested:
+- New incident creation (with and without media)
+- Active cluster filtering queries
+- Referral daily metrics aggregation
+- Incident expiration cronjob
+
+Documentation:
+- POSTGRESQL_MIGRATION_FIXES.md (comprehensive guide)
+- MIGRATION_QUICK_REFERENCE.md (quick reference)
+- CHANGED_FILES.txt (file listing)
+
+Fixes #[issue-number]
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>

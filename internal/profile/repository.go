@@ -62,23 +62,26 @@ func (r *pgRepository) GetById(accountID int64) (Profile, error) {
 			a.incident_as_update,
 			COALESCE(
 				(
-				SELECT JSON_AGG(
-					JSON_BUILD_OBJECT(
-					'inre_id', i.inre_id,
-					'media_url', COALESCE(i.media_url, ''),
-					'description', COALESCE(i.description, ''),
-					'event_type', COALESCE(i.event_type, ''),
-					'subcategory_name', COALESCE(i.subcategory_name, ''),
-					'credibility', COALESCE(ic.credibility, 0),
-					'incl_id', i.incl_id,
-					'is_anonymous', COALESCE(CAST(i.is_anonymous AS TEXT), '0'),
-					'created_at', i.created_at
-					) ORDER BY i.created_at DESC
-				)
-				FROM incident_reports i
-				INNER JOIN incident_clusters ic
-					ON i.incl_id = ic.incl_id
-				WHERE i.account_id = a.account_id
+				SELECT JSON_AGG(sub.incident_data)
+				FROM (
+					SELECT JSON_BUILD_OBJECT(
+						'inre_id', i.inre_id,
+						'media_url', COALESCE(i.media_url, ''),
+						'description', COALESCE(i.description, ''),
+						'event_type', COALESCE(i.event_type, ''),
+						'subcategory_name', COALESCE(i.subcategory_name, ''),
+						'credibility', COALESCE(ic.credibility, 0),
+						'incl_id', i.incl_id,
+						'is_anonymous', COALESCE(CAST(i.is_anonymous AS TEXT), '0'),
+						'created_at', i.created_at
+					) AS incident_data
+					FROM incident_reports i
+					INNER JOIN incident_clusters ic
+						ON i.incl_id = ic.incl_id
+					WHERE i.account_id = a.account_id
+					ORDER BY i.created_at DESC
+					LIMIT 50
+				) sub
 				),
 				'[]'::json
 			) AS incidents
@@ -148,6 +151,10 @@ func (r *pgRepository) GetById(accountID int64) (Profile, error) {
 		}
 		stc.Incidents = incidents
 	}
+
+	// DEBUG: Log response size
+	fmt.Printf("📊 [Profile] AccountID=%d, Incidents=%d, RawIncidentsSize=%d bytes\n",
+		accountID, len(stc.Incidents), len(rawIncidents))
 
 	return stc, nil
 }

@@ -38,10 +38,32 @@ func (r *pgRepository) CheckAndGetIfClusterExist(incident IncidentReport) (Clust
 	fmt.Printf("🔍 [CheckCluster] Looking for cluster: insu_id=%d, category=%s, subcategory=%s, lat=%.6f, lng=%.6f, radius=%d\n",
 		incident.InsuId, incident.CategoryCode, incident.SubcategoryCode, incident.Latitude, incident.Longitude, incident.DefaultCircleRange)
 
+	// DEBUG: Check what clusters exist with same category/subcategory
+	debugQuery := `SELECT incl_id, is_active,
+		ST_DistanceSphere(ST_MakePoint(center_longitude, center_latitude), ST_MakePoint($1, $2)) as distance,
+		created_at, NOW() - created_at as age
+		FROM incident_clusters
+		WHERE category_code = $3 AND subcategory_code = $4
+		ORDER BY created_at DESC LIMIT 3`
+	debugRows, _ := r.db.Query(debugQuery, incident.Longitude, incident.Latitude, incident.CategoryCode, incident.SubcategoryCode)
+	if debugRows != nil {
+		defer debugRows.Close()
+		for debugRows.Next() {
+			var inclId int64
+			var isActive interface{}
+			var distance float64
+			var createdAt, age interface{}
+			debugRows.Scan(&inclId, &isActive, &distance, &createdAt, &age)
+			fmt.Printf("   📋 Existing cluster: incl_id=%d, is_active=%v, distance=%.2fm, created=%v, age=%v\n",
+				inclId, isActive, distance, createdAt, age)
+		}
+	}
+
+	// Cambié is_active = '1' a CAST para manejar SMALLINT/CHAR
 	query := `SELECT incl_id FROM incident_clusters WHERE insu_id = $1
 	  AND category_code = $2
 	  AND subcategory_code = $3
-	  AND is_active = '1'
+	  AND CAST(is_active AS TEXT) = '1'
 	  AND ST_DistanceSphere(
 		ST_MakePoint(center_longitude, center_latitude),
 		ST_MakePoint($4, $5)

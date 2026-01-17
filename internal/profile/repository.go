@@ -29,7 +29,7 @@ func (r *pgRepository) GetById(accountID int64) (Profile, error) {
 			a.nickname,
 			a.first_name,
 			a.last_name,
-			a.phone_number,
+			COALESCE(a.phone_number, '') as phone_number,
 			a.status,
 			a.credibility,
 			a.is_private_profile,

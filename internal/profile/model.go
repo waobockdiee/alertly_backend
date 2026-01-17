@@ -1,7 +1,5 @@
 package profile
 
-import "database/sql"
-
 type ProfileCard struct {
 	AccountID    int64  `json:"account_id"`
 	Nickname     string `json:"nickname"`
@@ -36,11 +34,11 @@ type AccountMedal struct {
 }
 
 type Profile struct {
-	AccountID                    int64          `json:"account_id"`
-	Nickname                     string         `json:"nickname"`
-	FirstName                    string         `json:"first_name"`
-	LastName                     string         `json:"last_name"`
-	PhoneNumber                  sql.NullString `json:"phone_number"`
+	AccountID                    int64  `json:"account_id"`
+	Nickname                     string `json:"nickname"`
+	FirstName                    string `json:"first_name"`
+	LastName                     string `json:"last_name"`
+	PhoneNumber                  string `json:"phone_number"`
 	Range                        Range          `json:"range"`
 	Status                       string         `json:"status"`
 	Credibility                  float32        `json:"credibility"`

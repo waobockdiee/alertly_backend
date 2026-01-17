@@ -32,7 +32,7 @@ func (r *pgRepository) GetClustersByLocation(inputs Inputs) ([]Cluster, error) {
           AND t1.start_time <= $5::date + INTERVAL '1 day'
           AND t1.end_time >= $6::date
           AND ($7::integer = 0 OR t1.insu_id = $8::integer)
-          AND TRIM(t1.is_active) = '1'
+          AND t1.is_active = 1
 	`
 	params := []interface{}{
 		inputs.MinLatitude, inputs.MaxLatitude,

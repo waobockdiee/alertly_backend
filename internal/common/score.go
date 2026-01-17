@@ -2,6 +2,7 @@ package common
 
 import (
 	"alertly/internal/dbtypes"
+	"database/sql"
 	"fmt"
 )
 
@@ -29,15 +30,19 @@ func saveScoreNotification(dbExec DBExecutor, accountID int64, score uint8) erro
 	title := fmt.Sprintf("Congratulations! You've Earned %d Citizen Points.", score)
 	message := "Keep contributing to your community!"
 
+	// Cast DBExecutor to *sql.DB to use QueryRow (PostgreSQL requires RETURNING + Scan)
+	db, ok := dbExec.(*sql.DB)
+	if !ok {
+		return fmt.Errorf("dbExec is not *sql.DB, cannot use QueryRow")
+	}
+
 	// Insertar notificación con RETURNING para PostgreSQL (LastInsertId no funciona en pq)
 	// Convertir bool a int (0/1) para SMALLINT columns
 	notiQuery := `INSERT INTO notifications(owner_account_id, title, message, type, link, must_send_as_notification_push, must_send_as_notification, must_be_processed, reference_id, created_at)
 				  VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING noti_id`
 
 	var notiID int64
-	err := dbExec.(interface {
-		QueryRow(query string, args ...interface{}) interface{ Scan(dest ...interface{}) error }
-	}).QueryRow(notiQuery, accountID, title, message, "earn_citizen_score", "ProfileScreen", dbtypes.BoolToInt(false), dbtypes.BoolToInt(true), dbtypes.BoolToInt(false), score).Scan(&notiID)
+	err := db.QueryRow(notiQuery, accountID, title, message, "earn_citizen_score", "ProfileScreen", dbtypes.BoolToInt(false), dbtypes.BoolToInt(true), dbtypes.BoolToInt(false), score).Scan(&notiID)
 	if err != nil {
 		return fmt.Errorf("failed to create notification: %w", err)
 	}
@@ -45,7 +50,7 @@ func saveScoreNotification(dbExec DBExecutor, accountID int64, score uint8) erro
 	// Crear delivery inmediatamente para el usuario (para que aparezca en /notifications)
 	deliveryQuery := `INSERT INTO notification_deliveries (noti_id, to_account_id, title, message, created_at)
 					  VALUES ($1, $2, $3, $4, NOW())`
-	_, err = dbExec.Exec(deliveryQuery, notiID, accountID, title, message)
+	_, err = db.Exec(deliveryQuery, notiID, accountID, title, message)
 	if err != nil {
 		return fmt.Errorf("failed to create notification delivery: %w", err)
 	}

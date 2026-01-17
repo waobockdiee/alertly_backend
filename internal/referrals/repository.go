@@ -120,7 +120,7 @@ func (r *pgRepository) GetAllActiveInfluencers() ([]Influencer, error) {
 	query := `
 		SELECT id, web_influencer_id, referral_code, name, platform, is_active, created_at, updated_at
 		FROM influencers
-		WHERE TRIM(is_active) = '1'
+		WHERE is_active = 1
 		ORDER BY created_at DESC
 	`
 	rows, err := r.db.Query(query)
@@ -407,7 +407,7 @@ func (r *pgRepository) GetInfluencerRank(code string) (int, int, error) {
 		FROM influencers i
 		LEFT JOIN referral_conversions rc ON i.referral_code = rc.referral_code
 		LEFT JOIN referral_premium_conversions rpc ON i.referral_code = rpc.referral_code
-		WHERE TRIM(i.is_active) = '1'
+		WHERE i.is_active = 1
 		GROUP BY i.referral_code
 		ORDER BY total_earnings DESC
 	`
@@ -469,7 +469,7 @@ func (r *pgRepository) GetTotalEarnings() (float64, error) {
 }
 
 func (r *pgRepository) GetActiveInfluencersCount() (int, error) {
-	query := `SELECT COUNT(*) FROM influencers WHERE TRIM(is_active) = '1'`
+	query := `SELECT COUNT(*) FROM influencers WHERE is_active = 1`
 	var count int
 	err := r.db.QueryRow(query).Scan(&count)
 	return count, err
@@ -488,7 +488,7 @@ func (r *pgRepository) GetTopPerformers(limit int) ([]TopPerformer, error) {
 		FROM influencers i
 		LEFT JOIN referral_conversions rc ON i.referral_code = rc.referral_code
 		LEFT JOIN referral_premium_conversions rpc ON i.referral_code = rpc.referral_code
-		WHERE TRIM(i.is_active) = '1'
+		WHERE i.is_active = 1
 		GROUP BY i.id, i.referral_code, i.name, i.platform
 		ORDER BY total_earnings DESC
 		LIMIT $1
@@ -609,7 +609,7 @@ func (r *pgRepository) GetPlatformBreakdown() (map[string]PlatformBreakdown, err
 			FROM influencers i
 			LEFT JOIN referral_conversions rc ON i.referral_code = rc.referral_code
 			LEFT JOIN referral_premium_conversions rpc ON i.referral_code = rpc.referral_code
-			WHERE i.platform = $1 AND TRIM(i.is_active) = '1'
+			WHERE i.platform = $1 AND i.is_active = 1
 		`
 		var pb PlatformBreakdown
 		err := r.db.QueryRow(query, platform).Scan(

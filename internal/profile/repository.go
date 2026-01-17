@@ -73,13 +73,12 @@ func (r *pgRepository) GetById(accountID int64) (Profile, error) {
 					'incl_id', i.incl_id,
 					'is_anonymous', i.is_anonymous,
 					'created_at', i.created_at
-					)
+					) ORDER BY i.created_at DESC
 				)
 				FROM incident_reports i
 				INNER JOIN incident_clusters ic
 					ON i.incl_id = ic.incl_id
 				WHERE i.account_id = a.account_id
-				ORDER BY i.created_at DESC
 				),
 				'[]'::json
 			) AS incidents

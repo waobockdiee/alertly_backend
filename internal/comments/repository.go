@@ -2,6 +2,7 @@ package comments
 
 import (
 	"alertly/internal/common"
+	"alertly/internal/dbtypes"
 	"database/sql"
 	"fmt"
 	"log"
@@ -73,19 +74,21 @@ func (r *pgRepository) GetClusterCommentsByID(inclID int64) ([]Comment, error) {
 
 	for rows.Next() {
 		var c Comment
+		var commentStatus dbtypes.NullBool
 
 		if err := rows.Scan(
 			&c.IncoID,
 			&c.AccountID,
 			&c.Comment,
 			&c.CreatedAt,
-			&c.CommentStatus,
+			&commentStatus,
 			&c.CounterFlags,
 			&c.Nickname,
 			&c.ThumbnailUrl,
 		); err != nil {
 			return nil, err
 		}
+		c.CommentStatus = commentStatus.Valid && commentStatus.Bool
 		comments = append(comments, c)
 	}
 
@@ -110,12 +113,13 @@ func (r *pgRepository) GetCommentById(incoID int64) (Comment, error) {
 	WHERE t1.inco_id = $1`
 
 	var c Comment
+	var commentStatus dbtypes.NullBool
 	err := r.db.QueryRow(query, incoID).Scan(
 		&c.IncoID,
 		&c.AccountID,
 		&c.Comment,
 		&c.CreatedAt,
-		&c.CommentStatus,
+		&commentStatus,
 		&c.CounterFlags,
 		&c.Nickname,
 		&c.ThumbnailUrl,
@@ -124,6 +128,7 @@ func (r *pgRepository) GetCommentById(incoID int64) (Comment, error) {
 	if err != nil {
 		return Comment{}, err
 	}
+	c.CommentStatus = commentStatus.Valid && commentStatus.Bool
 
 	return c, nil
 }

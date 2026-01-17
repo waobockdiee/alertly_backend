@@ -65,9 +65,10 @@ func (r *pgRepository) GetInfluencerByCode(code string) (*Influencer, error) {
 		WHERE referral_code = $1
 	`
 	var inf Influencer
+	var isActive dbtypes.NullBool
 	err := r.db.QueryRow(query, code).Scan(
 		&inf.ID, &inf.WebInfluencerID, &inf.ReferralCode, &inf.Name,
-		&inf.Platform, &inf.IsActive, &inf.CreatedAt, &inf.UpdatedAt,
+		&inf.Platform, &isActive, &inf.CreatedAt, &inf.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -75,6 +76,7 @@ func (r *pgRepository) GetInfluencerByCode(code string) (*Influencer, error) {
 	if err != nil {
 		return nil, err
 	}
+	inf.IsActive = isActive.Valid && isActive.Bool
 	return &inf, nil
 }
 
@@ -85,9 +87,10 @@ func (r *pgRepository) GetInfluencerByID(id int64) (*Influencer, error) {
 		WHERE id = $1
 	`
 	var inf Influencer
+	var isActive dbtypes.NullBool
 	err := r.db.QueryRow(query, id).Scan(
 		&inf.ID, &inf.WebInfluencerID, &inf.ReferralCode, &inf.Name,
-		&inf.Platform, &inf.IsActive, &inf.CreatedAt, &inf.UpdatedAt,
+		&inf.Platform, &isActive, &inf.CreatedAt, &inf.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -95,6 +98,7 @@ func (r *pgRepository) GetInfluencerByID(id int64) (*Influencer, error) {
 	if err != nil {
 		return nil, err
 	}
+	inf.IsActive = isActive.Valid && isActive.Bool
 	return &inf, nil
 }
 
@@ -128,13 +132,15 @@ func (r *pgRepository) GetAllActiveInfluencers() ([]Influencer, error) {
 	var influencers []Influencer
 	for rows.Next() {
 		var inf Influencer
+		var isActive dbtypes.NullBool
 		err := rows.Scan(
 			&inf.ID, &inf.WebInfluencerID, &inf.ReferralCode, &inf.Name,
-			&inf.Platform, &inf.IsActive, &inf.CreatedAt, &inf.UpdatedAt,
+			&inf.Platform, &isActive, &inf.CreatedAt, &inf.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
+		inf.IsActive = isActive.Valid && isActive.Bool
 		influencers = append(influencers, inf)
 	}
 	return influencers, nil

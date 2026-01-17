@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"alertly/internal/dbtypes"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -34,7 +36,7 @@ func PremiumMiddleware(db *sql.DB) gin.HandlerFunc {
 		}
 
 		// Consultar estado premium del usuario en la base de datos
-		var isPremium bool
+		var isPremiumRaw dbtypes.NullBool
 		var premiumExpiresAt sql.NullTime
 
 		query := `
@@ -43,7 +45,8 @@ func PremiumMiddleware(db *sql.DB) gin.HandlerFunc {
 			WHERE account_id = $1
 		`
 
-		err := db.QueryRow(query, accountID).Scan(&isPremium, &premiumExpiresAt)
+		err := db.QueryRow(query, accountID).Scan(&isPremiumRaw, &premiumExpiresAt)
+		isPremium := isPremiumRaw.Valid && isPremiumRaw.Bool
 		if err != nil {
 			if err == sql.ErrNoRows {
 				log.Printf("⚠️ PremiumMiddleware: Account %d not found", accountID)

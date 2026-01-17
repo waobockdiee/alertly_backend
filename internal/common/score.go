@@ -26,9 +26,9 @@ func SaveScore(dbExec DBExecutor, accountID int64, score uint8) error {
 
 // saveScoreNotification crea una notificación in-app para citizen score
 func saveScoreNotification(dbExec DBExecutor, accountID int64, score uint8) error {
-	// Crear título personalizado con puntos ganados
-	title := fmt.Sprintf("Congratulations! You've Earned %d Citizen Points.", score)
-	message := "Keep contributing to your community!"
+	// Crear título personalizado con puntos ganados (max 45 chars para varchar(45))
+	title := fmt.Sprintf("+%d Citizen Points earned!", score)
+	message := "Congratulations! Keep contributing to your community!"
 
 	// Cast DBExecutor to *sql.DB to use QueryRow (PostgreSQL requires RETURNING + Scan)
 	db, ok := dbExec.(*sql.DB)

@@ -34,9 +34,14 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *pgRepository) CheckAndGetIfClusterExist(incident IncidentReport) (Cluster, error) {
+	// DEBUG: Log the parameters being used for cluster matching
+	fmt.Printf("🔍 [CheckCluster] Looking for cluster: insu_id=%d, category=%s, subcategory=%s, lat=%.6f, lng=%.6f, radius=%d\n",
+		incident.InsuId, incident.CategoryCode, incident.SubcategoryCode, incident.Latitude, incident.Longitude, incident.DefaultCircleRange)
+
 	query := `SELECT incl_id FROM incident_clusters WHERE insu_id = $1
 	  AND category_code = $2
 	  AND subcategory_code = $3
+	  AND is_active = '1'
 	  AND ST_DistanceSphere(
 		ST_MakePoint(center_longitude, center_latitude),
 		ST_MakePoint($4, $5)
@@ -46,6 +51,14 @@ func (r *pgRepository) CheckAndGetIfClusterExist(incident IncidentReport) (Clust
 	row := r.db.QueryRow(query, incident.InsuId, incident.CategoryCode, incident.SubcategoryCode, incident.Longitude, incident.Latitude, incident.DefaultCircleRange)
 	var cluster Cluster
 	err := row.Scan(&cluster.InclId)
+
+	if err == sql.ErrNoRows {
+		fmt.Printf("📭 [CheckCluster] No matching cluster found for category=%s, subcategory=%s\n", incident.CategoryCode, incident.SubcategoryCode)
+	} else if err != nil {
+		fmt.Printf("❌ [CheckCluster] Error: %v\n", err)
+	} else {
+		fmt.Printf("✅ [CheckCluster] Found existing cluster: incl_id=%d\n", cluster.InclId)
+	}
 
 	return cluster, err
 }

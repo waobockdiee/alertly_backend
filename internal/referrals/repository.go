@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"alertly/internal/dbtypes"
 )
 
 // Repository define las operaciones de base de datos para el sistema de referrals
@@ -106,7 +108,7 @@ func (r *pgRepository) UpsertInfluencer(inf *Influencer) error {
 			is_active = EXCLUDED.is_active,
 			updated_at = CURRENT_TIMESTAMP
 	`
-	_, err := r.db.Exec(query, inf.WebInfluencerID, inf.ReferralCode, inf.Name, inf.Platform, inf.IsActive)
+	_, err := r.db.Exec(query, inf.WebInfluencerID, inf.ReferralCode, inf.Name, inf.Platform, dbtypes.BoolToInt(inf.IsActive))
 	return err
 }
 

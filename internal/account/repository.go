@@ -303,15 +303,15 @@ func (r *pgRepository) UpdatePremiumStatus(accountID int64, isPremium bool, subs
 
 	if isPremium && expirationDate != nil {
 		updateAccountQuery = "UPDATE account SET is_premium = $1, premium_expired_date = $2 WHERE account_id = $3"
-		args = []interface{}{isPremium, expirationDate, accountID}
+		args = []interface{}{dbtypes.BoolToInt(isPremium), expirationDate, accountID}
 	} else if !isPremium {
 		// When cancelling or expiring, set is_premium to false and clear expiration date
 		updateAccountQuery = "UPDATE account SET is_premium = $1, premium_expired_date = NULL WHERE account_id = $2"
-		args = []interface{}{isPremium, accountID}
+		args = []interface{}{dbtypes.BoolToInt(isPremium), accountID}
 	} else {
 		// Fallback for safety, though should not be reached in normal flow
 		updateAccountQuery = "UPDATE account SET is_premium = $1 WHERE account_id = $2"
-		args = []interface{}{isPremium, accountID}
+		args = []interface{}{dbtypes.BoolToInt(isPremium), accountID}
 	}
 
 	_, err = tx.Exec(updateAccountQuery, args...)

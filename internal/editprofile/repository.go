@@ -214,7 +214,7 @@ func (r *pgRepository) UpdateFullName(accountID int64, firstName, lastName strin
 
 func (r *pgRepository) UpdateIsPrivateProfile(accountID int64, isPrivateProfile bool) error {
 	query := `UPDATE account SET is_private_profile = $1 WHERE account_id = $2`
-	_, err := r.db.Exec(query, isPrivateProfile, accountID)
+	_, err := r.db.Exec(query, dbtypes.BoolToInt(isPrivateProfile), accountID)
 
 	if err != nil {
 		log.Printf("Error: %v", err)

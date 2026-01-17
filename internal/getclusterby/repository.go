@@ -41,7 +41,7 @@ func (r *pgRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly bo
 	// 1. Query principal del cluster (más eficiente)
 	activeFilter := ""
 	if activeOnly {
-		activeFilter = "AND c.is_active = 1"
+		activeFilter = "AND c.is_active = '1'"
 	}
 
 	clusterQuery := fmt.Sprintf(`
@@ -121,7 +121,7 @@ func (r *pgRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly bo
             COALESCE(r.status, '')
         FROM incident_reports r
         INNER JOIN account a ON r.account_id = a.account_id
-        WHERE r.incl_id = $1 AND COALESCE(r.is_active, 0) = 1
+        WHERE r.incl_id = $1 AND COALESCE(r.is_active, '0') = '1'
         ORDER BY r.created_at DESC
         LIMIT 50
     `

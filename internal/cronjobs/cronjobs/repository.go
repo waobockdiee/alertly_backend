@@ -51,7 +51,7 @@ func (r *pgRepository) SetClusterToInactiveAndSetAccountScore() error {
 	WHERE
 		ir.incl_id = ic.incl_id
 		AND EXTRACT(EPOCH FROM (NOW() - ic.created_at))/3600 > 48
-		AND ic.is_active = 1;
+		AND ic.is_active = '1';
 
 	UPDATE account a
 	SET
@@ -61,7 +61,7 @@ func (r *pgRepository) SetClusterToInactiveAndSetAccountScore() error {
 	WHERE
 		a.account_id = ir.account_id
 		AND EXTRACT(EPOCH FROM (NOW() - ic.created_at))/3600 > 48
-		AND ic.is_active = 1;
+		AND ic.is_active = '1';
 	`
 	_, err := r.db.Exec(query)
 

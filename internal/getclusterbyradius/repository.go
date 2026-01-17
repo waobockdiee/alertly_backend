@@ -19,6 +19,11 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *pgRepository) GetClustersByRadius(inputs Inputs) ([]Cluster, error) {
+	// Si no hay categorías seleccionadas, devolver array vacío
+	if inputs.Categories == "" {
+		return []Cluster{}, nil
+	}
+
 	// ✅ OPTIMIZACIÓN CRÍTICA: Calcular bounding box para pre-filtro eficiente
 	// Esto reduce las filas escaneadas de ~100K a ~100-500 (100x menos)
 	// Impacto: 10-15x más rápido
@@ -65,8 +70,9 @@ func (r *pgRepository) GetClustersByRadius(inputs Inputs) ([]Cluster, error) {
 	if inputs.Categories != "" {
 		cats := strings.Split(inputs.Categories, ",")
 		placeholders := make([]string, len(cats))
+		startIdx := len(params) // Capturar el índice ANTES del loop
 		for i := range cats {
-			placeholders[i] = fmt.Sprintf("$%d", len(params)+i+1)
+			placeholders[i] = fmt.Sprintf("$%d", startIdx+i+1)
 			params = append(params, strings.TrimSpace(cats[i]))
 		}
 		query += " AND t1.category_code IN (" + strings.Join(placeholders, ",") + ")"

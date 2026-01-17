@@ -19,6 +19,10 @@ func NewRepository(db *sql.DB) Repository {
 }
 
 func (r *pgRepository) GetClustersByLocation(inputs Inputs) ([]Cluster, error) {
+	// Si no hay categorías seleccionadas, devolver array vacío
+	if inputs.Categories == "" {
+		return []Cluster{}, nil
+	}
 
 	// ✅ OPTIMIZACIÓN CRÍTICA: Query mejorada sin DATE() para usar índices correctamente
 	// Cambio: DATE(t1.start_time) <= ? → t1.start_time <= $X + INTERVAL '1 day'

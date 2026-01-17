@@ -65,13 +65,13 @@ func (r *pgRepository) GetById(accountID int64) (Profile, error) {
 				SELECT JSON_AGG(
 					JSON_BUILD_OBJECT(
 					'inre_id', i.inre_id,
-					'media_url', i.media_url,
-					'description', i.description,
-					'event_type', i.event_type,
-					'subcategory_name', i.subcategory_name,
-					'credibility', ic.credibility,
+					'media_url', COALESCE(i.media_url, ''),
+					'description', COALESCE(i.description, ''),
+					'event_type', COALESCE(i.event_type, ''),
+					'subcategory_name', COALESCE(i.subcategory_name, ''),
+					'credibility', COALESCE(ic.credibility, 0),
 					'incl_id', i.incl_id,
-					'is_anonymous', i.is_anonymous,
+					'is_anonymous', CAST(COALESCE(i.is_anonymous, 0) AS TEXT),
 					'created_at', i.created_at
 					) ORDER BY i.created_at DESC
 				)

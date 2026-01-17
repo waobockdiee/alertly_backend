@@ -47,10 +47,10 @@ func (r *pgRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly bo
 	clusterQuery := fmt.Sprintf(`
     SELECT
     c.incl_id,
-    c.address,
+    COALESCE(c.address, ''),
     c.center_latitude,
     c.center_longitude,
-    c.city,
+    COALESCE(c.city, ''),
     c.counter_total_comments,
     c.counter_total_flags,
     c.counter_total_views,
@@ -58,20 +58,20 @@ func (r *pgRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly bo
     c.counter_total_votes_true,
     c.counter_total_votes_false,
     c.created_at,
-    c.description,
+    COALESCE(c.description, ''),
     c.end_time,
-    c.event_type,
+    COALESCE(c.event_type, ''),
     c.incident_count,
     c.is_active,
     c.insu_id,
-    c.media_type,
-    c.media_url,
-    c.postal_code,
-    c.province,
+    COALESCE(c.media_type, ''),
+    COALESCE(c.media_url, ''),
+    COALESCE(c.postal_code, ''),
+    COALESCE(c.province, ''),
     c.start_time,
-    c.subcategory_name,
-    c.category_code,
-    c.subcategory_code,
+    COALESCE(c.subcategory_name, ''),
+    COALESCE(c.category_code, ''),
+    COALESCE(c.subcategory_code, ''),
     c.credibility,
     c.account_id
   FROM incident_clusters c
@@ -104,24 +104,24 @@ func (r *pgRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly bo
 	incidentsQuery := `
         SELECT
             r.inre_id,
-            r.media_url,
-            r.description,
-            r.event_type,
-            r.is_anonymous,
-            r.subcategory_name,
+            COALESCE(r.media_url, ''),
+            COALESCE(r.description, ''),
+            COALESCE(r.event_type, ''),
+            COALESCE(r.is_anonymous, '0'),
+            COALESCE(r.subcategory_name, ''),
             a.account_id,
-            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE a.nickname END as nickname,
-            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE a.first_name END as first_name,
-            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE a.last_name END as last_name,
-            a.is_private_profile,
-            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE COALESCE(a.thumbnail_url, '') END as thumbnail_url,
-            CASE WHEN TRIM(r.is_anonymous) = '1' THEN 0 ELSE COALESCE(a.score, 0) END as score,
+            CASE WHEN TRIM(COALESCE(r.is_anonymous, '0')) = '1' THEN '' ELSE COALESCE(a.nickname, '') END as nickname,
+            CASE WHEN TRIM(COALESCE(r.is_anonymous, '0')) = '1' THEN '' ELSE COALESCE(a.first_name, '') END as first_name,
+            CASE WHEN TRIM(COALESCE(r.is_anonymous, '0')) = '1' THEN '' ELSE COALESCE(a.last_name, '') END as last_name,
+            COALESCE(a.is_private_profile, 0),
+            CASE WHEN TRIM(COALESCE(r.is_anonymous, '0')) = '1' THEN '' ELSE COALESCE(a.thumbnail_url, '') END as thumbnail_url,
+            CASE WHEN TRIM(COALESCE(r.is_anonymous, '0')) = '1' THEN 0 ELSE COALESCE(a.score, 0) END as score,
             r.created_at,
             r.incl_id,
-            r.status
+            COALESCE(r.status, '')
         FROM incident_reports r
         INNER JOIN account a ON r.account_id = a.account_id
-        WHERE r.incl_id = $1 AND TRIM(r.is_active) = '1'
+        WHERE r.incl_id = $1 AND TRIM(COALESCE(r.is_active, '0')) = '1'
         ORDER BY r.created_at DESC
         LIMIT 50
     `
@@ -291,21 +291,21 @@ func (r *pgRepository) createClusterFromIndividualIncident(inclId int64, activeO
 	incidentsQuery := fmt.Sprintf(`
         SELECT
             r.inre_id,
-            r.media_url,
-            r.description,
-            r.event_type,
-            r.is_anonymous,
-            r.subcategory_name,
-            a.account_id,
-            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE a.nickname END as nickname,
-            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE a.first_name END as first_name,
-            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE a.last_name END as last_name,
-            a.is_private_profile,
-            CASE WHEN TRIM(r.is_anonymous) = '1' THEN '' ELSE COALESCE(a.thumbnail_url, '') END as thumbnail_url,
-            CASE WHEN TRIM(r.is_anonymous) = '1' THEN 0 ELSE COALESCE(a.score, 0) END as score,
+            COALESCE(r.media_url, ''),
+            COALESCE(r.description, ''),
+            COALESCE(r.event_type, ''),
+            COALESCE(r.is_anonymous, '0'),
+            COALESCE(r.subcategory_name, ''),
+            COALESCE(a.account_id, 0),
+            CASE WHEN TRIM(COALESCE(r.is_anonymous, '0')) = '1' THEN '' ELSE COALESCE(a.nickname, '') END as nickname,
+            CASE WHEN TRIM(COALESCE(r.is_anonymous, '0')) = '1' THEN '' ELSE COALESCE(a.first_name, '') END as first_name,
+            CASE WHEN TRIM(COALESCE(r.is_anonymous, '0')) = '1' THEN '' ELSE COALESCE(a.last_name, '') END as last_name,
+            COALESCE(a.is_private_profile, 0),
+            CASE WHEN TRIM(COALESCE(r.is_anonymous, '0')) = '1' THEN '' ELSE COALESCE(a.thumbnail_url, '') END as thumbnail_url,
+            CASE WHEN TRIM(COALESCE(r.is_anonymous, '0')) = '1' THEN 0 ELSE COALESCE(a.score, 0) END as score,
             r.created_at,
             r.incl_id,
-            r.status
+            COALESCE(r.status, '')
         FROM incident_reports r
         LEFT JOIN account a ON r.account_id = a.account_id
         WHERE r.incl_id = $1 %s

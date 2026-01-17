@@ -78,23 +78,23 @@ func (r *Repository) FindSubscribedUsersForCluster(clusterID int64) ([]Subscribe
         WHERE
             ic.incl_id = $1
             AND a.status = 'active'
-            AND a.is_premium = 1
-            AND a.receive_notifications = 1
-            AND afl.status = 1
+            AND TRIM(a.is_premium) = '1'
+            AND TRIM(a.receive_notifications) = '1'
+            AND TRIM(afl.status) = '1'
             AND CASE
-                WHEN ic.category_code = 'crime' THEN afl.crime = 1
-                WHEN ic.category_code = 'traffic_accident' THEN afl.traffic_accident = 1
-                WHEN ic.category_code = 'medical_emergency' THEN afl.medical_emergency = 1
-                WHEN ic.category_code = 'fire_incident' THEN afl.fire_incident = 1
-                WHEN ic.category_code = 'vandalism' THEN afl.vandalism = 1
-                WHEN ic.category_code = 'suspicious_activity' THEN afl.suspicious_activity = 1
-                WHEN ic.category_code = 'infrastructure_issues' THEN afl.infrastructure_issues = 1
-                WHEN ic.category_code = 'extreme_weather' THEN afl.extreme_weather = 1
-                WHEN ic.category_code = 'community_events' THEN afl.community_events = 1
-                WHEN ic.category_code = 'dangerous_wildlife_sighting' THEN afl.dangerous_wildlife_sighting = 1
-                WHEN ic.category_code = 'positive_actions' THEN afl.positive_actions = 1
-                WHEN ic.category_code = 'lost_pet' THEN afl.lost_pet = 1
-                ELSE 0
+                WHEN ic.category_code = 'crime' THEN TRIM(afl.crime) = '1'
+                WHEN ic.category_code = 'traffic_accident' THEN TRIM(afl.traffic_accident) = '1'
+                WHEN ic.category_code = 'medical_emergency' THEN TRIM(afl.medical_emergency) = '1'
+                WHEN ic.category_code = 'fire_incident' THEN TRIM(afl.fire_incident) = '1'
+                WHEN ic.category_code = 'vandalism' THEN TRIM(afl.vandalism) = '1'
+                WHEN ic.category_code = 'suspicious_activity' THEN TRIM(afl.suspicious_activity) = '1'
+                WHEN ic.category_code = 'infrastructure_issues' THEN TRIM(afl.infrastructure_issues) = '1'
+                WHEN ic.category_code = 'extreme_weather' THEN TRIM(afl.extreme_weather) = '1'
+                WHEN ic.category_code = 'community_events' THEN TRIM(afl.community_events) = '1'
+                WHEN ic.category_code = 'dangerous_wildlife_sighting' THEN TRIM(afl.dangerous_wildlife_sighting) = '1'
+                WHEN ic.category_code = 'positive_actions' THEN TRIM(afl.positive_actions) = '1'
+                WHEN ic.category_code = 'lost_pet' THEN TRIM(afl.lost_pet) = '1'
+                ELSE false
             END
     `
 

@@ -59,15 +59,15 @@ func (r *pgRepository) CheckAndGetIfClusterExist(incident IncidentReport) (Clust
 		}
 	}
 
-	// Cambié is_active = '1' a CAST para manejar SMALLINT/CHAR
+	// FIX: Usar comparación directa (is_active es CHAR) y operador <= para incluir distancia exacta
 	query := `SELECT incl_id FROM incident_clusters WHERE insu_id = $1
 	  AND category_code = $2
 	  AND subcategory_code = $3
-	  AND CAST(is_active AS TEXT) = '1'
+	  AND is_active = '1'
 	  AND ST_DistanceSphere(
 		ST_MakePoint(center_longitude, center_latitude),
 		ST_MakePoint($4, $5)
-	  ) < $6
+	  ) <= $6
 	  AND created_at >= NOW() - INTERVAL '24 hours';`
 
 	row := r.db.QueryRow(query, incident.InsuId, incident.CategoryCode, incident.SubcategoryCode, incident.Longitude, incident.Latitude, incident.DefaultCircleRange)

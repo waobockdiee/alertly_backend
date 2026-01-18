@@ -1,7 +1,5 @@
 package getclustersbylocation
 
-import "database/sql"
-
 type Cluster struct {
 	InclId          int64        `json:"incl_id"`
 	Latitude        float32      `json:"latitude"`
@@ -14,18 +12,18 @@ type Cluster struct {
 
 // Subcategory contiene la información completa de la subcategoría (JOIN)
 type Subcategory struct {
-	InsuId             int64          `json:"insu_id"`
-	IncaId             int64          `json:"inca_id"`
-	Name               string         `json:"name"`
-	Description        string         `json:"description"`
-	Icon               sql.NullString `json:"icon"`        // ✅ Icono que el frontend necesita
-	IconURI            sql.NullString `json:"icon_uri"`    // ✅ Alias para compatibilidad
-	Code               string         `json:"code"`
-	MinCircleRange     sql.NullInt64  `json:"min_circle_range"`
-	MaxCircleRange     sql.NullInt64  `json:"max_circle_range"`
-	DefaultCircleRange sql.NullInt64  `json:"default_circle_range"`
-	CategoryCode       string         `json:"category_code"`
-	SubcategoryCode    string         `json:"subcategory_code"`
+	InsuId             int64  `json:"insu_id"`
+	IncaId             int64  `json:"inca_id"`
+	Name               string `json:"name"`
+	Description        string `json:"description"`
+	Icon               string `json:"icon"`     // Usar COALESCE en query
+	IconURI            string `json:"icon_uri"` // Usar COALESCE en query
+	Code               string `json:"code"`
+	MinCircleRange     int64  `json:"min_circle_range"`     // Usar COALESCE en query
+	MaxCircleRange     int64  `json:"max_circle_range"`     // Usar COALESCE en query
+	DefaultCircleRange int64  `json:"default_circle_range"` // Usar COALESCE en query
+	CategoryCode       string `json:"category_code"`
+	SubcategoryCode    string `json:"subcategory_code"`
 }
 
 type Inputs struct {

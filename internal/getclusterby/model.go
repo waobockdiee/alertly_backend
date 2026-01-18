@@ -3,14 +3,13 @@ package getclusterby
 import (
 	"alertly/internal/comments"
 	"alertly/internal/common"
-	"database/sql"
 )
 
 type Cluster struct {
-	InclId                 int64              `json:"incl_id"`
-	CreatedAt              sql.NullTime       `json:"created_at"`
-	StartTime              sql.NullTime       `json:"start_time"`
-	EndTime                sql.NullTime       `json:"end_time"`
+	InclId                 int64           `json:"incl_id"`
+	CreatedAt              common.NullTime `json:"created_at"`
+	StartTime              common.NullTime `json:"start_time"`
+	EndTime                common.NullTime `json:"end_time"`
 	InsuId                 int64              `json:"insu_id"`
 	MediaUrl               string             `json:"media_url"`
 	CenterLatitude         float64            `json:"center_latitude"`
@@ -40,7 +39,7 @@ type Cluster struct {
 	GetAccountAlreadySaved bool               `json:"get_account_already_saved"`
 	UserVote               int                `json:"user_vote"`
 	Credibility            float64            `json:"credibility"`
-	AccountId              sql.NullInt64      `json:"account_id"` // ID del creador del cluster (nullable)
+	AccountId              int64              `json:"account_id"` // ID del creador del cluster - usar COALESCE en query
 }
 
 type Comment struct {
@@ -76,5 +75,5 @@ type Incident struct {
 	TimeDiff         string            `json:"time_diff"`
 	CreatedAt        common.CustomTime `json:"created_at"`
 	InclID           int64             `json:"incl_id"`
-	Status           sql.NullString    `json:"status"`
+	Status           string             `json:"status"` // Usar COALESCE en query
 }

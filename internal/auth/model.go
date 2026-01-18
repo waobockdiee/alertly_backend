@@ -1,18 +1,16 @@
 package auth
 
 import (
-	"database/sql"
-
 	"github.com/golang-jwt/jwt/v4"
 )
 
 type User struct {
-	AccountID           int64          `json:"account_id" validate:"required"`
-	Email               string         `json:"email" validate:"required,email"`
-	FirstName           string         `json:"first_name" validate:"required"`
-	LastName            string         `json:"last_name" validate:"required"`
-	Password            string         `json:"password"`
-	PhoneNumber         sql.NullString `json:"phone_number"`
+	AccountID           int64  `json:"account_id" validate:"required"`
+	Email               string `json:"email" validate:"required,email"`
+	FirstName           string `json:"first_name" validate:"required"`
+	LastName            string `json:"last_name" validate:"required"`
+	Password            string `json:"password"`
+	PhoneNumber         string `json:"phone_number"` // Usar COALESCE en query
 	BirthYear           int            `json:"birth_year"`
 	BirthMonth          int            `json:"birth_month"`
 	BirthDay            int            `json:"birth_day"`

@@ -94,9 +94,15 @@ func min(a, b int) int {
 
 // DetectFacesWithRekognition usa AWS Rekognition para detección precisa de rostros
 func DetectFacesWithRekognition(imageBytes []byte, imgBounds image.Rectangle) ([]image.Rectangle, error) {
+	// Obtener región de variable de entorno (default: ca-central-1 para Canadá)
+	region := os.Getenv("AWS_REGION")
+	if region == "" {
+		region = "ca-central-1"
+	}
+
 	// Crear sesión de AWS
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String("us-west-2"), // Misma región que tu infraestructura
+		Region: aws.String(region),
 	})
 	if err != nil {
 		log.Printf("AWS session error (skipping face detection): %v", err)

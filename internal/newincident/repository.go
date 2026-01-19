@@ -41,7 +41,7 @@ func (r *pgRepository) CheckAndGetIfClusterExist(incident IncidentReport) (Clust
 	// DEBUG: Check what clusters exist with same category/subcategory
 	debugQuery := `SELECT incl_id, is_active,
 		ST_DistanceSphere(ST_MakePoint(center_longitude, center_latitude), ST_MakePoint($1, $2)) as distance,
-		created_at, NOW() - created_at as age
+		created_at, end_time, end_time >= NOW() as still_active
 		FROM incident_clusters
 		WHERE category_code = $3 AND subcategory_code = $4
 		ORDER BY created_at DESC LIMIT 3`
@@ -52,14 +52,17 @@ func (r *pgRepository) CheckAndGetIfClusterExist(incident IncidentReport) (Clust
 			var inclId int64
 			var isActive interface{}
 			var distance float64
-			var createdAt, age interface{}
-			debugRows.Scan(&inclId, &isActive, &distance, &createdAt, &age)
-			fmt.Printf("   📋 Existing cluster: incl_id=%d, is_active=%v, distance=%.2fm, created=%v, age=%v\n",
-				inclId, isActive, distance, createdAt, age)
+			var createdAt, endTime interface{}
+			var stillActive bool
+			debugRows.Scan(&inclId, &isActive, &distance, &createdAt, &endTime, &stillActive)
+			fmt.Printf("   📋 Existing cluster: incl_id=%d, is_active=%v, distance=%.2fm, created=%v, end_time=%v, still_active=%v\n",
+				inclId, isActive, distance, createdAt, endTime, stillActive)
 		}
 	}
 
 	// FIX: Usar comparación directa (is_active es CHAR) y operador <= para incluir distancia exacta
+	// FIX: Usar end_time >= NOW() en lugar de 24 horas fijas desde created_at
+	// Cada cluster tiene su propia duración basada en la subcategoría
 	query := `SELECT incl_id FROM incident_clusters WHERE insu_id = $1
 	  AND category_code = $2
 	  AND subcategory_code = $3
@@ -68,7 +71,7 @@ func (r *pgRepository) CheckAndGetIfClusterExist(incident IncidentReport) (Clust
 		ST_MakePoint(center_longitude, center_latitude),
 		ST_MakePoint($4, $5)
 	  ) <= $6
-	  AND created_at >= NOW() - INTERVAL '24 hours';`
+	  AND end_time >= NOW();`
 
 	row := r.db.QueryRow(query, incident.InsuId, incident.CategoryCode, incident.SubcategoryCode, incident.Longitude, incident.Latitude, incident.DefaultCircleRange)
 	var cluster Cluster

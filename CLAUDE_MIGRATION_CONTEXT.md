@@ -134,6 +134,14 @@ ALTER TABLE account ALTER COLUMN receive_notifications TYPE BOOLEAN;
 ```
 **Razón**: El código Go enviaba `true/false`, no `1/0`.
 
+### 6. Cluster matching usa end_time en lugar de 24 horas fijas
+**Archivo**: `internal/newincident/repository.go`
+```go
+// ANTES (incorrecto): created_at >= NOW() - INTERVAL '24 hours'
+// AHORA (correcto): end_time >= NOW()
+```
+**Razón**: Cada cluster tiene su propia duración basada en `subcategory.default_duration_hours`. Los clusters con duración > 24h no eran matcheados correctamente porque la query usaba un intervalo fijo de 24 horas desde `created_at`. Ahora usa `end_time` que se calcula al crear el cluster.
+
 ---
 
 ## Fixes Pendientes (REQUIEREN ACCIÓN)
@@ -245,6 +253,11 @@ go build ./internal/...
 ---
 
 ## Historial de Cambios
+
+### 2026-01-19
+- Fix: Cluster matching query ahora usa `end_time >= NOW()` en lugar de `created_at >= NOW() - INTERVAL '24 hours'`
+- Fix: is_active cambiado de CHAR(2) a CHAR(1) para evitar padding
+- Debug query mejorado para mostrar end_time y still_active
 
 ### 2026-01-18
 - Migración inicial de AWS a Railway

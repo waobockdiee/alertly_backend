@@ -132,7 +132,8 @@ func (r *pgRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly bo
 	}
 	defer rows.Close()
 
-	var incidents []Incident
+	// 🔥 Pre-asignar capacidad para evitar reallocaciones (LIMIT 50)
+	incidents := make([]Incident, 0, 50)
 	for rows.Next() {
 		var incident Incident
 		var createdAt sql.NullTime
@@ -162,13 +163,15 @@ func (r *pgRepository) getIncidentByWithActiveFilter(inclId int64, activeOnly bo
 
 	cluster.Incidents = incidents
 
-	// ✅ Actualizar contador de vistas
-	query := `UPDATE incident_clusters SET counter_total_views = counter_total_views + 1 WHERE incl_id = $1`
-	_, err = r.db.Exec(query, inclId)
-
-	if err != nil {
-		log.Printf("Error updating view count for cluster %d: %v", inclId, err)
-	}
+	// 🔥 Actualizar contador de vistas de forma ASÍNCRONA
+	// Evita bloquear el response mientras se hace el UPDATE
+	go func(db *sql.DB, id int64) {
+		query := `UPDATE incident_clusters SET counter_total_views = counter_total_views + 1 WHERE incl_id = $1`
+		_, err := db.Exec(query, id)
+		if err != nil {
+			log.Printf("Error updating view count for cluster %d: %v", id, err)
+		}
+	}(r.db, inclId)
 
 	return cluster, nil
 }
@@ -318,7 +321,8 @@ func (r *pgRepository) createClusterFromIndividualIncident(inclId int64, activeO
 	}
 	defer rows.Close()
 
-	var incidents []Incident
+	// 🔥 Pre-asignar capacidad (fallback típicamente tiene 1-5 incidents)
+	incidents := make([]Incident, 0, 10)
 	for rows.Next() {
 		var incident Incident
 		var createdAt sql.NullTime

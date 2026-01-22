@@ -61,7 +61,8 @@ func (r *pgRepository) GetClustersByLocation(inputs Inputs) ([]Cluster, error) {
 	// ✅ CORRECCIÓN: ORDER BY y LIMIT después de todas las condiciones WHERE
 	query += " ORDER BY t1.created_at DESC LIMIT 100"
 
-	var clusters []Cluster
+	// 🔥 Pre-asignar capacidad para evitar reallocaciones (LIMIT 100)
+	clusters := make([]Cluster, 0, 100)
 	rows, err := r.db.Query(query, params...)
 	if err != nil {
 

@@ -81,7 +81,8 @@ func (r *pgRepository) GetClustersByRadius(inputs Inputs) ([]Cluster, error) {
 	// ✅ OPTIMIZACIÓN: Agregar ORDER BY y LIMIT para consistencia y performance
 	query += " ORDER BY t1.created_at DESC LIMIT 200"
 
-	var clusters []Cluster
+	// 🔥 Pre-asignar capacidad para evitar reallocaciones (LIMIT 200)
+	clusters := make([]Cluster, 0, 200)
 	rows, err := r.db.Query(query, params...)
 	if err != nil {
 		return clusters, err

@@ -43,27 +43,11 @@ type GeocodingCache struct {
 	LastUsedAt         time.Time
 }
 
-// OfficialAssetsMap maps Alertly categories to S3 official report images
-var OfficialAssetsMap = map[string]string{
-	"crime":                        "https://alertly-images-production.s3.us-west-2.amazonaws.com/incidents/crime.webp",
-	"traffic_accident":             "https://alertly-images-production.s3.us-west-2.amazonaws.com/incidents/traffic_accident.webp",
-	"medical_emergency":            "https://alertly-images-production.s3.us-west-2.amazonaws.com/incidents/medical_emergency.webp",
-	"fire_incident":                "https://alertly-images-production.s3.us-west-2.amazonaws.com/incidents/fire_incident.webp",
-	"vandalism":                    "https://alertly-images-production.s3.us-west-2.amazonaws.com/incidents/vandalism.webp",
-	"suspicious_activity":          "https://alertly-images-production.s3.us-west-2.amazonaws.com/incidents/suspicious_activity.webp",
-	"infrastructure_issues":        "https://alertly-images-production.s3.us-west-2.amazonaws.com/incidents/infrastructure_issue.webp",
-	"extreme_weather":              "https://alertly-images-production.s3.us-west-2.amazonaws.com/incidents/extreme_weather.webp",
-	"community_events":             "https://alertly-images-production.s3.us-west-2.amazonaws.com/incidents/community_event.webp",
-	"dangerous_wildlife_sighting":  "https://alertly-images-production.s3.us-west-2.amazonaws.com/incidents/dangerous_wildlife.webp",
-	"positive_actions":             "https://alertly-images-production.s3.us-west-2.amazonaws.com/incidents/positive_action.webp",
-	"lost_pet":                     "https://alertly-images-production.s3.us-west-2.amazonaws.com/incidents/lost_pet.webp",
-}
+// OfficialReportImageURL is the generic image used for all bot-created incidents
+// This image indicates the report comes from official government data sources
+const OfficialReportImageURL = "https://images.alertly.ca/official_picture.png"
 
-// GetOfficialAsset returns the S3 URL for a category's official report image
+// GetOfficialAsset returns the official report image URL for bot-created incidents
 func GetOfficialAsset(categoryCode string) string {
-	if url, exists := OfficialAssetsMap[categoryCode]; exists {
-		return url
-	}
-	// Fallback to generic incident image
-	return "https://alertly-images-production.s3.us-west-2.amazonaws.com/incidents/crime.webp"
+	return OfficialReportImageURL
 }

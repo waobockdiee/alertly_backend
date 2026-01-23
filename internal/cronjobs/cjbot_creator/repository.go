@@ -282,10 +282,7 @@ func (r *Repository) CheckClusterExists(categoryCode string, lat, lng float64, r
 	query := `
 		SELECT incl_id FROM incident_clusters
 		WHERE category_code = $1
-		AND ST_DistanceSphere(
-			ST_MakePoint(center_longitude, center_latitude),
-			ST_MakePoint($2, $3)
-		) <= $4
+		AND ST_DWithin(center_location, ST_MakePoint($2, $3)::geography, $4)
 		AND created_at >= NOW() - INTERVAL '1 hour' * $5
 		AND is_active = '1'
 		ORDER BY created_at DESC
@@ -310,6 +307,7 @@ func (r *Repository) CreateCluster(incident NormalizedIncident, insuID int64) (i
 			insu_id,
 			center_latitude,
 			center_longitude,
+			center_location,
 			media_url,
 			media_type,
 			event_type,
@@ -325,7 +323,7 @@ func (r *Repository) CreateCluster(incident NormalizedIncident, insuID int64) (i
 			created_at,
 			start_time,
 			end_time
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 1, NOW(), NOW(), $16) RETURNING incl_id
+		) VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 1, NOW(), NOW(), $16) RETURNING incl_id
 	`
 
 	var clusterID int64

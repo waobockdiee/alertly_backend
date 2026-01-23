@@ -33,10 +33,7 @@ func (r *pgRepository) GetReel(inputs Inputs, accountID int64) ([]getclusterby.C
           SELECT 1
           FROM account_favorite_locations f
           WHERE f.account_id = $5
-            AND ST_DistanceSphere(
-                  ST_MakePoint(c.center_longitude, c.center_latitude),
-                  ST_MakePoint(f.longitude, f.latitude)
-                ) <= $6
+            AND ST_DWithin(c.center_location, f.location, $6)
         )
 	AND c.is_active = '1'
     ORDER BY RANDOM()

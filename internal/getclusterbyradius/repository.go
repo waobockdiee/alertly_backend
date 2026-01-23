@@ -41,17 +41,14 @@ func (r *pgRepository) GetClustersByRadius(inputs Inputs) ([]Cluster, error) {
 	minLng := inputs.Longitude - lngDelta
 	maxLng := inputs.Longitude + lngDelta
 
-	// ✅ Query optimizada con bounding box + distance check + sin DATE()
+	// ✅ Query optimizada con bounding box + ST_DWithin (usa índice GiST)
 	query := `
 		SELECT
 			t1.incl_id, t1.center_latitude, t1.center_longitude, t1.insu_id, t1.category_code, t1.subcategory_code
 		FROM incident_clusters t1
 		WHERE t1.center_latitude BETWEEN $1 AND $2
 		  AND t1.center_longitude BETWEEN $3 AND $4
-		  AND ST_DistanceSphere(
-			ST_MakePoint(t1.center_longitude, t1.center_latitude),
-			ST_MakePoint($5, $6)
-		  ) <= $7
+		  AND ST_DWithin(t1.center_location, ST_MakePoint($5, $6)::geography, $7)
 		  AND t1.start_time <= $8::date + INTERVAL '1 day'
 		  AND t1.end_time >= $9::date
 		  AND ($10::integer = 0 OR t1.insu_id = $11::integer)
@@ -61,7 +58,7 @@ func (r *pgRepository) GetClustersByRadius(inputs Inputs) ([]Cluster, error) {
 	params := []interface{}{
 		minLat, maxLat,                                    // Bounding box latitud
 		minLng, maxLng,                                    // Bounding box longitud
-		inputs.Longitude, inputs.Latitude, inputs.Radius, // ST_DistanceSphere
+		inputs.Longitude, inputs.Latitude, inputs.Radius, // ST_DWithin
 		inputs.ToDate,                                     // Sin DATE()
 		inputs.FromDate,                                   // Sin DATE()
 		inputs.InsuID, inputs.InsuID,

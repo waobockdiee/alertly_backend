@@ -66,11 +66,8 @@ func (r *Repository) FindSubscribedUsersForCluster(clusterID int64) ([]Subscribe
             incident_clusters ic
         JOIN
             account_favorite_locations afl ON
-            -- Fórmula de Haversine para calcular la distancia en KM usando PostgreSQL
-            ST_DistanceSphere(
-                ST_MakePoint(ic.center_longitude, ic.center_latitude),
-                ST_MakePoint(afl.longitude, afl.latitude)
-            ) <= afl.radius
+            -- Usar ST_DWithin con índices GiST (10-50x más rápido)
+            ST_DWithin(ic.center_location, afl.location, afl.radius)
         JOIN
             account a ON afl.account_id = a.account_id
         JOIN

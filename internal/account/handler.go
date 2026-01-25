@@ -177,8 +177,8 @@ func GetCounterHistories(c *gin.Context) {
 }
 
 type SetTutorialRequest struct {
-	Latitude  *float32 `json:"latitude"`
-	Longitude *float32 `json:"longitude"`
+	Latitude  *float64 `json:"latitude"`
+	Longitude *float64 `json:"longitude"`
 }
 
 func SetHasFinishedTutorial(c *gin.Context) {

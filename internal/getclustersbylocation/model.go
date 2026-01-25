@@ -2,8 +2,8 @@ package getclustersbylocation
 
 type Cluster struct {
 	InclId          int64        `json:"incl_id"`
-	Latitude        float32      `json:"latitude"`
-	Longitude       float32      `json:"longitude"`
+	Latitude        float64      `json:"latitude"`
+	Longitude       float64      `json:"longitude"`
 	InsuId          int64        `json:"insu_id"`
 	CategoryCode    string       `json:"category_code"`
 	SubcategoryCode string       `json:"subcategory_code"`

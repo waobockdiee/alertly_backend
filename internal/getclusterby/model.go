@@ -59,8 +59,8 @@ type Comment struct {
 type Incident struct {
 	InreId           int64             `json:"inre_id"`
 	MediaUrl         string            `json:"media_url"`
-	Latitude         float32           `json:"center_latitude"`
-	Longitude        float32           `json:"center_longitude"`
+	Latitude         float64           `json:"center_latitude"`
+	Longitude        float64           `json:"center_longitude"`
 	AccountId        int64             `json:"account_id"`
 	Nickname         string            `json:"nickname"`
 	FirstName        string            `json:"first_name"`

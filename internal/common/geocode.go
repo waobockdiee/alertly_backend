@@ -24,7 +24,7 @@ type NominatimResponse struct {
 	Address Address `json:"address"`
 }
 
-func ReverseGeocode(lat, lon float32) (string, string, string, string, error) {
+func ReverseGeocode(lat, lon float64) (string, string, string, string, error) {
 	// ✅ OPTIMIZACIÓN: Timeout de 5 segundos para evitar bloqueos
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

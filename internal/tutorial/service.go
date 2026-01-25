@@ -7,7 +7,7 @@ import (
 )
 
 type Service interface {
-	FinishTutorial(accountID int64, latitude, longitude *float32) error
+	FinishTutorial(accountID int64, latitude, longitude *float64) error
 }
 
 type service struct {
@@ -18,7 +18,7 @@ func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
-func (s *service) FinishTutorial(accountID int64, latitude, longitude *float32) error {
+func (s *service) FinishTutorial(accountID int64, latitude, longitude *float64) error {
 	// 1. Mark tutorial as finished (main operation)
 	if err := s.repo.MarkTutorialAsFinished(accountID); err != nil {
 		return err
@@ -35,7 +35,7 @@ func (s *service) FinishTutorial(accountID int64, latitude, longitude *float32) 
 	return nil
 }
 
-func (s *service) createInitialPlace(accountID int64, latitude, longitude float32) error {
+func (s *service) createInitialPlace(accountID int64, latitude, longitude float64) error {
 	myPlace := myplaces.MyPlaces{
 		AccountId:                 accountID,
 		Title:                     "My Place",

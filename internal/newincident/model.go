@@ -17,8 +17,8 @@ type IncidentReport struct {
 	City               string  `form:"city"             json:"city"`
 	Province           string  `form:"province"         json:"province"`
 	PostalCode         string  `form:"postal_code"      json:"postal_code"`
-	Latitude           float32 `form:"latitude"         json:"latitude"`
-	Longitude          float32 `form:"longitude"        json:"longitude"`
+	Latitude           float64 `form:"latitude"         json:"latitude"`
+	Longitude          float64 `form:"longitude"        json:"longitude"`
 	IsAnonymous        bool    `form:"is_anonymous"     json:"is_anonymous"`
 	SubCategoryName    string  `form:"subcategory_name" json:"subcategory_name"`
 	Media              Media   `form:"media"            json:"media"`
@@ -40,8 +40,8 @@ type Cluster struct {
 	EndTime         *time.Time `json:"end_time"`
 	InsuId          int64      `json:"insu_id"`
 	MediaUrl        string     `json:"medial_url"`
-	CenterLatitude  float32    `json:"center_latitude"`
-	CenterLongitude float32    `json:"center_longitude"`
+	CenterLatitude  float64    `json:"center_latitude"`
+	CenterLongitude float64    `json:"center_longitude"`
 	IsActive        bool       `json:"is_active"`
 	MediaType       string     `json:"media_type"`
 	EventType       string     `json:"event_type"`

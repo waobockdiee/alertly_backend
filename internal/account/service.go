@@ -19,7 +19,7 @@ type Service interface {
 	ValidatePasswordForDeletion(accountID int64, password string) error
 	GetCounterHistories(accountID int64) (Counter, error)
 	SaveLastRequest(accountID int64, ip string) error
-	SetHasFinishedTutorial(accountID int64, latitude, longitude *float32) error
+	SetHasFinishedTutorial(accountID int64, latitude, longitude *float64) error
 	UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error
 }
 
@@ -74,7 +74,7 @@ func (s *service) SaveLastRequest(accountID int64, ip string) error {
 	return s.repo.SaveLastRequest(accountID, ip)
 }
 
-func (s *service) SetHasFinishedTutorial(accountID int64, latitude, longitude *float32) error {
+func (s *service) SetHasFinishedTutorial(accountID int64, latitude, longitude *float64) error {
 	// 1. Mark tutorial as finished (main operation)
 	if err := s.repo.SetHasFinishedTutorial(accountID); err != nil {
 		return err
@@ -91,7 +91,7 @@ func (s *service) SetHasFinishedTutorial(accountID int64, latitude, longitude *f
 	return nil
 }
 
-func (s *service) createInitialPlace(accountID int64, latitude, longitude float32) error {
+func (s *service) createInitialPlace(accountID int64, latitude, longitude float64) error {
 	myPlace := myplaces.MyPlaces{
 		AccountId:                 accountID,
 		Title:                     "My Place",

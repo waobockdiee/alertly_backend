@@ -11,11 +11,11 @@ type Repository interface {
 	CheckAndGetIfClusterExist(incident IncidentReport) (Cluster, error)
 	Save(incident IncidentReport) (int64, error)
 	SaveCluster(cluster Cluster, accountId int64) (int64, error)
-	UpdateClusterAsTrue(inclId int64, accountID int64, latitude, longitude float32) (sql.Result, error)
-	UpdateClusterAsFalse(inclId int64, accountID int64, latitude, longitude float32) (sql.Result, error)
+	UpdateClusterAsTrue(inclId int64, accountID int64, latitude, longitude float64) (sql.Result, error)
+	UpdateClusterAsFalse(inclId int64, accountID int64, latitude, longitude float64) (sql.Result, error)
 	// SaveAsUpdate(incident IncidentReport) error
 	HasAccountVoted(inclID, accountID int64) (bool, bool, error)
-	UpdateClusterLocation(inclId int64, latitude, longitude float32) (sql.Result, error)
+	UpdateClusterLocation(inclId int64, latitude, longitude float64) (sql.Result, error)
 	// ✅ NUEVOS MÉTODOS: Para geocoding asíncrono
 	UpdateClusterAddress(inclId int64, address, city, province, postalCode string) error
 	UpdateIncidentAddress(inreId int64, address, city, province, postalCode string) error
@@ -180,6 +180,7 @@ func (r *pgRepository) SaveCluster(cluster Cluster, accountID int64) (int64, err
 	scoreFalse := 10 - credibility
 
 	// ✅ INSERT optimizado sin subconsultas + center_location para índice GiST
+	// ✅ CASTS EXPLÍCITOS: $5::float8 y $6::float8 para ST_MakePoint evita "inconsistent types" en PostgreSQL
 	query := `
 	INSERT INTO incident_clusters (
 		created_at,
@@ -207,7 +208,7 @@ func (r *pgRepository) SaveCluster(cluster Cluster, accountID int64) (int64, err
 		credibility
 	  )
 	  VALUES (
-		$1,  $2,  $3,  $4,  $5,  $6,  ST_SetSRID(ST_MakePoint($6, $5), 4326)::geography,
+		$1,  $2,  $3,  $4,  $5,  $6,  ST_SetSRID(ST_MakePoint($6::float8, $5::float8), 4326)::geography,
 		$7,  $8,  $9,  $10,  $11,  $12,  $13,  $14,  $15,  $16,  $17,  $18,  $19,  $20,  $21,  $22
 	  ) RETURNING incl_id;
 	`
@@ -262,13 +263,13 @@ func (r *pgRepository) SaveCluster(cluster Cluster, accountID int64) (int64, err
 }
 
 // -- Actualiza la localizacion del cluster cuando se crea un incidente nuevo del cluster. Ya que el incidente nuevo no necesariamente tiene que esta ubicada en las coordenadas exactas del cluster. Por eso actualiza.
-func (r *pgRepository) UpdateClusterAsTrue(inclId int64, accountID int64, latitude, longitude float32) (sql.Result, error) {
+func (r *pgRepository) UpdateClusterAsTrue(inclId int64, accountID int64, latitude, longitude float64) (sql.Result, error) {
 	query := `
 	UPDATE incident_clusters ic
 	SET
 	center_latitude      = (ic.center_latitude + $2) / 2,
 	center_longitude     = (ic.center_longitude + $3) / 2,
-	center_location      = ST_SetSRID(ST_MakePoint((ic.center_longitude + $3) / 2, (ic.center_latitude + $2) / 2), 4326)::geography,
+	center_location      = ST_SetSRID(ST_MakePoint(((ic.center_longitude + $3) / 2)::float8, ((ic.center_latitude + $2) / 2)::float8), 4326)::geography,
 	counter_total_votes  = ic.counter_total_votes + 1,
 	score_true           = ic.score_true + (SELECT credibility FROM account WHERE account_id = $1),
 	score_false          = ic.score_false + (10 - (SELECT credibility FROM account WHERE account_id = $1)),
@@ -282,13 +283,13 @@ func (r *pgRepository) UpdateClusterAsTrue(inclId int64, accountID int64, latitu
 	return result, err
 }
 
-func (r *pgRepository) UpdateClusterAsFalse(inclId int64, accountID int64, latitude, longitude float32) (sql.Result, error) {
+func (r *pgRepository) UpdateClusterAsFalse(inclId int64, accountID int64, latitude, longitude float64) (sql.Result, error) {
 	query := `
 	UPDATE incident_clusters ic
 	SET
 	center_latitude      = (ic.center_latitude + $2) / 2,
 	center_longitude     = (ic.center_longitude + $3) / 2,
-	center_location      = ST_SetSRID(ST_MakePoint((ic.center_longitude + $3) / 2, (ic.center_latitude + $2) / 2), 4326)::geography,
+	center_location      = ST_SetSRID(ST_MakePoint(((ic.center_longitude + $3) / 2)::float8, ((ic.center_latitude + $2) / 2)::float8), 4326)::geography,
 	counter_total_votes  = ic.counter_total_votes + 1,
 	score_true           = ic.score_true + (10 - (SELECT credibility FROM account WHERE account_id = $1)),
 	score_false          = ic.score_false + (SELECT credibility FROM account WHERE account_id = $1),
@@ -423,13 +424,13 @@ func (r *pgRepository) HasAccountVoted(inclID, accountID int64) (bool, bool, err
 	return true, voteVal.Int64 == 1, nil
 }
 
-func (r *pgRepository) UpdateClusterLocation(inclId int64, latitude, longitude float32) (sql.Result, error) {
+func (r *pgRepository) UpdateClusterLocation(inclId int64, latitude, longitude float64) (sql.Result, error) {
 	query := `
     UPDATE incident_clusters
     SET
       center_latitude  = (center_latitude  + $1) / 2,
       center_longitude = (center_longitude + $2) / 2,
-      center_location  = ST_SetSRID(ST_MakePoint((center_longitude + $2) / 2, (center_latitude + $1) / 2), 4326)::geography
+      center_location  = ST_SetSRID(ST_MakePoint(((center_longitude + $2) / 2)::float8, ((center_latitude + $1) / 2)::float8), 4326)::geography
     WHERE incl_id = $3;
 	`
 	return r.db.Exec(query, latitude, longitude, inclId)

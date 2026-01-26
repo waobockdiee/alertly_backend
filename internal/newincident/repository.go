@@ -180,7 +180,8 @@ func (r *pgRepository) SaveCluster(cluster Cluster, accountID int64) (int64, err
 	scoreFalse := 10 - credibility
 
 	// ✅ INSERT optimizado sin subconsultas + center_location para índice GiST
-	// ✅ CASTS EXPLÍCITOS: $5::float8 y $6::float8 para ST_MakePoint evita "inconsistent types" en PostgreSQL
+	// ✅ FIX: $5::decimal y $6::decimal para columnas DECIMAL, luego ::float8 en ST_MakePoint
+	// Esto evita "inconsistent types deduced for parameter" (double precision vs numeric)
 	query := `
 	INSERT INTO incident_clusters (
 		created_at,
@@ -208,7 +209,7 @@ func (r *pgRepository) SaveCluster(cluster Cluster, accountID int64) (int64, err
 		credibility
 	  )
 	  VALUES (
-		$1,  $2,  $3,  $4,  $5,  $6,  ST_SetSRID(ST_MakePoint($6::float8, $5::float8), 4326)::geography,
+		$1,  $2,  $3,  $4,  $5::decimal,  $6::decimal,  ST_SetSRID(ST_MakePoint($6::float8, $5::float8), 4326)::geography,
 		$7,  $8,  $9,  $10,  $11,  $12,  $13,  $14,  $15,  $16,  $17,  $18,  $19,  $20,  $21,  $22
 	  ) RETURNING incl_id;
 	`

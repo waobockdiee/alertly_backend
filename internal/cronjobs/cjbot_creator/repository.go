@@ -301,6 +301,9 @@ func (r *Repository) CreateCluster(incident NormalizedIncident, insuID int64) (i
 	duration := r.getSubcategoryDuration(incident.SubcategoryCode)
 	endTime := time.Now().Add(time.Duration(duration) * time.Hour)
 
+	// ✅ FIX: Explicit type casts for coordinates
+	// $3::decimal and $4::decimal for DECIMAL columns, then ::float8 for ST_MakePoint
+	// Prevents "inconsistent types deduced for parameter" PostgreSQL error
 	query := `
 		INSERT INTO incident_clusters (
 			account_id,
@@ -323,7 +326,7 @@ func (r *Repository) CreateCluster(incident NormalizedIncident, insuID int64) (i
 			created_at,
 			start_time,
 			end_time
-		) VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 1, NOW(), NOW(), $16) RETURNING incl_id
+		) VALUES ($1, $2, $3::decimal, $4::decimal, ST_SetSRID(ST_MakePoint($4::float8, $3::float8), 4326)::geography, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 1, NOW(), NOW(), $16) RETURNING incl_id
 	`
 
 	var clusterID int64

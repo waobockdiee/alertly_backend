@@ -77,20 +77,20 @@ func (r *Repository) FindSubscribedUsersForCluster(clusterID int64) ([]Subscribe
             AND a.status = 'active'
             AND a.is_premium = 1
             AND a.receive_notifications = 1
-            AND afl.status = 1
+            AND afl.status = TRUE
             AND CASE
-                WHEN ic.category_code = 'crime' THEN afl.crime = 1
-                WHEN ic.category_code = 'traffic_accident' THEN afl.traffic_accident = 1
-                WHEN ic.category_code = 'medical_emergency' THEN afl.medical_emergency = 1
-                WHEN ic.category_code = 'fire_incident' THEN afl.fire_incident = 1
-                WHEN ic.category_code = 'vandalism' THEN afl.vandalism = 1
-                WHEN ic.category_code = 'suspicious_activity' THEN afl.suspicious_activity = 1
-                WHEN ic.category_code = 'infrastructure_issues' THEN afl.infrastructure_issues = 1
-                WHEN ic.category_code = 'extreme_weather' THEN afl.extreme_weather = 1
-                WHEN ic.category_code = 'community_events' THEN afl.community_events = 1
-                WHEN ic.category_code = 'dangerous_wildlife_sighting' THEN afl.dangerous_wildlife_sighting = 1
-                WHEN ic.category_code = 'positive_actions' THEN afl.positive_actions = 1
-                WHEN ic.category_code = 'lost_pet' THEN afl.lost_pet = 1
+                WHEN ic.category_code = 'crime' THEN afl.crime
+                WHEN ic.category_code = 'traffic_accident' THEN afl.traffic_accident
+                WHEN ic.category_code = 'medical_emergency' THEN afl.medical_emergency
+                WHEN ic.category_code = 'fire_incident' THEN afl.fire_incident
+                WHEN ic.category_code = 'vandalism' THEN afl.vandalism
+                WHEN ic.category_code = 'suspicious_activity' THEN afl.suspicious_activity
+                WHEN ic.category_code = 'infrastructure_issues' THEN afl.infrastructure_issues
+                WHEN ic.category_code = 'extreme_weather' THEN afl.extreme_weather
+                WHEN ic.category_code = 'community_events' THEN afl.community_events
+                WHEN ic.category_code = 'dangerous_wildlife_sighting' THEN afl.dangerous_wildlife_sighting
+                WHEN ic.category_code = 'positive_actions' THEN afl.positive_actions
+                WHEN ic.category_code = 'lost_pet' THEN afl.lost_pet
                 ELSE false
             END
     `

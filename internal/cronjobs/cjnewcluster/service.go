@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/sideshow/apns2/payload"
 )
@@ -49,7 +50,7 @@ func (s *Service) Run() {
 		users, err := s.repo.FindSubscribedUsersForCluster(n.ClusterID)
 		if err != nil {
 			log.Printf("cjnewcluster find users for cluster %d: %v", n.ClusterID, err)
-			continue // Skip to next notification on error
+			continue
 		}
 		log.Printf("👥 cjnewcluster cluster %d has %d subscribed users", n.ClusterID, len(users))
 
@@ -58,7 +59,6 @@ func (s *Service) Run() {
 			title := "New Incident Near You"
 			body := fmt.Sprintf("A new '%s' incident has been reported near your saved location: '%s'.", u.SubcategoryName, u.LocationTitle)
 
-			// Agregar data para navegación al hacer clic
 			pushData := map[string]interface{}{
 				"screen": "ViewIncidentScreen",
 				"inclId": fmt.Sprintf("%d", n.ClusterID),
@@ -78,11 +78,17 @@ func (s *Service) Run() {
 					Custom("inclId", n.ClusterID),
 			)
 			if err != nil {
-				log.Printf("cjnewcluster expo push to %s error: %v", u.DeviceToken, err)
+				if strings.Contains(err.Error(), "BadDeviceToken") {
+					if delErr := s.repo.DeleteStaleToken(u.DeviceToken); delErr != nil {
+						log.Printf("cjnewcluster delete stale token: %v", delErr)
+					} else {
+						log.Printf("🗑️ cjnewcluster deleted stale token for user %d", u.AccountID)
+					}
+				}
+				log.Printf("cjnewcluster push to user %d error: %v", u.AccountID, err)
 				continue
 			}
 			log.Printf("✅ Push sent to user %d (token: %s...)", u.AccountID, u.DeviceToken[:20])
-			// Queue delivery record with title and message
 			allDeliveries = append(allDeliveries, shared.Delivery{
 				NotificationID: n.ID,
 				AccountID:      u.AccountID,

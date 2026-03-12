@@ -11,6 +11,7 @@ type Repository interface {
 	SaveNotificationDelivery(nd NotificationDelivery) error
 	UpdateNotificationAsProcessed(notiID int64) error
 	GetProcessWelcomeToAppAccounts(n Notification) ([]Account, error)
+	DeleteStaleToken(token string) error
 	GetDB() *sql.DB
 }
 
@@ -139,6 +140,12 @@ func (r *pgRepository) GetProcessWelcomeToAppAccounts(n Notification) ([]Account
 		accounts = append(accounts, account)
 	}
 	return accounts, nil
+}
+
+// DeleteStaleToken elimina un device token inválido de la DB
+func (r *pgRepository) DeleteStaleToken(token string) error {
+	_, err := r.db.Exec(`DELETE FROM device_tokens WHERE device_token = $1`, token)
+	return err
 }
 
 // GetDB returns the database connection

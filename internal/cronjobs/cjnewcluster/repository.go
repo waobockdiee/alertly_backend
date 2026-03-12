@@ -117,6 +117,12 @@ func (r *Repository) MarkProcessed(ids []int64) error {
 	return shared.MarkItemsAsProcessed(r.db, "notifications", "noti_id", ids)
 }
 
+// DeleteStaleToken elimina un device token inválido de la DB
+func (r *Repository) DeleteStaleToken(token string) error {
+	_, err := r.db.Exec(`DELETE FROM device_tokens WHERE device_token = $1`, token)
+	return err
+}
+
 // InsertDeliveries inserta en batch registros de envío
 func (r *Repository) InsertDeliveries(deliveries []shared.Delivery) error {
 	return shared.InsertDeliveries(r.db, deliveries)

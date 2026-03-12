@@ -65,10 +65,10 @@ func (s *service) getIncidentByInternal(inclId, accountID int64, isPublic bool) 
 		return Cluster{}, err
 	}
 
-	saveErr := s.repo.SaveAccountHistory(accountID, inclId)
-
-	if saveErr != nil {
-		log.Printf("error saving account history: %v", saveErr)
+	if accountID > 0 {
+		if saveErr := s.repo.SaveAccountHistory(accountID, inclId); saveErr != nil {
+			log.Printf("error saving account history: %v", saveErr)
+		}
 	}
 
 	return result, nil

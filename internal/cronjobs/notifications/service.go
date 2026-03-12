@@ -5,6 +5,7 @@ import (
 	"alertly/internal/cronjobs/shared"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/sideshow/apns2/payload"
@@ -133,8 +134,14 @@ func (s *service) processBadgeEarned(n Notification) error {
 				Custom("screen", "ProfileScreen"),
 		)
 		if err != nil {
+			if strings.Contains(err.Error(), "BadDeviceToken") {
+				if delErr := s.repo.DeleteStaleToken(token); delErr != nil {
+					log.Printf("badge_earned: delete stale token error: %v", delErr)
+				} else {
+					log.Printf("🗑️ badge_earned: deleted stale token for account %d", n.AccountID)
+				}
+			}
 			log.Printf("badge_earned: Error sending push to token %s: %v", token[:20], err)
-			// Continuar con otros tokens
 		} else {
 			log.Printf("✅ badge_earned push sent to account %d", n.AccountID)
 		}
@@ -194,8 +201,14 @@ func (s *service) processIncidentResult(n Notification) error {
 				Custom("inclId", n.ReferenceID),
 		)
 		if err != nil {
+			if strings.Contains(err.Error(), "BadDeviceToken") {
+				if delErr := s.repo.DeleteStaleToken(token); delErr != nil {
+					log.Printf("incident_result: delete stale token error: %v", delErr)
+				} else {
+					log.Printf("🗑️ incident_result: deleted stale token for account %d", n.AccountID)
+				}
+			}
 			log.Printf("incident_result: Error sending push to token %s: %v", token[:20], err)
-			// Continuar con otros tokens
 		} else {
 			log.Printf("✅ incident_result push sent to account %d for incident %d", n.AccountID, n.ReferenceID)
 		}
@@ -255,6 +268,13 @@ func (s *service) processNewCluster(n Notification) error {
 				Custom("inclId", n.ReferenceID),
 		)
 		if err != nil {
+			if strings.Contains(err.Error(), "BadDeviceToken") {
+				if delErr := s.repo.DeleteStaleToken(token); delErr != nil {
+					log.Printf("new_cluster: delete stale token error: %v", delErr)
+				} else {
+					log.Printf("🗑️ new_cluster: deleted stale token for account %d", n.AccountID)
+				}
+			}
 			log.Printf("new_cluster: Error sending push to token %s: %v", token[:20], err)
 		} else {
 			log.Printf("✅ new_cluster push sent to account %d for cluster %d", n.AccountID, n.ReferenceID)

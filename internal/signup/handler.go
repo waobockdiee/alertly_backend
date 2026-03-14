@@ -45,6 +45,10 @@ func RegisterUserHandler(c *gin.Context) {
 	registeredUser, code, err := service.RegisterUser(user)
 	if err != nil {
 		log.Printf("Error creating account: %v", err)
+		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "email_unique") {
+			response.Send(c, http.StatusConflict, true, "This email is already registered. Please sign in or use a different email.", nil)
+			return
+		}
 		response.Send(c, http.StatusInternalServerError, true, "We couldn't register your account. Please try again later.", nil)
 		return
 	}

@@ -56,7 +56,12 @@ func (m *mockRepository) MarkClusterProcessed(clusterID int64) error {
 	return nil
 }
 
-func (m *mockRepository) CreateNotification(accountID int64, clusterID int64, message string) error {
+func (m *mockRepository) SaveWinNotification(accountID int64, clusterID int64, message string) error {
+	m.notifications = append(m.notifications, NotificationArgs{accountID, clusterID, message})
+	return nil
+}
+
+func (m *mockRepository) SaveLossNotification(accountID int64, clusterID int64, message string) error {
 	m.notifications = append(m.notifications, NotificationArgs{accountID, clusterID, message})
 	return nil
 }

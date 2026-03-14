@@ -79,3 +79,8 @@ type ReportAccountInput struct {
 	AccountID              int64  `db:"account_id" json:"account_id"`
 	Message                string `db:"message" json:"message"`
 }
+
+type BlockAccountInput struct {
+	BlockerID int64 `db:"blocker_id" json:"blocker_id"`
+	BlockedID int64 `db:"blocked_id" json:"blocked_id"`
+}

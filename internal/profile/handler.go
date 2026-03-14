@@ -58,6 +58,42 @@ func InviteFriend(c *gin.Context) {
 
 }
 
+func BlockAccount(c *gin.Context) {
+	idParam := c.Param("account_id")
+	if idParam == "" {
+		response.Send(c, http.StatusBadRequest, true, "account_id is required", nil)
+		return
+	}
+
+	blockerID, err := auth.GetUserFromContext(c)
+	if err != nil {
+		response.Send(c, http.StatusUnauthorized, true, "unauthorized", nil)
+		return
+	}
+
+	blockedID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		response.Send(c, http.StatusBadRequest, true, "invalid account_id parameter", nil)
+		return
+	}
+
+	if blockerID == blockedID {
+		response.Send(c, http.StatusBadRequest, true, "You cannot block your own account.", nil)
+		return
+	}
+
+	repo := NewRepository(database.DB)
+	service := NewService(repo)
+
+	if err := service.BlockAccount(BlockAccountInput{BlockerID: blockerID, BlockedID: blockedID}); err != nil {
+		log.Printf("Error blocking account: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "error processing block, please try later", nil)
+		return
+	}
+
+	response.Send(c, http.StatusOK, false, "User blocked successfully.", nil)
+}
+
 func ReportAccount(c *gin.Context) {
 
 	idParam := c.Param("account_id")

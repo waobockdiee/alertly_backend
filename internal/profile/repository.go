@@ -12,6 +12,7 @@ type Repository interface {
 	GetById(accountID int64) (Profile, error)
 	UpdateTotalIncidents(accountID int64) error
 	ReportAccount(report ReportAccountInput) error
+	BlockAccount(input BlockAccountInput) error
 }
 
 type pgRepository struct {
@@ -172,5 +173,11 @@ func (r *pgRepository) UpdateTotalIncidents(accountID int64) error {
 func (r *pgRepository) ReportAccount(report ReportAccountInput) error {
 	query := `INSERT INTO account_reports(account_id_whos_reporting, account_id, message) VALUES($1, $2 ,$3)`
 	_, err := r.db.Exec(query, report.AccountIDWhosReporting, report.AccountID, report.Message)
+	return err
+}
+
+func (r *pgRepository) BlockAccount(input BlockAccountInput) error {
+	query := `INSERT INTO account_blocks(blocker_id, blocked_id, created_at) VALUES($1, $2, NOW()) ON CONFLICT (blocker_id, blocked_id) DO NOTHING`
+	_, err := r.db.Exec(query, input.BlockerID, input.BlockedID)
 	return err
 }

@@ -178,6 +178,7 @@ func main() {
 	api.GET("/saved/get_my_list", saveclusteraccount.GetMyList)
 	api.GET("/saved/delete/:acs_id", saveclusteraccount.DeleteFollowIncident)
 	api.POST("/account/report/:account_id", profile.ReportAccount)
+	api.POST("/account/block/:account_id", profile.BlockAccount)
 	api.GET("/account/get_my_info", account.GetMyInfo)
 	api.POST("/purchase/apple/validate", account.ValidateAppleReceipt)
 	api.POST("/account/update_premium_status", account.UpdatePremiumStatusHandler)

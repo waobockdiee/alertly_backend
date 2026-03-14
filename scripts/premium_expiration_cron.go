@@ -1,9 +1,9 @@
 package main
 
 import (
-	"alertly/internal/config"
 	"alertly/internal/cronjob"
 	"alertly/internal/database"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -27,20 +27,16 @@ func main() {
 		}
 	}
 
-	// Load configuration
-	var cfg *config.ProductionConfig
-	if os.Getenv("GIN_MODE") == "release" {
-		cfg = config.LoadProductionConfig()
-	} else {
-		cfg = config.LoadDevelopmentConfig()
-	}
-
-	// Initialize database
-	err := database.Initialize(cfg.Database)
-	if err != nil {
-		log.Fatalf("❌ Failed to initialize database: %v", err)
-	}
-	defer database.Close()
+	// Initialize database from environment variables
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASS"),
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_PORT"),
+		os.Getenv("DB_NAME"),
+	)
+	database.InitDB(dsn)
+	defer database.DB.Close()
 
 	log.Println("✅ Database connected successfully")
 
@@ -49,7 +45,7 @@ func main() {
 
 	// 1. Check and expire premium accounts
 	log.Println("🔍 Checking for expired premium accounts...")
-	err = service.CheckAndExpirePremiumAccounts()
+	err := service.CheckAndExpirePremiumAccounts()
 	if err != nil {
 		log.Fatalf("❌ Premium expiration check failed: %v", err)
 	}

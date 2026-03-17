@@ -445,6 +445,7 @@ type UpdatePremiumStatusRequest struct {
 	IsPremium        bool   `json:"is_premium" binding:"required"`
 	SubscriptionType string `json:"subscription_type" binding:"required"`
 	PurchaseDate     string `json:"purchase_date" binding:"required"`
+	ExpirationDate   string `json:"expiration_date"` // optional: actual expiration from RevenueCat
 	Platform         string `json:"platform"`
 }
 
@@ -473,26 +474,37 @@ func UpdatePremiumStatusHandler(c *gin.Context) {
 	// 3. Calculate expiration date based on subscription type
 	var expirationDate *time.Time
 	if req.IsPremium {
-		purchaseTime, err := time.Parse(time.RFC3339, req.PurchaseDate)
-		if err != nil {
-			log.Printf("Error parsing purchase date: %v, using current time", err)
-			purchaseTime = time.Now()
+		// Use actual expiration date from RevenueCat if provided
+		if req.ExpirationDate != "" {
+			parsedExpiration, err := time.Parse(time.RFC3339, req.ExpirationDate)
+			if err == nil {
+				expirationDate = &parsedExpiration
+				log.Printf("Using RevenueCat expiration date: %v", parsedExpiration)
+			}
 		}
 
-		var expiration time.Time
-		subscriptionLower := strings.ToLower(req.SubscriptionType)
+		// Fallback: calculate from purchase date + subscription duration
+		if expirationDate == nil {
+			purchaseTime, err := time.Parse(time.RFC3339, req.PurchaseDate)
+			if err != nil {
+				log.Printf("Error parsing purchase date: %v, using current time", err)
+				purchaseTime = time.Now()
+			}
 
-		if strings.Contains(subscriptionLower, "monthly") {
-			expiration = purchaseTime.AddDate(0, 1, 0) // +1 month
-		} else if strings.Contains(subscriptionLower, "yearly") || strings.Contains(subscriptionLower, "annual") {
-			expiration = purchaseTime.AddDate(1, 0, 0) // +1 year
-		} else {
-			// Default to 1 month if unclear
-			log.Printf("Unknown subscription type: %s, defaulting to monthly", req.SubscriptionType)
-			expiration = purchaseTime.AddDate(0, 1, 0)
+			var expiration time.Time
+			subscriptionLower := strings.ToLower(req.SubscriptionType)
+
+			if strings.Contains(subscriptionLower, "monthly") {
+				expiration = purchaseTime.AddDate(0, 1, 0) // +1 month
+			} else if strings.Contains(subscriptionLower, "yearly") || strings.Contains(subscriptionLower, "annual") {
+				expiration = purchaseTime.AddDate(1, 0, 0) // +1 year
+			} else {
+				log.Printf("Unknown subscription type: %s, defaulting to monthly", req.SubscriptionType)
+				expiration = purchaseTime.AddDate(0, 1, 0)
+			}
+
+			expirationDate = &expiration
 		}
-
-		expirationDate = &expiration
 	}
 
 	// 4. Update premium status in database

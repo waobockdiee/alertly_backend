@@ -442,10 +442,10 @@ func (e *AppleValidationError) Error() string {
 
 // UpdatePremiumStatusRequest is the request body from frontend after RevenueCat purchase
 type UpdatePremiumStatusRequest struct {
-	IsPremium        bool   `json:"is_premium" binding:"required"`
-	SubscriptionType string `json:"subscription_type" binding:"required"`
-	PurchaseDate     string `json:"purchase_date" binding:"required"`
-	ExpirationDate   string `json:"expiration_date"` // optional: actual expiration from RevenueCat
+	IsPremium        *bool  `json:"is_premium" binding:"required"`
+	SubscriptionType string `json:"subscription_type"`
+	PurchaseDate     string `json:"purchase_date"`
+	ExpirationDate   string `json:"expiration_date"`
 	Platform         string `json:"platform"`
 }
 
@@ -473,7 +473,7 @@ func UpdatePremiumStatusHandler(c *gin.Context) {
 
 	// 3. Calculate expiration date based on subscription type
 	var expirationDate *time.Time
-	if req.IsPremium {
+	if *req.IsPremium {
 		// Use actual expiration date from RevenueCat if provided
 		if req.ExpirationDate != "" {
 			parsedExpiration, err := time.Parse(time.RFC3339, req.ExpirationDate)
@@ -513,7 +513,7 @@ func UpdatePremiumStatusHandler(c *gin.Context) {
 
 	err = service.UpdatePremiumStatus(
 		accountID,
-		req.IsPremium,
+		*req.IsPremium,
 		req.SubscriptionType,
 		expirationDate,
 		req.Platform,
@@ -526,7 +526,7 @@ func UpdatePremiumStatusHandler(c *gin.Context) {
 	}
 
 	log.Printf("✅ Premium status updated for account %d: is_premium=%v, type=%s, expires=%v",
-		accountID, req.IsPremium, req.SubscriptionType, expirationDate)
+		accountID, *req.IsPremium, req.SubscriptionType, expirationDate)
 
 	response.Send(c, http.StatusOK, false, "Premium status updated successfully", gin.H{
 		"is_premium":        req.IsPremium,

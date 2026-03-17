@@ -130,10 +130,10 @@ func (r *pgRepository) MarkClusterProcessed(clusterID int64) error {
 
 // SaveWinNotification saves a win notification for a user.
 func (r *pgRepository) SaveWinNotification(accountID int64, clusterID int64, message string) error {
-	return common.SaveNotification(r.db, "incident_result_win", accountID, clusterID, "¡Incidente resuelto!", message)
+	return common.SaveNotification(r.db, "incident_result_win", accountID, clusterID, "Incident Resolved!", message)
 }
 
 // SaveLossNotification saves a loss notification for a user.
 func (r *pgRepository) SaveLossNotification(accountID int64, clusterID int64, message string) error {
-	return common.SaveNotification(r.db, "incident_result_loss", accountID, clusterID, "¡Incidente resuelto!", message)
+	return common.SaveNotification(r.db, "incident_result_loss", accountID, clusterID, "Incident Resolved!", message)
 }

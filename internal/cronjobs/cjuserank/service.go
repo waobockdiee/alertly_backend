@@ -65,8 +65,8 @@ func (s *Service) Run() {
 				}
 
 				// Insertar notificación push
-				notificationTitle := "¡Felicidades! Nuevo Rango Alcanzado"
-				notificationMessage := fmt.Sprintf("¡Has alcanzado el rango de \"%s\" con un score de %d!", rank.Title, user.Score)
+				notificationTitle := "New Rank Achieved!"
+				notificationMessage := fmt.Sprintf("You've reached the \"%s\" rank with a score of %d!", rank.Title, user.Score)
 				err = s.repo.InsertNotification(user.AccountID, notificationTitle, notificationMessage)
 				if err != nil {
 					log.Printf("cjuserank: Error inserting notification for account %d, rank %s: %v", user.AccountID, rank.Title, err)

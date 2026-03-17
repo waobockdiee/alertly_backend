@@ -111,6 +111,7 @@ func (r *Repository) InsertEarnedBadge(accountID int64, badge Badge) error {
             (account_id, name, description, type, icon_url, badge_threshold, created)
         VALUES
             ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT DO NOTHING
     `
 	_, err := r.db.Exec(
 		query,

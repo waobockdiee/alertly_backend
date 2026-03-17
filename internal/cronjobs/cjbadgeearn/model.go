@@ -33,9 +33,9 @@ type UserActivity struct {
 
 // EarnedBadge representa una insignia que un usuario ya ha ganado de account_achievements.
 type EarnedBadge struct {
-	AccountID     int64
-	Name          string
-	Type          string
-	BadgeThreshold int
-	CreatedAt     time.Time
+	AccountID      int64
+	Name           string
+	Type           string
+	BadgeThreshold *int
+	CreatedAt      time.Time
 }

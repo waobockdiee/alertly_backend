@@ -70,8 +70,8 @@ func (s *Service) Run() {
 				}
 
 				// Insertar notificación push
-				notificationTitle := "¡Felicidades! Nueva Insignia Ganada"
-				notificationMessage := fmt.Sprintf("¡Has ganado la insignia \"%s\" por tu contribución en \"%s\"!", badge.Title, badge.Category)
+				notificationTitle := "New Badge Earned!"
+				notificationMessage := fmt.Sprintf("You've earned the \"%s\" badge for your contributions in \"%s\"!", badge.Title, badge.Category)
 				err = s.repo.InsertNotification(user.AccountID, notificationTitle, notificationMessage)
 				if err != nil {
 					log.Printf("cjbadgeearn: Error inserting notification for account %d, badge %s: %v", user.AccountID, badge.Title, err)

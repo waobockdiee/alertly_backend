@@ -22,9 +22,9 @@ type UserScore struct {
 
 // EarnedRank representa un rango que un usuario ya ha ganado de account_achievements.
 type EarnedRank struct {
-	AccountID     int64
-	Name          string
-	Type          string
-	BadgeThreshold int // Reutilizamos este campo para almacenar el score mínimo del rango
-	CreatedAt     time.Time
+	AccountID      int64
+	Name           string
+	Type           string
+	BadgeThreshold *int
+	CreatedAt      time.Time
 }

@@ -18,7 +18,7 @@ func NewRepository(db *sql.DB) Repository {
 
 func (r *pgRepository) ShowByAccountID(accountID int64) ([]Achievement, error) {
 	query := `SELECT
-	acac_id, account_id, name, description, created, show_in_modal, type, text_to_show, icon_url, badge_threshold
+	acac_id, account_id, name, COALESCE(description, ''), created, show_in_modal, type, COALESCE(text_to_show, ''), COALESCE(icon_url, ''), badge_threshold
 	FROM account_achievements
 	WHERE account_id = $1 AND show_in_modal = 1
 	ORDER BY created DESC`

@@ -183,7 +183,7 @@ func (s *service) processIncidentResult(n Notification) error {
 	// Enviar push notification con screen ViewIncidentScreen + inclId
 	pushData := map[string]interface{}{
 		"screen": "ViewIncidentScreen",
-		"inclId": fmt.Sprintf("%d", n.ReferenceID),
+		"inclId": fmt.Sprintf("%d", n.ReferenceID.Int64),
 	}
 
 	for _, token := range deviceTokens {
@@ -198,7 +198,7 @@ func (s *service) processIncidentResult(n Notification) error {
 				AlertTitle(n.Title).
 				AlertBody(n.Message).
 				Custom("screen", "ViewIncidentScreen").
-				Custom("inclId", n.ReferenceID),
+				Custom("inclId", n.ReferenceID.Int64),
 		)
 		if err != nil {
 			if strings.Contains(err.Error(), "BadDeviceToken") {
@@ -210,7 +210,7 @@ func (s *service) processIncidentResult(n Notification) error {
 			}
 			log.Printf("incident_result: Error sending push to token %s: %v", token[:20], err)
 		} else {
-			log.Printf("✅ incident_result push sent to account %d for incident %d", n.AccountID, n.ReferenceID)
+			log.Printf("✅ incident_result push sent to account %d for incident %d", n.AccountID, n.ReferenceID.Int64)
 		}
 	}
 
@@ -250,7 +250,7 @@ func (s *service) processNewCluster(n Notification) error {
 	// Enviar push notification con screen ViewIncidentScreen + inclId
 	pushData := map[string]interface{}{
 		"screen": "ViewIncidentScreen",
-		"inclId": fmt.Sprintf("%d", n.ReferenceID),
+		"inclId": fmt.Sprintf("%d", n.ReferenceID.Int64),
 	}
 
 	for _, token := range deviceTokens {
@@ -265,7 +265,7 @@ func (s *service) processNewCluster(n Notification) error {
 				AlertTitle(n.Title).
 				AlertBody(n.Message).
 				Custom("screen", "ViewIncidentScreen").
-				Custom("inclId", n.ReferenceID),
+				Custom("inclId", n.ReferenceID.Int64),
 		)
 		if err != nil {
 			if strings.Contains(err.Error(), "BadDeviceToken") {
@@ -277,7 +277,7 @@ func (s *service) processNewCluster(n Notification) error {
 			}
 			log.Printf("new_cluster: Error sending push to token %s: %v", token[:20], err)
 		} else {
-			log.Printf("✅ new_cluster push sent to account %d for cluster %d", n.AccountID, n.ReferenceID)
+			log.Printf("✅ new_cluster push sent to account %d for cluster %d", n.AccountID, n.ReferenceID.Int64)
 		}
 	}
 

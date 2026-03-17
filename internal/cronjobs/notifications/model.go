@@ -21,7 +21,7 @@ type Notification struct {
 	MustBeProcessed    bool            `db:"must_be_processed" json:"must_be_processed"`
 	ErrorMessage       string          `db:"error_message" json:"error_message"`
 	RetryCount         int32           `db:"retry_count" json:"retry_count"`
-	ReferenceID        int64           `db:"reference_id" json:"reference_id"`
+	ReferenceID        sql.NullInt64   `db:"reference_id" json:"reference_id"`
 	Nickname           string          `db:"nickname" json:"nickname"`
 	ThumbnailURL       string          `db:"thumbnail_url" json:"thumbnail_url"`
 	ClusterMediaURL    string          `db:"media_url" json:"media_url"`

@@ -312,7 +312,7 @@ func (r *pgRepository) GetCurrentMonthEarningsByCode(code string) (float64, erro
 			AND (rc.registered_at >= $2 OR rpc.converted_at >= $2)
 	`
 	var total float64
-	err := r.db.QueryRow(query, code, startOfMonth, startOfMonth).Scan(&total)
+	err := r.db.QueryRow(query, code, startOfMonth).Scan(&total)
 	return total, err
 }
 

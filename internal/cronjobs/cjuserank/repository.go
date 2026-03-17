@@ -54,7 +54,7 @@ func (r *Repository) GetEarnedRanksForUser(accountID int64) ([]EarnedRank, error
         FROM
             account_achievements
         WHERE
-            account_id = ? AND type = 'user_rank'
+            account_id = $1 AND type = 'user_rank'
     `
 
 	rows, err := r.db.Query(query, accountID)
@@ -81,7 +81,7 @@ func (r *Repository) InsertEarnedRank(accountID int64, rank RankItem) error {
         INSERT INTO account_achievements
             (account_id, name, description, type, icon_url, badge_threshold, created)
         VALUES
-            (?, ?, ?, ?, ?, ?, ?)
+            ($1, $2, $3, $4, $5, $6, $7)
     `
 	_, err := r.db.Exec(
 		query,
@@ -105,7 +105,7 @@ func (r *Repository) InsertNotification(accountID int64, title string, message s
         INSERT INTO notifications
             (owner_account_id, title, message, type, created_at, must_be_processed)
         VALUES
-            (?, ?, ?, ?, ?, ?)
+            ($1, $2, $3, $4, $5, $6)
     `
 	_, err := r.db.Exec(
 		query,

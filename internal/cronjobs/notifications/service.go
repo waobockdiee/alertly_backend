@@ -53,8 +53,12 @@ func (s *service) ProcessNotifications() {
 					err = s.processIncidentResult(n)
 				case "new_cluster", "new_incident_cluster":
 					err = s.processNewCluster(n)
+				case "inactivity_reminder":
+					// Handled by cjinactivityreminder; mark as processed to stop reprocessing
+					err = s.repo.UpdateNotificationAsProcessed(n.NotiID)
 				default:
 					log.Printf("Acción no definida para el tipo de notificación: %s", n.Type)
+					err = s.repo.UpdateNotificationAsProcessed(n.NotiID)
 				}
 				if err != nil {
 					log.Printf(

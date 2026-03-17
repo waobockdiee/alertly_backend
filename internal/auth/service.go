@@ -62,12 +62,12 @@ func (s *service) AuthenticateUser(email, password string) (User, error) {
 		fmt.Printf("❌ [AUTH-SVC] GetUserByEmail failed: %v\n", err)
 		return User{}, err
 	}
-	fmt.Printf("🔑 [AUTH-SVC] Comparing password for %s (hash starts with: %s...)\n", email, user.Password[:10])
+	// fmt.Printf("🔑 [AUTH-SVC] Comparing password for %s (hash starts with: %s...)\n", email, user.Password[:10])
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 		fmt.Printf("❌ [AUTH-SVC] Password mismatch for %s: %v\n", email, err)
 		return User{}, errors.New("invalid credentials")
 	}
-	fmt.Printf("✅ [AUTH-SVC] Password matches for %s\n", email)
+	// fmt.Printf("✅ [AUTH-SVC] Password matches for %s\n", email)
 
 	// Verificar estado de la cuenta
 	switch user.Status {
@@ -90,7 +90,7 @@ func (s *service) CheckPasswordMatch(password, email string, accountID int64) (P
 	var pm PasswordMatch
 	var err error
 	pm, err = s.repo.GetUserById(accountID)
-	fmt.Println("DEBUG:", pm)
+	// fmt.Println("DEBUG:", pm)
 
 	if pm.Email == "" {
 		return pm, errors.New("wrong user")

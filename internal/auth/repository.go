@@ -58,7 +58,7 @@ func (r *pgRepository) GetUserByEmail(email string) (User, error) {
 	user.IsPremium = isPremium.Valid && isPremium.Bool
 	user.HasFinishedTutorial = hasFinishedTutorial.Valid && hasFinishedTutorial.Bool
 
-	fmt.Printf("✅ [AUTH-REPO] User found: %s (id: %d, status: %s, password_hash_len: %d)\n", email, user.AccountID, user.Status, len(user.Password))
+	// fmt.Printf("✅ [AUTH-REPO] User found: %s (id: %d, status: %s, password_hash_len: %d)\n", email, user.AccountID, user.Status, len(user.Password))
 	return user, nil
 }
 

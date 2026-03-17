@@ -1,6 +1,9 @@
 package notifications
 
-import "alertly/internal/common"
+import (
+	"alertly/internal/common"
+	"database/sql"
+)
 
 type Notification struct {
 	NotiID             int64           `db:"noti_id" json:"noti_id"`
@@ -9,7 +12,7 @@ type Notification struct {
 	Message            string          `db:"message" json:"message"`
 	Type               string          `db:"type" json:"type"`
 	IsRead             bool            `db:"is_read" json:"is_read"`
-	Link               string          `db:"link" json:"link"`
+	Link               sql.NullString  `db:"link" json:"link"`
 	CreatedAt          common.NullTime `db:"created_at" json:"created_at"`
 	UpdatedAt          common.NullTime `db:"updated_at" json:"updated_at"`
 	SentAt             common.NullTime `db:"sent_at" json:"sent_at"`

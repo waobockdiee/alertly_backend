@@ -32,7 +32,7 @@ func NewRepository(db *sql.DB) *Repository {
 // FetchPendingIncidentUpdateNotifications obtiene notificaciones de updates de incidentes pendientes.
 func (r *Repository) FetchPendingIncidentUpdateNotifications(limit int64) ([]IncidentUpdateNotification, error) {
 	query := `
-        SELECT noti_id, reference_id, account_id, created_at
+        SELECT noti_id, reference_id, owner_account_id, created_at
         FROM notifications
         WHERE type = 'new_incident_cluster' AND must_be_processed = 1
         ORDER BY created_at

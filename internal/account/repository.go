@@ -18,7 +18,7 @@ type Repository interface {
 	GetCounterHistories(accountID int64) (Counter, error)
 	SaveLastRequest(AccountID int64, ip string) error
 	SetHasFinishedTutorial(accountID int64) error
-	UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error
+	UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string, premiumType string) error
 }
 
 type pgRepository struct {
@@ -35,11 +35,12 @@ func (r *pgRepository) GetMyInfo(accountID int64) (MyInfo, error) {
 	// Usar NullBool para campos booleanos que pueden ser SMALLINT/CHAR/BOOLEAN
 	var isPremium, hasFinishedTutorial dbtypes.NullBool
 
-	query := `SELECT account_id, email, is_premium, status, has_finished_tutorial FROM account WHERE account_id = $1`
+	query := `SELECT account_id, email, is_premium, premium_type, status, has_finished_tutorial FROM account WHERE account_id = $1`
 	err := r.db.QueryRow(query, accountID).Scan(
 		&myInfo.AccountID,
 		&myInfo.Email,
 		&isPremium,
+		&myInfo.PremiumType,
 		&myInfo.Status,
 		&hasFinishedTutorial,
 	)
@@ -289,7 +290,7 @@ func (r *pgRepository) SetHasFinishedTutorial(accountID int64) error {
 }
 
 // UpdatePremiumStatus updates the user's premium status and logs the payment history
-func (r *pgRepository) UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error {
+func (r *pgRepository) UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string, premiumType string) error {
 	// Start a transaction to ensure both operations succeed or fail together
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -302,8 +303,8 @@ func (r *pgRepository) UpdatePremiumStatus(accountID int64, isPremium bool, subs
 	var args []interface{}
 
 	if isPremium && expirationDate != nil {
-		updateAccountQuery = "UPDATE account SET is_premium = $1, premium_expired_date = $2 WHERE account_id = $3"
-		args = []interface{}{dbtypes.BoolToInt(isPremium), expirationDate, accountID}
+		updateAccountQuery = "UPDATE account SET is_premium = $1, premium_expired_date = $2, premium_type = $3 WHERE account_id = $4"
+		args = []interface{}{dbtypes.BoolToInt(isPremium), expirationDate, premiumType, accountID}
 	} else if !isPremium {
 		// When cancelling or expiring, set is_premium to false and clear expiration date
 		updateAccountQuery = "UPDATE account SET is_premium = $1, premium_expired_date = NULL WHERE account_id = $2"

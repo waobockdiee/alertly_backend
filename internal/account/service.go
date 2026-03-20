@@ -20,7 +20,7 @@ type Service interface {
 	GetCounterHistories(accountID int64) (Counter, error)
 	SaveLastRequest(accountID int64, ip string) error
 	SetHasFinishedTutorial(accountID int64, latitude, longitude *float64) error
-	UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error
+	UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string, premiumType string) error
 }
 
 type service struct {
@@ -122,6 +122,6 @@ func (s *service) createInitialPlace(accountID int64, latitude, longitude float6
 	return err
 }
 
-func (s *service) UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string) error {
-	return s.repo.UpdatePremiumStatus(accountID, isPremium, subscriptionType, expirationDate, platform)
+func (s *service) UpdatePremiumStatus(accountID int64, isPremium bool, subscriptionType string, expirationDate *time.Time, platform string, premiumType string) error {
+	return s.repo.UpdatePremiumStatus(accountID, isPremium, subscriptionType, expirationDate, platform, premiumType)
 }

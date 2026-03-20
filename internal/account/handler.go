@@ -355,7 +355,7 @@ func ValidateAppleReceipt(c *gin.Context) {
 	repo := NewRepository(database.DB)
 	service := NewService(repo)
 
-	err = service.UpdatePremiumStatus(accountID, true, productID, &latestExpiration, req.Platform)
+	err = service.UpdatePremiumStatus(accountID, true, productID, &latestExpiration, req.Platform, "subscription")
 	if err != nil {
 		log.Printf("Error updating premium status for account %d: %v", accountID, err)
 		response.Send(c, http.StatusInternalServerError, true, "Error updating premium status", nil)
@@ -447,6 +447,7 @@ type UpdatePremiumStatusRequest struct {
 	PurchaseDate     string `json:"purchase_date"`
 	ExpirationDate   string `json:"expiration_date"`
 	Platform         string `json:"platform"`
+	PremiumType      string `json:"premium_type"` // "subscription" (Apple) or "gifted" (manual)
 }
 
 // UpdatePremiumStatusHandler handles premium status updates from frontend after RevenueCat purchase
@@ -511,12 +512,19 @@ func UpdatePremiumStatusHandler(c *gin.Context) {
 	repo := NewRepository(database.DB)
 	service := NewService(repo)
 
+	// Default to "subscription" if not specified (purchases via Apple/RevenueCat)
+	premiumType := req.PremiumType
+	if premiumType == "" {
+		premiumType = "subscription"
+	}
+
 	err = service.UpdatePremiumStatus(
 		accountID,
 		*req.IsPremium,
 		req.SubscriptionType,
 		expirationDate,
 		req.Platform,
+		premiumType,
 	)
 
 	if err != nil {

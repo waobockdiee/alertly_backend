@@ -83,9 +83,9 @@ func StartCronjobs() {
 
 	// Cronjob: premium_expiration (expirar suscripciones premium vencidas)
 	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
+		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
-		log.Println("✅ Cronjob 'premium_expiration' scheduled every 1 minute")
+		log.Println("✅ Cronjob 'premium_expiration' scheduled every 1 hour")
 		runPremiumExpirationCronjob()
 		for range ticker.C {
 			runPremiumExpirationCronjob()

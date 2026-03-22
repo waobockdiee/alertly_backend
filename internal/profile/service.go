@@ -5,6 +5,7 @@ type Service interface {
 	UpdateTotalIncidents(accountID int64) error
 	ReportAccount(report ReportAccountInput) error
 	BlockAccount(input BlockAccountInput) error
+	UnblockAccount(blockerID, blockedID int64) error
 }
 
 type service struct {
@@ -56,4 +57,8 @@ func (s *service) ReportAccount(report ReportAccountInput) error {
 
 func (s *service) BlockAccount(input BlockAccountInput) error {
 	return s.repo.BlockAccount(input)
+}
+
+func (s *service) UnblockAccount(blockerID, blockedID int64) error {
+	return s.repo.UnblockAccount(blockerID, blockedID)
 }

@@ -94,6 +94,37 @@ func BlockAccount(c *gin.Context) {
 	response.Send(c, http.StatusOK, false, "User blocked successfully.", nil)
 }
 
+func UnblockAccount(c *gin.Context) {
+	idParam := c.Param("account_id")
+	if idParam == "" {
+		response.Send(c, http.StatusBadRequest, true, "account_id is required", nil)
+		return
+	}
+
+	blockerID, err := auth.GetUserFromContext(c)
+	if err != nil {
+		response.Send(c, http.StatusUnauthorized, true, "unauthorized", nil)
+		return
+	}
+
+	blockedID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		response.Send(c, http.StatusBadRequest, true, "invalid account_id parameter", nil)
+		return
+	}
+
+	repo := NewRepository(database.DB)
+	service := NewService(repo)
+
+	if err := service.UnblockAccount(blockerID, blockedID); err != nil {
+		log.Printf("Error unblocking account: %v", err)
+		response.Send(c, http.StatusInternalServerError, true, "error processing unblock, please try later", nil)
+		return
+	}
+
+	response.Send(c, http.StatusOK, false, "User unblocked successfully.", nil)
+}
+
 func ReportAccount(c *gin.Context) {
 
 	idParam := c.Param("account_id")

@@ -27,8 +27,8 @@ func (repo *pgRepository) InsertUser(user User) (int64, error) {
 
 	query := `
 		INSERT INTO account (email, first_name, last_name, password, activation_code, nickname,
-		                     is_premium, premium_expired_date)
-		VALUES ($1, $2, $3, $4, $5, $6, 1, NOW() + INTERVAL '1 day' * $7)
+		                     is_premium, premium_expired_date, premium_type)
+		VALUES ($1, $2, $3, $4, $5, $6, 1, NOW() + INTERVAL '1 day' * $7, 'trial')
 		RETURNING account_id
 	`
 	var id int64
